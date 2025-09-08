@@ -2,7 +2,7 @@
 // WARNING: Storing API keys in client-side code is insecure and should be avoided in production.
 // This key is visible to anyone who views the page source.
 const API_KEY = 'AIzaSyCisFe9LE9ykOlc7JOn7NEJQDJ3LaMMFqI';
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
 
 // Initialize Mermaid.js
 mermaid.initialize({ startOnLoad: true });
