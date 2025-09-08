@@ -1,8 +1,8 @@
-// --- НАЧАЛО КОДА ДЛЯ SCRIPT.JS ---
+// --- НАЧАЛО КОДА ДЛЯ ПОЛНОЙ ЗАМЕНЫ В SCRIPT.JS ---
 document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration ---
-    // ВАЖНО: Хранение API-ключа на стороне клиента небезопасно. Используйте сервер для реальных проектов.
-    const API_KEY = 'AIzaSyCisFe9LE9ykOlc7JOn7NEJQDJ3LaMMFqI'; // <-- Вставьте ваш реальный API-ключ сюда
+    // ВАЖНО: Вставьте ваш настоящий API-ключ. Без него генерация не будет работать.
+    const API_KEY = 'AIzaSyCisFe9LE9ykOlc7JOn7NEJQDJ3LaMMFqI'; // <--- ВСТАВЬТЕ ВАШ КЛЮЧ ОТ GOOGLE AI STUDIO СЮДА
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
     // --- State Management ---
@@ -57,27 +57,20 @@ document.addEventListener('DOMContentLoaded', () => {
     downloadSvgBtn.addEventListener('click', downloadDiagramSVG);
 
     // --- Core Functions ---
-
     function updateStepCounter() {
         const text = processDescriptionInput.value;
         const lines = text.split('\n').filter(line => line.trim() !== '');
         stepCounter.textContent = `${lines.length} шагов`;
-        // Разблокируем кнопку, только если есть текст
         improveBtn.disabled = lines.length === 0;
     }
 
     async function handleImproveRequest() {
         const description = processDescriptionInput.value;
         const userPrompt = userPromptInput.value;
-
-        if (!description.trim()) {
-            alert('Пожалуйста, введите описание процесса.');
-            return;
-        }
+        if (!description.trim()) return;
 
         setButtonLoading(improveBtn, true, 'Анализирую...');
         suggestionsContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
-        suggestionsControls.style.display = 'none';
         resultsBlock.innerHTML = `<h2>Результат</h2><p>Идет анализ и дополнение вашего процесса...</p>`;
 
         try {
@@ -88,17 +81,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (analysisResult.full_process_text) {
                 processDescriptionInput.value = analysisResult.full_process_text;
                 updateStepCounter();
-                resultsBlock.innerHTML = `<h2>Результат</h2><p style="color: var(--primary-color);">✓ Процесс был автоматически дополнен и уточнен ИИ. Теперь выберите улучшения.</p>`;
+                resultsBlock.innerHTML = `<h2>Результат</h2><p style="color: var(--primary-color);">✓ Процесс был автоматически дополнен ИИ. Теперь выберите улучшения.</p>`;
             }
-
             suggestions = analysisResult.suggestions || [];
             renderSuggestions(suggestions);
-
         } catch (error) {
-            const errorMessage = 'Не удалось получить предложения. Проверьте API-ключ и консоль (F12) для деталей.';
-            suggestionsContainer.innerHTML = `<p class="placeholder-text error">${errorMessage}</p>`;
-            resultsBlock.innerHTML = `<h2>Результат</h2><p class="placeholder-text error">${errorMessage}</p>`;
-            console.error('Ошибка при получении или парсинге предложений:', error);
+            const errorMsg = 'Не удалось получить предложения. Проверьте API-ключ и откройте консоль разработчика (F12) для просмотра деталей ошибки.';
+            resultsBlock.innerHTML = `<h2>Результат</h2><p class="placeholder-text error">${errorMsg}</p>`;
+            suggestionsContainer.innerHTML = `<p class="placeholder-text error">${errorMsg}</p>`;
+            console.error('ОШИБКА:', error);
         } finally {
             setButtonLoading(improveBtn, false, '✨ Предложить улучшения');
         }
@@ -106,35 +97,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleApplyImprovements() {
         const selectedIndices = getSelectedSuggestionIndices();
-        if (selectedIndices.length === 0) {
-            alert('Пожалуйста, выберите хотя бы одно улучшение для применения.');
-            return;
-        }
+        if (selectedIndices.length === 0) return;
 
         const selectedSuggestions = selectedIndices.map(index => suggestions[index]);
-        const currentProcessText = processDescriptionInput.value;
-
         setButtonLoading(applyImprovementsBtn, true, 'Применяю...');
-        resultsBlock.innerHTML = `<h2>Результат</h2><p>Объединяем процесс с вашими улучшениями...</p>`;
+        resultsBlock.innerHTML = `<h2>Результат</h2><p>Объединяем процесс с улучшениями...</p>`;
 
         try {
-            const optimizedProcess = await getOptimizedProcess(currentProcessText, selectedSuggestions);
+            const optimizedProcess = await getOptimizedProcess(processDescriptionInput.value, selectedSuggestions);
             processDescriptionInput.value = optimizedProcess;
             updateStepCounter();
-
-            resultsBlock.innerHTML = `
-                <h2>Результат</h2>
-                <p style="color: var(--accent-color); font-weight: 600;">✓ Успешно! Процесс в главном окне обновлен.</p>
-                <p>Теперь вы можете сгенерировать финальную схему.</p>
-            `;
-
-            suggestionsContainer.innerHTML = '<p class="placeholder-text">Создайте новый процесс или доработайте текущий.</p>';
+            resultsBlock.innerHTML = `<h2>Результат</h2><p style="color: var(--accent-color); font-weight: 600;">✓ Успешно! Процесс в главном окне обновлен.</p>`;
+            suggestionsContainer.innerHTML = '<p class="placeholder-text">Готово! Можете сгенерировать новую схему.</p>';
             suggestionsControls.style.display = 'none';
             applyImprovementsBtn.disabled = true;
-
         } catch (error) {
             resultsBlock.innerHTML = `<h2>Результат</h2><p class="placeholder-text error">Не удалось применить улучшения.</p>`;
-            console.error('Ошибка при применении улучшений:', error);
+            console.error('ОШИБКА:', error);
         } finally {
             setButtonLoading(applyImprovementsBtn, false, 'Применить выбранные улучшения');
         }
@@ -142,10 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleRenderDiagram() {
         const description = processDescriptionInput.value;
-        if (!description.trim()) {
-            alert('Необходимо описание процесса для построения схемы.');
-            return;
-        }
+        if (!description.trim()) return;
 
         placeholderContent.style.display = 'none';
         diagramContainer.style.display = 'flex';
@@ -154,16 +130,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const mermaidCode = await getMermaidCode(description);
-            renderDiagram(mermaidCode);
+            await renderDiagram(mermaidCode);
             diagramToolbar.style.display = 'flex';
-        } catch(error) {
+        } catch (error) {
             diagramContainer.innerHTML = '<p class="placeholder-text error">Не удалось построить схему.</p>';
-            console.error('Error rendering diagram:', error);
+            console.error('ОШИБКА:', error);
         }
     }
 
-    // --- UI Update & Helper Functions ---
-
+    // --- UI & Helper Functions ---
     function handleCardSelection(e) {
         const card = e.target.closest('.suggestion-card');
         if (card) {
@@ -173,18 +148,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleSelectAll() {
-        document.querySelectorAll('.suggestion-card').forEach(card => {
-            card.classList.toggle('selected', selectAllCheckbox.checked);
-        });
+        const isChecked = selectAllCheckbox.checked;
+        document.querySelectorAll('.suggestion-card').forEach(card => card.classList.toggle('selected', isChecked));
         updateSelectionState();
     }
 
-    function setButtonLoading(button, isLoading, loadingText) {
-        const originalText = button.dataset.originalText || button.innerText;
-        if (!button.dataset.originalText) {
-            button.dataset.originalText = originalText;
+    function updateSelectionState() {
+        const selectedCards = document.querySelectorAll('.suggestion-card.selected');
+        const totalCards = document.querySelectorAll('.suggestion-card').length;
+        selectionCounter.textContent = `Выбрано: ${selectedCards.length} из ${totalCards}`;
+        applyImprovementsBtn.disabled = selectedCards.length === 0;
+        if (totalCards > 0) {
+            selectAllCheckbox.checked = selectedCards.length === totalCards;
         }
+    }
 
+    function setButtonLoading(button, isLoading, loadingText) {
+        if (!button.dataset.originalText) {
+            button.dataset.originalText = button.innerHTML;
+        }
         button.disabled = isLoading;
         if (isLoading) {
             button.innerHTML = `<span class="spinner"></span> ${loadingText}`;
@@ -199,31 +181,18 @@ document.addEventListener('DOMContentLoaded', () => {
             suggestionsControls.style.display = 'none';
             return;
         }
-
         const categoryIcons = { 'Автоматизация': '⚙️', 'Упрощение': '✨', 'Устранение дублирования': '🗑️', 'Повышение контроля': '👁️', 'Снижение рисков': '🛡️', 'default': '💡' };
-        suggestionsContainer.innerHTML = suggestionsData.map((s, index) => {
-            const icon = categoryIcons[s.category] || categoryIcons['default'];
-            return `
-                <div class="suggestion-card" data-index="${index}">
-                    <div class="suggestion-header">
-                        <span class="suggestion-icon">${icon}</span>
-                        <h4 class="suggestion-category">${s.category}</h4>
-                    </div>
-                    <p class="suggestion-text">${s.suggestion_text}</p>
-                    <small class="suggestion-benefit"><b>Выгода:</b> ${s.benefit || 'Не указана'}</small>
-                </div>`;
-        }).join('');
-
+        suggestionsContainer.innerHTML = suggestionsData.map((s, index) => `
+            <div class="suggestion-card" data-index="${index}">
+                <div class="suggestion-header">
+                    <span class="suggestion-icon">${categoryIcons[s.category] || categoryIcons['default']}</span>
+                    <h4 class="suggestion-category">${s.category}</h4>
+                </div>
+                <p class="suggestion-text">${s.suggestion_text}</p>
+                ${s.benefit ? `<small class="suggestion-benefit"><b>Выгода:</b> ${s.benefit}</small>` : ''}
+            </div>`).join('');
         suggestionsControls.style.display = 'flex';
         updateSelectionState();
-    }
-
-    function updateSelectionState() {
-        const selectedCards = document.querySelectorAll('.suggestion-card.selected');
-        const totalCards = document.querySelectorAll('.suggestion-card').length;
-        selectionCounter.textContent = `Выбрано: ${selectedCards.length} из ${totalCards}`;
-        applyImprovementsBtn.disabled = selectedCards.length === 0;
-        selectAllCheckbox.checked = totalCards > 0 && selectedCards.length === totalCards;
     }
 
     function getSelectedSuggestionIndices() {
@@ -234,9 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const id = `mermaid-graph-${Date.now()}`;
         diagramContainer.innerHTML = `<div id="${id}">${mermaidCode}</div>`;
         await mermaid.run({ nodes: [document.getElementById(id)] });
-        diagramContainer.querySelector('svg').style.maxWidth = '100%';
-        currentDiagramScale = 1;
-        zoomDiagram(1);
+        const svg = diagramContainer.querySelector('svg');
+        if(svg) {
+            svg.style.maxWidth = '100%';
+            currentDiagramScale = 1;
+            zoomDiagram(1);
+        }
     }
 
     function zoomDiagram(factor) {
@@ -244,13 +216,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!svg) return;
         currentDiagramScale *= factor;
         svg.style.transform = `scale(${currentDiagramScale})`;
-        svg.style.transformOrigin = 'center center';
     }
 
     function downloadDiagramPNG() {
         const svgElement = diagramContainer.querySelector('svg');
         if (!svgElement) return;
-        html2canvas(svgElement, { backgroundColor: null }).then(canvas => {
+        html2canvas(svgElement, {backgroundColor: null}).then(canvas => {
             const link = document.createElement('a');
             link.download = 'process-diagram.png';
             link.href = canvas.toDataURL('image/png');
@@ -271,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(url);
     }
 
-    // --- API Functions (Промпты здесь) ---
+    // --- API Functions & Prompts ---
     async function callGeminiAPI(prompt) {
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -290,73 +261,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function getOptimizationSuggestions(processDescription, userPrompt) {
-        const prompt = `
-        Ты — элитный методолог и архитектор бизнес-процессов, эксперт в BPMN и Lean.
-        Твоя задача — не просто проанализировать, а **ДОПОЛНИТЬ и УЛУЧШИТЬ** предложенный процесс.
-        1. Внимательно изучи процесс. Если видишь логические пробелы или пропущенные очевидные шаги (например, "уведомление клиента" после "отправки заказа"), **допиши их** прямо в текст процесса.
-        2. Проанализируй **уже дополненный тобой** процесс и предложи улучшения.
-
-        ИСХОДНЫЙ ПРОЦЕСС:
-        "${processDescription}"
-
-        ДОПОЛНИТЕЛЬНЫЙ КОНТЕКСТ ОТ ПОЛЬЗОВАТЕЛЯ (если есть, учти его):
-        "${userPrompt}"
-
-        Твой ответ ДОЛЖЕН БЫТЬ в формате чистого JSON (без markdown обертки ```json) и содержать ДВА КЛЮЧА:
-        1. "full_process_text": Строка, содержащая ПОЛНОСТЬЮ переписанный и дополненный тобой пошаговый текст процесса.
-        2. "suggestions": Массив объектов с предложениями по улучшению ТВОЕГО дополненного процесса. Каждый объект должен иметь поля "category" (тип улучшения), "suggestion_text" (описание) и "benefit" (выгода).
-
-        Пример ответа:
-        {
-          "full_process_text": "1. Клиент оставляет заявку на сайте.\\n2. CRM система автоматически регистрирует заявку и присваивает номер.\\n3. Уведомление о новой заявке отправляется свободному менеджеру.\\n4. Менеджер связывается с клиентом для уточнения деталей.",
-          "suggestions": [
-            {
-              "category": "Автоматизация",
-              "suggestion_text": "Настроить автоматическую отправку SMS-уведомления клиенту после успешного создания заявки.",
-              "benefit": "Повышение лояльности клиента, снижение тревожности."
-            }
-          ]
-        }
-    `;
-    return callGeminiAPI(prompt);
+        const prompt = `Ты — элитный методолог бизнес-процессов. Твоя задача — ДОПОЛНИТЬ и УЛУЧШИТЬ процесс. Если видишь логические пробелы, допиши шаги. Проанализируй уже дополненный тобой процесс и предложи улучшения. ИСХОДНЫЙ ПРОЦЕСС: "${processDescription}". КОНТЕКСТ ОТ ПОЛЬЗОВАТЕЛЯ: "${userPrompt}". Твой ответ ДОЛЖЕН БЫТЬ в формате чистого JSON с ДВУМЯ КЛЮЧАМИ: 1. "full_process_text": Строка, содержащая ПОЛНОСТЬЮ переписанный и дополненный тобой пошаговый текст процесса. 2. "suggestions": Массив объектов с предложениями по улучшению. Каждый объект: "category", "suggestion_text", "benefit".`;
+        return callGeminiAPI(prompt);
     }
 
     async function getOptimizedProcess(originalProcess, suggestionsToApply) {
         const suggestionsText = suggestionsToApply.map(s => `- ${s.suggestion_text}`).join('\n');
-    const prompt = `
-        Ты — внимательный редактор бизнес-процессов.
-        Твоя задача — аккуратно интегрировать предложенные улучшения в существующий текст бизнес-процесса.
-        Не придумывай ничего нового, работай только с предоставленными данными.
-        Результатом должен быть **только** обновленный пошаговый список, без каких-либо заголовков, вступлений или комментариев.
-
-        ИСХОДНЫЙ ТЕКСТ ПРОЦЕССА:
-        "${originalProcess}"
-
-        СПИСОК УЛУЧШЕНИЙ, КОТОРЫЕ НУЖНО ВНЕДРИТЬ:
-        "${suggestionsText}"
-
-        Создай новую, оптимизированную версию процесса, логично встроив в нее эти улучшения.
-    `;
-    return callGeminiAPI(prompt);
+        const prompt = `Ты — внимательный редактор. Аккуратно интегрируй улучшения в существующий текст процесса. Результат — ТОЛЬКО обновленный пошаговый список. ИСХОДНЫЙ ТЕКСТ: "${originalProcess}". УЛУЧШЕНИЯ ДЛЯ ВНЕДРЕНИЯ: "${suggestionsText}".`;
+        return callGeminiAPI(prompt);
     }
 
     async function getMermaidCode(processDescription) {
-        const prompt = `
-        Преобразуй следующее пошаговое описание бизнес-процесса в код для диаграммы Mermaid.js.
-        - Используй синтаксис flowchart (graph TD).
-        - Для каждого шага создай отдельный узел (node).
-        - **Критически важно:** Проанализируй текст и правильно определи связи (стрелки) между шагами. Если шаг следует за предыдущим, соедини их стрелкой "-->". Если есть условия или ветвления, используй ромбы (rhombus).
-        - Ответ должен содержать ТОЛЬКО код Mermaid, без ```mermaid или любого другого текста.
-
-        ОПИСАНИЕ ПРОЦЕССА:
-        "${processDescription}"
-    `;
-    let mermaidCode = await callGeminiAPI(prompt);
-    // Эта очистка остается на случай, если модель все же добавит markdown
-    return mermaidCode.replace(/```mermaid/g, '').replace(/```/g, '').trim();
+        const prompt = `Преобразуй пошаговое описание процесса в код Mermaid.js (синтаксис flowchart TD). Правильно определи связи между шагами. Ответ должен содержать ТОЛЬКО код Mermaid. ОПИСАНИЕ: "${processDescription}"`;
+        return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
     }
 
     // --- Initial UI State ---
     updateStepCounter();
 });
-// --- КОНЕЦ КОДА ДЛЯ SCRIPT.JS ---
+// --- КОНЕЦ КОДА ДЛЯ ПОЛНОЙ ЗАМЕНЫ В SCRIPT.JS ---
