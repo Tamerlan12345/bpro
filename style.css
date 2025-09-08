@@ -1,0 +1,169 @@
+/* General Body Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f7f9;
+    color: #333;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+header {
+    text-align: center;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 20px;
+    margin-bottom: 30px;
+}
+
+header h1 {
+    color: #2c3e50;
+    font-size: 2.5em;
+}
+
+header p {
+    color: #7f8c8d;
+    font-size: 1.1em;
+}
+
+main {
+    display: flex;
+    gap: 30px;
+}
+
+/* Form Section */
+.form-section {
+    flex: 1;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #34495e;
+}
+
+input[type="text"],
+textarea {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Important */
+    font-size: 1em;
+}
+
+textarea {
+    resize: vertical;
+}
+
+.buttons {
+    display: flex;
+    gap: 10px;
+}
+
+button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    background-color: #3498db;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #2980b9;
+}
+
+#improve-btn {
+    background-color: #2ecc71;
+}
+
+#improve-btn:hover {
+    background-color: #27ae60;
+}
+
+/* Output Section */
+.output-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+h2 {
+    color: #2c3e50;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 10px;
+}
+
+.diagram-container {
+    border: 1px dashed #bdc3c7;
+    padding: 20px;
+    margin-top: 10px;
+    background-color: #ecf0f1;
+    border-radius: 4px;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #7f8c8d;
+}
+
+#download-btn {
+    margin-top: 15px;
+    background-color: #9b59b6;
+    align-self: center;
+}
+
+#download-btn:hover {
+    background-color: #8e44ad;
+}
+
+.suggestions-container {
+    margin-top: 30px;
+}
+
+.suggestions-container h3 {
+    color: #34495e;
+}
+
+#suggestions-text {
+    background-color: #fdfaf2;
+    border-left: 4px solid #f1c40f;
+    padding: 15px;
+    border-radius: 4px;
+    color: #555;
+    min-height: 100px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    main {
+        flex-direction: column;
+    }
+}
+
+/* UI States */
+.loading, .error {
+    text-align: center;
+    padding: 20px;
+    font-style: italic;
+    color: #7f8c8d;
+}
+
+.error {
+    color: #e74c3c;
+    font-weight: bold;
+}

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Бизнес-процессы с ИИ</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Анализатор и визуализатор бизнес-процессов</h1>
+            <p>Опишите ваш бизнес-процесс, и ИИ построит схему и предложит улучшения.</p>
+        </header>
+
+        <main>
+            <div class="form-section">
+                <label for="process-name">Название процесса:</label>
+                <input type="text" id="process-name" placeholder="Например, 'Учет рабочего времени'">
+
+                <label for="process-description">Пошаговое описание:</label>
+                <textarea id="process-description" rows="10" placeholder="1. Сотрудник приходит на работу&#10;2. Проходит через турникет&#10;3. ..."></textarea>
+
+                <div class="buttons">
+                    <button id="build-btn">Построить схему</button>
+                    <button id="improve-btn">Предложить улучшения</button>
+                </div>
+            </div>
+
+            <div class="output-section">
+                <h2>Результат</h2>
+                <div id="diagram-container" class="diagram-container">
+                    <!-- Блок-схема будет отображена здесь -->
+                </div>
+                <button id="download-btn" style="display: none;">Скачать схему (PNG)</button>
+
+                <div id="suggestions-container" class="suggestions-container">
+                    <h3>Предложения по оптимизации</h3>
+                    <div id="suggestions-text">
+                        <!-- Предложения будут отображены здесь -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
