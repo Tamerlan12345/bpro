@@ -8,11 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastAnalysisResult = {};
     let suggestions = [];
     let currentDiagramScale = 1;
+    let isPanning = false;
+    let startX, startY, scrollLeft, scrollTop;
 
     // --- DOM Elements ---
     const processDescriptionInput = document.getElementById('process-description');
     const improveBtn = document.getElementById('improve-btn');
     const stepCounter = document.getElementById('step-counter');
+    const userPromptInput = document.getElementById('user-prompt');
 
     const suggestionsContainer = document.getElementById('suggestions-container');
     const suggestionsControls = document.getElementById('suggestions-controls');
@@ -32,7 +35,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsBlock = document.querySelector('.results-block');
 
     // --- Initialization ---
-    mermaid.initialize({ startOnLoad: false, theme: 'base', fontFamily: 'inherit' });
+    mermaid.initialize({
+        startOnLoad: false,
+        theme: 'base',
+        fontFamily: 'inherit',
+        flowchart: {
+            nodeSpacing: 50,
+            rankSpacing: 60,
+        },
+        themeVariables: {
+            primaryColor: '#FFFFFF',
+            primaryTextColor: '#212529',
+            primaryBorderColor: '#333333',
+            lineColor: '#333333',
+            secondaryColor: '#F8F9FA',
+        }
+    });
 
     // --- Event Listeners ---
     processDescriptionInput.addEventListener('input', updateStepCounter);
@@ -52,6 +70,34 @@ document.addEventListener('DOMContentLoaded', () => {
     downloadPngBtn.addEventListener('click', downloadDiagramPNG);
     downloadSvgBtn.addEventListener('click', downloadDiagramSVG);
 
+    // --- Diagram Panning Event Listeners ---
+    diagramContainer.addEventListener('mousedown', (e) => {
+        // Only pan with the primary mouse button, and not on buttons within the container
+        if (e.button !== 0 || e.target.closest('button')) return;
+        isPanning = true;
+        diagramContainer.classList.add('is-panning');
+        startX = e.pageX - diagramContainer.offsetLeft;
+        scrollLeft = diagramContainer.scrollLeft;
+    });
+
+    diagramContainer.addEventListener('mouseleave', () => {
+        isPanning = false;
+        diagramContainer.classList.remove('is-panning');
+    });
+
+    diagramContainer.addEventListener('mouseup', () => {
+        isPanning = false;
+        diagramContainer.classList.remove('is-panning');
+    });
+
+    diagramContainer.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        e.preventDefault();
+        const x = e.pageX - diagramContainer.offsetLeft;
+        const walk = (x - startX) * 1.5; // multiplier for faster panning
+        diagramContainer.scrollLeft = scrollLeft - walk;
+    });
+
     // --- Core Functions ---
 
     function updateStepCounter() {
@@ -67,16 +113,27 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const userPrompt = userPromptInput.value;
+
         setButtonLoading(improveBtn, true, 'Анализирую...');
         suggestionsContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
         suggestionsControls.style.display = 'none';
 
         try {
-            const suggestionsJSON = await getOptimizationSuggestions(description);
-            const cleanedJson = suggestionsJSON.replace(/^```json\s*|```$/g, '');
-            lastAnalysisResult = JSON.parse(cleanedJson);
+            const responseJSON = await getOptimizationSuggestions(description, userPrompt);
+            const cleanedJson = responseJSON.replace(/^```json\s*|```$/g, '');
+            const analysisData = JSON.parse(cleanedJson);
+
+            // New logic: Update textarea with the AI-completed process first
+            if (analysisData.full_process_text) {
+                processDescriptionInput.value = analysisData.full_process_text;
+                updateStepCounter();
+            }
+
+            lastAnalysisResult = analysisData;
             suggestions = lastAnalysisResult.suggestions || [];
             renderSuggestions(suggestions);
+
         } catch (error) {
             suggestionsContainer.innerHTML = '<p class="placeholder-text error">Не удалось получить предложения. Попробуйте снова.</p>';
             console.error('Error getting suggestions:', error);
@@ -288,9 +345,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return mermaidCode.replace(/```mermaid/g, '').replace(/```/g, '').trim();
     }
 
-    async function getOptimizationSuggestions(processDescription) {
-        const prompt = `Ты — методолог бизнес-процессов. Проанализируй процесс и верни JSON-объект (без markdown) с ключом "suggestions": массив объектов, где каждый объект имеет поля "category" ('Автоматизация', 'Упрощение' и т.д.), "suggestion_text" (описание) и "benefit" (выгода). Процесс: "${processDescription}"`;
-        return callGeminiAPI(prompt);
+    async function getOptimizationSuggestions(processDescription, userPrompt) {
+        let promptText = `Ты — элитный методолог и архитектор бизнес-процессов, эксперт в BPMN и Lean. Твоя задача — не просто проанализировать, а **дополнить и улучшить** предложенный процесс. Если видишь логические пробелы или пропущенные очевидные шаги, **допиши их**.
+
+Проанализируй процесс: \`"${processDescription}"\``;
+
+        if (userPrompt && userPrompt.trim() !== '') {
+            promptText += `\n\nДополнительный контекст от пользователя: \`"${userPrompt}"\``;
+        }
+
+        promptText += `\n\nТвой ответ должен быть в формате JSON (без markdown) и содержать два ключа:
+1.  \`"full_process_text"\`: **Полностью переписанный и дополненный тобой** пошаговый текст процесса. Ты должен включить в него как оригинальные, так и добавленные тобой шаги.
+2.  \`"suggestions"\`: Массив объектов с предложениями по улучшению уже **твоего, дополненного** процесса. Каждый объект должен иметь поля "category", "suggestion_text" и "benefit".`;
+
+        return callGeminiAPI(promptText);
     }
 
     async function getOptimizedProcess(originalProcess, suggestionsToApply) {
