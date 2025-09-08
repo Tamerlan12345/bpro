@@ -2,8 +2,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration ---
     // ВАЖНО: Вставьте ваш настоящий API-ключ. Без него генерация не будет работать.
-    const API_KEY = 'AIzaSyCisFe9LE9ykOlc7JOn7NEJQDJ3LaMMFqI'; // <--- ВСТАВЬТЕ ВАШ КЛЮЧ ОТ GOOGLE AI STUDIO СЮДА
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+    const API_KEY = 'AIzaSyCisFe9LE9ykOlc7JOn7NEJQDJ3LaMMFqI'; 
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
 
     // --- State Management ---
     let suggestions = [];
