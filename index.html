@@ -25,7 +25,7 @@
                 <textarea id="process-description" rows="10" placeholder="1. Сотрудник приходит на работу&#10;2. Проходит через турникет&#10;3. ..."></textarea>
 
                 <div class="buttons">
-                    <button id="build-btn">Построить схему</button>
+                    <button id="render-diagram-btn">Показать/обновить схему</button>
                     <button id="improve-btn">Предложить улучшения</button>
                 </div>
             </div>
@@ -33,24 +33,20 @@
             <div class="output-section">
                 <h2>Результат</h2>
                 <div id="diagram-container" class="diagram-container">
-                    <!-- Блок-схема будет отображена здесь -->
+                    <p>Схема будет отображена здесь после нажатия на кнопку "Показать/обновить схему".</p>
                 </div>
                 <button id="download-btn" style="display: none;">Скачать схему (PNG)</button>
 
                 <div id="suggestions-container" class="suggestions-container">
                     <h3>Предложения по оптимизации</h3>
                     <div id="suggestions-text">
-                        <!-- Предложения будут отображены здесь -->
+                        <!-- Suggestion cards will be rendered here -->
                     </div>
+                    <div id="transformation-table-container" class="analysis-section"></div>
+                    <div id="rationale-container" class="analysis-section"></div>
                     <button id="apply-improvements-btn" style="display: none; margin-top: 15px;">Применить улучшения</button>
                 </div>
 
-                <div id="optimized-process-container" style="display: none; margin-top: 30px;">
-                    <h3>Оптимизированный процесс</h3>
-                    <div id="optimized-process-text" class="optimized-process-text">
-                        <!-- Optimized process will be displayed here -->
-                    </div>
-                </div>
             </div>
         </main>
     </div>
