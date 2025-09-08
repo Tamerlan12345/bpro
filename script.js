@@ -166,34 +166,47 @@ async function handleImproveRequest() {
         updateSelectionState();
     }
 
-    async function handleApplyImprovements() {
-        const selectedIndices = getSelectedSuggestionIndices();
-        if (selectedIndices.length === 0) {
-            alert('Пожалуйста, выберите хотя бы одно улучшение.');
-            return;
-        }
-
-        const selectedSuggestions = selectedIndices.map(index => suggestions[index]);
-
-        setButtonLoading(applyImprovementsBtn, true, 'Применяю...');
-
-        try {
-            const optimizedProcess = await getOptimizedProcess(processDescriptionInput.value, selectedSuggestions);
-            resultsBlock.innerHTML = `
-                <h2>Результат</h2>
-                <p><strong>Обновленный процесс:</strong></p>
-                <pre>${optimizedProcess}</pre>
-            `;
-            // Optionally update the textarea as well
-            // processDescriptionInput.value = optimizedProcess;
-            // updateStepCounter();
-        } catch (error) {
-            alert('Не удалось применить улучшения.');
-            console.error('Error applying improvements:', error);
-        } finally {
-            setButtonLoading(applyImprovementsBtn, false, 'Применить выбранные улучшения');
-        }
+async function handleApplyImprovements() {
+    const selectedIndices = getSelectedSuggestionIndices();
+    if (selectedIndices.length === 0) {
+        alert('Пожалуйста, выберите хотя бы одно улучшение для применения.');
+        return;
     }
+
+    const selectedSuggestions = selectedIndices.map(index => suggestions[index]);
+    const currentProcessText = processDescriptionInput.value;
+
+    setButtonLoading(applyImprovementsBtn, true, 'Применяю...');
+    // Показываем пользователю, что идет работа
+    resultsBlock.innerHTML = `<h2>Результат</h2><div class="loading-overlay" style="position: static; background: none;"><div class="spinner" style="border-top-color: var(--primary-color); border-left-color: var(--primary-color);"></div></div>`;
+
+    try {
+        // Получаем финальный, объединенный текст процесса
+        const optimizedProcess = await getOptimizedProcess(currentProcessText, selectedSuggestions);
+
+        // --- КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ ---
+        // Обновляем основной textarea, а не отдельный блок
+        processDescriptionInput.value = optimizedProcess;
+        updateStepCounter(); // Обновляем счетчик шагов
+
+        // В блок "Результат" выводим сообщение об успехе
+        resultsBlock.innerHTML = `
+            <h2>Результат</h2>
+            <p style="color: var(--accent-color); font-weight: 600;">✓ Улучшения успешно применены! Текст процесса в основном окне обновлен.</p>
+            <p>Теперь вы можете сгенерировать новую схему для финальной версии процесса.</p>
+        `;
+
+        // Сбрасываем выбор карточек
+        document.querySelectorAll('.suggestion-card.selected').forEach(card => card.classList.remove('selected'));
+        updateSelectionState();
+
+    } catch (error) {
+        resultsBlock.innerHTML = `<h2>Результат</h2><p class="placeholder-text error">Не удалось применить улучшения.</p>`;
+        console.error('Ошибка при применении улучшений:', error);
+    } finally {
+        setButtonLoading(applyImprovementsBtn, false, 'Применить выбранные улучшения');
+    }
+}
 
     async function handleRenderDiagram() {
         const description = processDescriptionInput.value;
@@ -389,6 +402,25 @@ async function getMermaidCode(processDescription) {
     let mermaidCode = await callGeminiAPI(prompt);
     // Эта очистка остается на случай, если модель все же добавит markdown
     return mermaidCode.replace(/```mermaid/g, '').replace(/```/g, '').trim();
+}
+
+async function getOptimizedProcess(originalProcess, suggestionsToApply) {
+    const suggestionsText = suggestionsToApply.map(s => `- ${s.suggestion_text}`).join('\n');
+    const prompt = `
+        Ты — внимательный редактор бизнес-процессов.
+        Твоя задача — аккуратно интегрировать предложенные улучшения в существующий текст бизнес-процесса.
+        Не придумывай ничего нового, работай только с предоставленными данными.
+        Результатом должен быть **только** обновленный пошаговый список, без каких-либо заголовков, вступлений или комментариев.
+
+        ИСХОДНЫЙ ТЕКСТ ПРОЦЕССА:
+        "${originalProcess}"
+
+        СПИСОК УЛУЧШЕНИЙ, КОТОРЫЕ НУЖНО ВНЕДРИТЬ:
+        "${suggestionsText}"
+
+        Создай новую, оптимизированную версию процесса, логично встроив в нее эти улучшения.
+    `;
+    return callGeminiAPI(prompt);
 }
 
     // --- Initial UI State ---
