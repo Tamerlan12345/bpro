@@ -106,41 +106,45 @@ document.addEventListener('DOMContentLoaded', () => {
         stepCounter.textContent = `${lines.length} шагов`;
     }
 
-    async function handleImproveRequest() {
-        const description = processDescriptionInput.value;
-        if (!description.trim()) {
-            alert('Пожалуйста, введите описание процесса.');
-            return;
-        }
+async function handleImproveRequest() {
+    const description = processDescriptionInput.value;
+    // --- Новая логика для считывания пользовательского промпта ---
+    const userPromptInput = document.getElementById('user-prompt'); // Убедитесь, что у вас есть этот input в HTML
+    const userPrompt = userPromptInput ? userPromptInput.value : '';
+    // --- Конец новой логики ---
 
-        const userPrompt = userPromptInput.value;
-
-        setButtonLoading(improveBtn, true, 'Анализирую...');
-        suggestionsContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
-        suggestionsControls.style.display = 'none';
-
-        try {
-            const responseJSON = await getOptimizationSuggestions(description, userPrompt);
-            const cleanedJson = responseJSON.replace(/^```json\s*|```$/g, '');
-            const analysisData = JSON.parse(cleanedJson);
-
-            // New logic: Update textarea with the AI-completed process first
-            if (analysisData.full_process_text) {
-                processDescriptionInput.value = analysisData.full_process_text;
-                updateStepCounter();
-            }
-
-            lastAnalysisResult = analysisData;
-            suggestions = lastAnalysisResult.suggestions || [];
-            renderSuggestions(suggestions);
-
-        } catch (error) {
-            suggestionsContainer.innerHTML = '<p class="placeholder-text error">Не удалось получить предложения. Попробуйте снова.</p>';
-            console.error('Error getting suggestions:', error);
-        } finally {
-            setButtonLoading(improveBtn, false, '✨ Предложить улучшения');
-        }
+    if (!description.trim()) {
+        alert('Пожалуйста, введите описание процесса.');
+        return;
     }
+
+    setButtonLoading(improveBtn, true, 'Анализирую...');
+    suggestionsContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+    suggestionsControls.style.display = 'none';
+
+    try {
+        // Передаем оба промпта в функцию
+        const rawJsonResponse = await getOptimizationSuggestions(description, userPrompt);
+        const cleanedJson = rawJsonResponse.replace(/^```json\s*|```$/g, '').trim();
+        lastAnalysisResult = JSON.parse(cleanedJson);
+
+        // --- Новая логика обработки ответа ---
+        if (lastAnalysisResult.full_process_text) {
+            processDescriptionInput.value = lastAnalysisResult.full_process_text;
+            updateStepCounter(); // Обновляем счетчик шагов
+        }
+        // --- Конец новой логики ---
+
+        suggestions = lastAnalysisResult.suggestions || [];
+        renderSuggestions(suggestions);
+
+    } catch (error) {
+        suggestionsContainer.innerHTML = '<p class="placeholder-text error">Не удалось получить предложения. Проверьте консоль для деталей.</p>';
+        console.error('Ошибка при получении или парсинге предложений:', error);
+    } finally {
+        setButtonLoading(improveBtn, false, '✨ Предложить улучшения');
+    }
+}
 
     function handleCardSelection(e) {
         const card = e.target.closest('.suggestion-card');
@@ -339,33 +343,53 @@ document.addEventListener('DOMContentLoaded', () => {
         return data.candidates[0].content.parts[0].text;
     }
 
-    async function getMermaidCode(processDescription) {
-        const prompt = `Преобразуй следующее текстовое описание бизнес-процесса в код для диаграммы Mermaid.js. Используй синтаксис flowchart (graph TD). Не включай ничего, кроме кода Mermaid, без markdown-обертки. Описание: "${processDescription}"`;
-        let mermaidCode = await callGeminiAPI(prompt);
-        return mermaidCode.replace(/```mermaid/g, '').replace(/```/g, '').trim();
-    }
+async function getOptimizationSuggestions(processDescription, userPrompt) {
+    const prompt = `
+        Ты — элитный методолог и архитектор бизнес-процессов, эксперт в BPMN и Lean.
+        Твоя задача — не просто проанализировать, а **ДОПОЛНИТЬ и УЛУЧШИТЬ** предложенный процесс.
+        1. Внимательно изучи процесс. Если видишь логические пробелы или пропущенные очевидные шаги (например, "уведомление клиента" после "отправки заказа"), **допиши их** прямо в текст процесса.
+        2. Проанализируй **уже дополненный тобой** процесс и предложи улучшения.
 
-    async function getOptimizationSuggestions(processDescription, userPrompt) {
-        let promptText = `Ты — элитный методолог и архитектор бизнес-процессов, эксперт в BPMN и Lean. Твоя задача — не просто проанализировать, а **дополнить и улучшить** предложенный процесс. Если видишь логические пробелы или пропущенные очевидные шаги, **допиши их**.
+        ИСХОДНЫЙ ПРОЦЕСС:
+        "${processDescription}"
 
-Проанализируй процесс: \`"${processDescription}"\``;
+        ДОПОЛНИТЕЛЬНЫЙ КОНТЕКСТ ОТ ПОЛЬЗОВАТЕЛЯ (если есть, учти его):
+        "${userPrompt}"
 
-        if (userPrompt && userPrompt.trim() !== '') {
-            promptText += `\n\nДополнительный контекст от пользователя: \`"${userPrompt}"\``;
+        Твой ответ ДОЛЖЕН БЫТЬ в формате чистого JSON (без markdown обертки ```json) и содержать ДВА КЛЮЧА:
+        1. "full_process_text": Строка, содержащая ПОЛНОСТЬЮ переписанный и дополненный тобой пошаговый текст процесса.
+        2. "suggestions": Массив объектов с предложениями по улучшению ТВОЕГО дополненного процесса. Каждый объект должен иметь поля "category" (тип улучшения), "suggestion_text" (описание) и "benefit" (выгода).
+
+        Пример ответа:
+        {
+          "full_process_text": "1. Клиент оставляет заявку на сайте.\\n2. CRM система автоматически регистрирует заявку и присваивает номер.\\n3. Уведомление о новой заявке отправляется свободному менеджеру.\\n4. Менеджер связывается с клиентом для уточнения деталей.",
+          "suggestions": [
+            {
+              "category": "Автоматизация",
+              "suggestion_text": "Настроить автоматическую отправку SMS-уведомления клиенту после успешного создания заявки.",
+              "benefit": "Повышение лояльности клиента, снижение тревожности."
+            }
+          ]
         }
+    `;
+    return callGeminiAPI(prompt);
+}
 
-        promptText += `\n\nТвой ответ должен быть в формате JSON (без markdown) и содержать два ключа:
-1.  \`"full_process_text"\`: **Полностью переписанный и дополненный тобой** пошаговый текст процесса. Ты должен включить в него как оригинальные, так и добавленные тобой шаги.
-2.  \`"suggestions"\`: Массив объектов с предложениями по улучшению уже **твоего, дополненного** процесса. Каждый объект должен иметь поля "category", "suggestion_text" и "benefit".`;
+async function getMermaidCode(processDescription) {
+    const prompt = `
+        Преобразуй следующее пошаговое описание бизнес-процесса в код для диаграммы Mermaid.js.
+        - Используй синтаксис flowchart (graph TD).
+        - Для каждого шага создай отдельный узел (node).
+        - **Критически важно:** Проанализируй текст и правильно определи связи (стрелки) между шагами. Если шаг следует за предыдущим, соедини их стрелкой "-->". Если есть условия или ветвления, используй ромбы (rhombus).
+        - Ответ должен содержать ТОЛЬКО код Mermaid, без ```mermaid или любого другого текста.
 
-        return callGeminiAPI(promptText);
-    }
-
-    async function getOptimizedProcess(originalProcess, suggestionsToApply) {
-        const suggestionsText = suggestionsToApply.map(s => `- ${s.suggestion_text}`).join('\n');
-        const prompt = `На основе исходного процесса и этих рекомендаций, создай новую, оптимизированную версию процесса в виде пошагового списка. Не добавляй заголовков, только шаги. Исходный процесс: "${originalProcess}". Рекомендации: "${suggestionsText}"`;
-        return callGeminiAPI(prompt);
-    }
+        ОПИСАНИЕ ПРОЦЕССА:
+        "${processDescription}"
+    `;
+    let mermaidCode = await callGeminiAPI(prompt);
+    // Эта очистка остается на случай, если модель все же добавит markdown
+    return mermaidCode.replace(/```mermaid/g, '').replace(/```/g, '').trim();
+}
 
     // --- Initial UI State ---
     updateStepCounter();
