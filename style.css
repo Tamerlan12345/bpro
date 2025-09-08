@@ -228,17 +228,43 @@ h2 {
     text-align: right;
 }
 
-/* Optimized Process Section */
-.optimized-process-container h3 {
-    color: #34495e;
+/* New Analysis Sections */
+.analysis-section {
+    margin-top: 25px;
 }
 
-.optimized-process-text {
+.analysis-section h4 {
+    color: #2c3e50;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+}
+
+.analysis-section table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.analysis-section th, .analysis-section td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: left;
+}
+
+.analysis-section th {
+    background-color: #f2f2f2;
+}
+
+.analysis-section p {
     background-color: #f8f9f9;
-    border-left: 4px solid #3498db;
     padding: 15px;
     border-radius: 4px;
-    color: #555;
-    white-space: pre-wrap; /* To respect line breaks from the API */
-    min-height: 50px;
+    border-left: 4px solid #3498db;
+    white-space: pre-wrap;
+}
+
+.suggestion-card .checkbox-container {
+    padding-top: 5px;
+    margin-right: 15px;
 }
