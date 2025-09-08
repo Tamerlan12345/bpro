@@ -16,37 +16,60 @@
             <p>Опишите ваш бизнес-процесс, и ИИ построит схему и предложит улучшения.</p>
         </header>
 
-        <main>
-            <div class="form-section">
-                <label for="process-name">Название процесса:</label>
-                <input type="text" id="process-name" placeholder="Например, 'Учет рабочего времени'">
+        <main class="main-content">
+            <!-- Левая колонка: Ввод данных и результат -->
+            <div class="left-column">
+                <div class="input-block">
+                    <label for="process-description">1. Опишите ваш бизнес-процесс</label>
+                    <div class="textarea-wrapper">
+                        <textarea id="process-description" rows="12" placeholder="Опишите ваш процесс по шагам, каждый шаг с новой строки. Пример:&#10;1. Клиент оставляет заявку на сайте&#10;2. Менеджер связывается с клиентом для уточнения деталей&#10;3. ..."></textarea>
+                        <div id="step-counter" class="step-counter">0 шагов</div>
+                    </div>
+                    <button id="improve-btn" class="button-primary">
+                        ✨ Предложить улучшения
+                    </button>
+                </div>
 
-                <label for="process-description">Пошаговое описание:</label>
-                <textarea id="process-description" rows="10" placeholder="1. Сотрудник приходит на работу&#10;2. Проходит через турникет&#10;3. ..."></textarea>
+                <div class="results-block">
+                    <h2>Результат</h2>
+                    <p>После выбора и применения улучшений здесь появится обновленный текст процесса. Визуальную схему можно будет сгенерировать ниже.</p>
+                </div>
 
-                <div class="buttons">
-                    <button id="render-diagram-btn">Показать/обновить схему</button>
-                    <button id="improve-btn">Предложить улучшения</button>
+                <div class="diagram-block">
+                    <h3>Визуализация процесса</h3>
+                    <div id="diagram-placeholder" class="diagram-placeholder">
+                        <div class="placeholder-content">
+                            <svg class="placeholder-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10a4 4 0 1 0-8 0 4 4 0 0 0 8 0z"/><path d="M12 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M6 10a4 4 0 1 0-8 0 4 4 0 0 0 8 0zM12 6V2"/><path d="M12 22v-4"/><path d="m15 7 2-2"/><path d="m5 17 2 2"/><path d="m15 17-2 2"/><path d="m5 7 2-2"/></svg>
+                            <p>Здесь появится интерактивная схема процесса</p>
+                            <button id="render-diagram-btn" class="button-secondary">Показать схему</button>
+                        </div>
+                        <div id="diagram-container" class="diagram-container" style="display: none;"></div>
+                    </div>
+                    <div id="diagram-toolbar" class="diagram-toolbar" style="display: none;">
+                        <button id="zoom-in-btn" title="Приблизить">+</button>
+                        <button id="zoom-out-btn" title="Отдалить">-</button>
+                        <button id="download-png-btn" title="Скачать PNG">PNG</button>
+                        <button id="download-svg-btn" title="Скачать SVG">SVG</button>
+                    </div>
                 </div>
             </div>
 
-            <div class="output-section">
-                <h2>Результат</h2>
-                <div id="diagram-container" class="diagram-container">
-                    <p>Схема будет отображена здесь после нажатия на кнопку "Показать/обновить схему".</p>
-                </div>
-                <button id="download-btn" style="display: none;">Скачать схему (PNG)</button>
-
-                <div id="suggestions-container" class="suggestions-container">
-                    <h3>Предложения по оптимизации</h3>
-                    <div id="suggestions-text">
-                        <!-- Suggestion cards will be rendered here -->
+            <!-- Правая колонка: Предложения по оптимизации -->
+            <div class="right-column">
+                <div class="suggestions-block">
+                    <h3>2. Выберите улучшения</h3>
+                    <div id="suggestions-controls" class="suggestions-controls" style="display: none;">
+                        <div class="select-all-wrapper">
+                            <input type="checkbox" id="select-all-checkbox">
+                            <label for="select-all-checkbox">Выбрать все</label>
+                        </div>
+                        <div id="selection-counter">Выбрано: 0 из 0</div>
                     </div>
-                    <div id="transformation-table-container" class="analysis-section"></div>
-                    <div id="rationale-container" class="analysis-section"></div>
-                    <button id="apply-improvements-btn" style="display: none; margin-top: 15px;">Применить улучшения</button>
+                    <div id="suggestions-container" class="suggestions-container">
+                        <p class="placeholder-text">Предложения от ИИ появятся здесь после анализа вашего процесса.</p>
+                    </div>
+                    <button id="apply-improvements-btn" disabled>Применить выбранные улучшения</button>
                 </div>
-
             </div>
         </main>
     </div>

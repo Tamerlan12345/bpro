@@ -1,270 +1,331 @@
-/* General Body Styles */
+/* --- Global Variables & Resets --- */
+:root {
+    --primary-color: #007bff; /* A modern blue */
+    --primary-hover-color: #0056b3;
+    --secondary-color: #6c757d;
+    --secondary-hover-color: #5a6268;
+    --accent-color: #28a745; /* Green for success/apply */
+    --accent-hover-color: #218838;
+    --light-bg-color: #f8f9fa;
+    --white-color: #ffffff;
+    --border-color: #dee2e6;
+    --text-color: #212529;
+    --text-muted-color: #6c757d;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --border-radius: 8px;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     line-height: 1.6;
     margin: 0;
-    padding: 0;
-    background-color: #f4f7f9;
-    color: #333;
+    padding: 20px;
+    background-color: var(--light-bg-color);
+    color: var(--text-color);
 }
 
+* {
+    box-sizing: border-box;
+}
+
+/* --- Main Layout --- */
 .container {
-    max-width: 1200px;
-    margin: 20px auto;
+    max-width: 1400px;
+    margin: 0 auto;
     padding: 20px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    background-color: var(--white-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
 }
 
 header {
     text-align: center;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--border-color);
     padding-bottom: 20px;
     margin-bottom: 30px;
 }
 
 header h1 {
-    color: #2c3e50;
-    font-size: 2.5em;
+    font-size: 2.2em;
+    color: #333;
 }
 
 header p {
-    color: #7f8c8d;
     font-size: 1.1em;
+    color: var(--text-muted-color);
 }
 
-main {
+.main-content {
+    display: grid;
+    grid-template-columns: 60fr 40fr;
+    gap: 40px;
+}
+
+.left-column, .right-column {
     display: flex;
+    flex-direction: column;
     gap: 30px;
 }
 
-/* Form Section */
-.form-section {
-    flex: 1;
+/* --- Left Column: Input & Results --- */
+.input-block, .results-block, .diagram-block, .suggestions-block {
+    background-color: var(--white-color);
+    padding: 25px;
+    border-radius: var(--border-radius);
+    border: 1px solid #e9ecef;
 }
 
-label {
+.input-block label {
+    font-size: 1.2em;
+    font-weight: 600;
+    margin-bottom: 15px;
     display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-    color: #34495e;
 }
 
-input[type="text"],
-textarea {
-    width: 100%;
-    padding: 12px;
+.textarea-wrapper {
+    position: relative;
     margin-bottom: 20px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box; /* Important */
-    font-size: 1em;
 }
 
-textarea {
+textarea#process-description {
+    width: 100%;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1em;
     resize: vertical;
+    min-height: 200px;
 }
 
-.buttons {
-    display: flex;
-    gap: 10px;
+.step-counter {
+    position: absolute;
+    bottom: 10px;
+    right: 15px;
+    font-size: 0.85em;
+    color: var(--text-muted-color);
+    background-color: var(--white-color);
+    padding: 2px 8px;
 }
 
+/* --- Buttons --- */
 button {
-    padding: 12px 20px;
+    padding: 12px 25px;
+    border-radius: var(--border-radius);
     border: none;
-    border-radius: 4px;
-    color: #fff;
-    background-color: #3498db;
-    cursor: pointer;
     font-size: 1em;
-    transition: background-color 0.3s;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
-button:hover {
-    background-color: #2980b9;
+button.button-primary {
+    background-color: var(--primary-color);
+    color: var(--white-color);
+    width: 100%;
+    font-size: 1.1em;
 }
 
-#improve-btn {
-    background-color: #2ecc71;
-}
-
-#improve-btn:hover {
-    background-color: #27ae60;
+button.button-primary:hover {
+    background-color: var(--primary-hover-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
 }
 
 #apply-improvements-btn {
-    background-color: #e67e22;
+    background-color: var(--accent-color);
+    color: var(--white-color);
     width: 100%;
 }
 
 #apply-improvements-btn:hover {
-    background-color: #d35400;
+    background-color: var(--accent-hover-color);
 }
 
-/* Output Section */
-.output-section {
-    flex: 1;
+button:disabled {
+    background-color: #ced4da;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: var(--white-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+
+/* --- Right Column: Suggestions --- */
+.suggestions-controls {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background-color: #f1f3f5;
+    border-radius: var(--border-radius);
+    margin-bottom: 20px;
 }
 
-h2 {
-    color: #2c3e50;
-    border-bottom: 1px solid #e0e0e0;
-    padding-bottom: 10px;
-}
-
-.diagram-container {
-    border: 1px dashed #bdc3c7;
-    padding: 20px;
-    margin-top: 10px;
-    background-color: #ecf0f1;
-    border-radius: 4px;
-    min-height: 200px;
+.select-all-wrapper {
     display: flex;
     align-items: center;
-    justify-content: center;
-    text-align: center;
-    color: #7f8c8d;
+    gap: 8px;
 }
 
-#download-btn {
-    margin-top: 15px;
-    background-color: #9b59b6;
-    align-self: center;
+#selection-counter {
+    font-weight: 500;
 }
 
-#download-btn:hover {
-    background-color: #8e44ad;
+#suggestions-container {
+    display: grid;
+    grid-template-columns: 1fr; /* Default to 1 column */
+    gap: 20px;
+    min-height: 150px;
 }
 
-.suggestions-container {
-    margin-top: 30px;
-}
-
-.suggestions-container h3 {
-    color: #34495e;
-}
-
-#suggestions-text {
-    /* This container will now hold cards, so it needs less specific styling */
-    background-color: transparent; /* Let the container blend in */
-    padding: 5px 0;
-    min-height: 100px;
-    border: none; /* Remove previous border */
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    main {
-        flex-direction: column;
+/* Grid for wider screens */
+@media (min-width: 1200px) {
+    #suggestions-container {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     }
 }
 
-/* UI States */
-.loading, .error {
-    text-align: center;
-    padding: 20px;
-    font-style: italic;
-    color: #7f8c8d;
-}
-
-.error {
-    color: #e74c3c;
-    font-weight: bold;
-}
-
-/* Suggestion Card Styles */
 .suggestion-card {
-    background-color: #fff;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
+    background-color: var(--white-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
     padding: 20px;
-    margin-bottom: 15px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    transition: box-shadow 0.3s;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
 }
 
 .suggestion-card:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: scale(1.03);
+    box-shadow: var(--shadow);
+}
+
+.suggestion-card.selected {
+    border-color: var(--primary-color);
+    background-color: #e7f3ff;
+    box-shadow: 0 0 0 2px var(--primary-color);
 }
 
 .suggestion-header {
     display: flex;
     align-items: center;
-    margin-bottom: 15px;
+    gap: 10px;
+    margin-bottom: 12px;
 }
 
 .suggestion-icon {
-    font-size: 1.5em;
-    margin-right: 12px;
+    font-size: 1.4em;
 }
 
 .suggestion-category {
-    margin: 0;
-    font-size: 1.2em;
-    color: #2c3e50;
+    font-weight: 600;
 }
 
-.suggestion-text {
-    color: #34495e;
-    margin-bottom: 12px;
+/* --- Diagram Block --- */
+.diagram-placeholder {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 30px;
+    text-align: center;
+    background-color: #fdfdff;
+    transition: background-color 0.3s;
 }
 
-.suggestion-benefit {
-    background-color: #e8f6f3;
-    border-left: 3px solid #1abc9c;
-    padding: 10px;
-    border-radius: 4px;
-    margin-bottom: 12px;
-    font-size: 0.95em;
+.diagram-placeholder .placeholder-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    color: var(--text-muted-color);
 }
 
-.suggestion-step {
-    font-size: 0.9em;
-    color: #7f8c8d;
-    text-align: right;
+.placeholder-icon {
+    color: var(--primary-color);
+    opacity: 0.6;
 }
 
-/* New Analysis Sections */
-.analysis-section {
-    margin-top: 25px;
+button.button-secondary {
+    background-color: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+button.button-secondary:hover {
+    background-color: var(--primary-color);
+    color: var(--white-color);
 }
 
-.analysis-section h4 {
-    color: #2c3e50;
-    border-bottom: 1px solid #e0e0e0;
-    padding-bottom: 8px;
-    margin-bottom: 15px;
+#diagram-container {
+    padding: 20px;
+    background-color: var(--white-color);
+    border-radius: var(--border-radius);
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.analysis-section table {
-    width: 100%;
-    border-collapse: collapse;
+#diagram-toolbar {
     margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
 }
 
-.analysis-section th, .analysis-section td {
-    border: 1px solid #ddd;
-    padding: 12px;
-    text-align: left;
+#diagram-toolbar button {
+    background-color: #f1f3f5;
+    color: #333;
+    padding: 8px 12px;
 }
 
-.analysis-section th {
-    background-color: #f2f2f2;
+/* --- Responsive Design --- */
+@media (max-width: 1024px) {
+    .main-content {
+        grid-template-columns: 1fr; /* Stack columns */
+    }
 }
 
-.analysis-section p {
-    background-color: #f8f9f9;
-    padding: 15px;
-    border-radius: 4px;
-    border-left: 4px solid #3498db;
-    white-space: pre-wrap;
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    .container {
+        padding: 15px;
+    }
 }
 
-.suggestion-card .checkbox-container {
-    padding-top: 5px;
-    margin-right: 15px;
+/* --- Utility Classes --- */
+.placeholder-text {
+    color: var(--text-muted-color);
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    border-radius: var(--border-radius);
 }
