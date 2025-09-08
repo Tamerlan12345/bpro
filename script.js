@@ -7,6 +7,8 @@ const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-
 // Initialize Mermaid.js
 mermaid.initialize({ startOnLoad: true });
 
+let lastSuggestions = []; // To store the latest suggestions for applying them later
+
 // --- DOM Elements ---
 const processNameInput = document.getElementById('process-name');
 const processDescriptionInput = document.getElementById('process-description');
@@ -16,6 +18,7 @@ const downloadBtn = document.getElementById('download-btn');
 const diagramContainer = document.getElementById('diagram-container');
 const suggestionsText = document.getElementById('suggestions-text');
 const suggestionsContainer = document.getElementById('suggestions-container');
+const applyImprovementsBtn = document.getElementById('apply-improvements-btn');
 
 // --- Event Listeners ---
 
@@ -44,13 +47,19 @@ improveBtn.addEventListener('click', async () => {
         return;
     }
     setLoading(suggestionsText, 'Анализирую процесс...');
+    suggestionsText.innerHTML = ''; // Clear previous suggestions
 
     try {
-        const suggestions = await getOptimizationSuggestions(description);
-        suggestionsText.textContent = suggestions;
+        const suggestionsJSON = await getOptimizationSuggestions(description);
+        // Attempt to clean the string if it's wrapped in markdown
+        const cleanedJson = suggestionsJSON.replace(/^```json\s*|```$/g, '');
+        const suggestions = JSON.parse(cleanedJson);
+        lastSuggestions = suggestions; // Store for later use
+        renderSuggestions(suggestions); // This function will be properly implemented in the next step
     } catch (error) {
-        setError(suggestionsText, 'Не удалось получить предложения. Проверьте консоль для деталей.');
-        console.error('Error getting suggestions:', error);
+        setError(suggestionsText, 'Не удалось получить или обработать предложения. Проверьте консоль для деталей.');
+        console.error('Error getting or parsing suggestions:', error);
+        lastSuggestions = []; // Reset on error
     }
 });
 
@@ -66,6 +75,40 @@ downloadBtn.addEventListener('click', () => {
         console.error('Error creating image:', err);
         alert('Не удалось скачать схему.');
     });
+});
+
+applyImprovementsBtn.addEventListener('click', async () => {
+    const originalProcess = processDescriptionInput.value;
+    if (!originalProcess.trim() || lastSuggestions.length === 0) {
+        alert('Нет исходного процесса или предложений для применения.');
+        return;
+    }
+
+    setLoading(diagramContainer, 'Применяю улучшения и перестраиваю схему...');
+
+    // Hide the optimized process container until it's ready
+    const optimizedContainer = document.getElementById('optimized-process-container');
+    if(optimizedContainer) optimizedContainer.style.display = 'none';
+
+
+    try {
+        const optimizedProcess = await getOptimizedProcess(originalProcess, lastSuggestions);
+
+        // This part will be fully implemented in the next step
+        const optimizedProcessText = document.getElementById('optimized-process-text');
+        if(optimizedProcessText) {
+            optimizedProcessText.textContent = optimizedProcess;
+            optimizedContainer.style.display = 'block';
+        }
+
+        // Update diagram with the new process
+        const mermaidCode = await getMermaidCode(optimizedProcess);
+        renderDiagram(mermaidCode);
+
+    } catch (error) {
+        setError(diagramContainer, 'Не удалось применить улучшения.');
+        console.error('Error applying improvements:', error);
+    }
 });
 
 
@@ -108,10 +151,35 @@ async function getMermaidCode(processDescription) {
 }
 
 async function getOptimizationSuggestions(processDescription) {
-    const prompt = `Проанализируй следующее описание бизнес-процесса и предложи конкретные улучшения для его оптимизации. Сформулируй предложения в виде списка.
+    const prompt = `Ты — эксперт по оптимизации бизнес-процессов. Проанализируй следующий процесс. Верни результат в виде чистого JSON-массива, без каких-либо дополнительных текстовых пояснений или markdown-форматирования. Каждый объект в массиве должен содержать поля: "step_number" (номер шага из исходного процесса, к которому относится улучшение, или null, если улучшение общее), "category" (одно из значений: 'Автоматизация', 'Упрощение', 'Устранение дублирования', 'Повышение контроля', 'Снижение рисков'), "suggestion_text" (текстовое описание предложения по улучшению), и "benefit" (краткое описание ожидаемой выгоды).
 
 Описание процесса:
 "${processDescription}"`;
+
+    let jsonString = await callGeminiAPI(prompt);
+    // Clean up the response to ensure it's just the JSON string
+    jsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+    return jsonString;
+}
+
+async function getOptimizedProcess(originalProcess, suggestions) {
+    // Convert suggestions array to a simple text list for the prompt
+    const suggestionsText = suggestions.map(s => {
+        let context = s.step_number ? `(относится к шагу ${s.step_number})` : '(общее)';
+        return `- ${s.suggestion_text} ${context}`;
+    }).join('\n');
+
+    const prompt = `На основе этого исходного процесса и этих рекомендаций создай новую, оптимизированную версию процесса.
+Представь её в виде чёткого пошагового списка. Сохрани или адаптируй нумерацию шагов.
+Не добавляй заголовок "Оптимизированный процесс" или что-либо лишнее, только шаги.
+Ключевая задача - интегрировать предложенные улучшения в единый, логичный и последовательный новый процесс.
+
+Исходный процесс:
+"${originalProcess}"
+
+Рекомендации:
+"${suggestionsText}"`;
+
     return callGeminiAPI(prompt);
 }
 
@@ -142,6 +210,51 @@ function setLoading(element, text) {
 
 function setError(element, text) {
     element.innerHTML = `<div class="error">${text}</div>`;
+}
+
+function renderSuggestions(suggestions) {
+    suggestionsText.innerHTML = ''; // Clear previous content
+
+    if (!suggestions || suggestions.length === 0) {
+        suggestionsText.innerHTML = '<p>Предложений по оптимизации не найдено.</p>';
+        return;
+    }
+
+    const categoryIcons = {
+        'Автоматизация': '⚙️',
+        'Упрощение': '✨',
+        'Устранение дублирования': '🗑️',
+        'Повышение контроля': '👁️',
+        'Снижение рисков': '🛡️'
+    };
+
+    const cardsHtml = suggestions.map(suggestion => {
+        const icon = categoryIcons[suggestion.category] || '💡';
+        const stepLink = suggestion.step_number ?
+            `<div class="suggestion-step">Относится к шагу №${suggestion.step_number}</div>` : '';
+
+        return `
+            <div class="suggestion-card">
+                <div class="suggestion-header">
+                    <span class="suggestion-icon">${icon}</span>
+                    <h4 class="suggestion-category">${suggestion.category}</h4>
+                </div>
+                <p class="suggestion-text">${suggestion.suggestion_text}</p>
+                <div class="suggestion-benefit">
+                    <strong>Выгода:</strong> ${suggestion.benefit}
+                </div>
+                ${stepLink}
+            </div>
+        `;
+    }).join('');
+
+    suggestionsText.innerHTML = cardsHtml;
+
+    if (suggestions && suggestions.length > 0) {
+        applyImprovementsBtn.style.display = 'block';
+    } else {
+        applyImprovementsBtn.style.display = 'none';
+    }
 }
 
 console.log("Process builder script loaded and initialized.");

@@ -94,6 +94,15 @@ button:hover {
     background-color: #27ae60;
 }
 
+#apply-improvements-btn {
+    background-color: #e67e22;
+    width: 100%;
+}
+
+#apply-improvements-btn:hover {
+    background-color: #d35400;
+}
+
 /* Output Section */
 .output-section {
     flex: 1;
@@ -140,12 +149,11 @@ h2 {
 }
 
 #suggestions-text {
-    background-color: #fdfaf2;
-    border-left: 4px solid #f1c40f;
-    padding: 15px;
-    border-radius: 4px;
-    color: #555;
+    /* This container will now hold cards, so it needs less specific styling */
+    background-color: transparent; /* Let the container blend in */
+    padding: 5px 0;
     min-height: 100px;
+    border: none; /* Remove previous border */
 }
 
 /* Responsive adjustments */
@@ -166,4 +174,71 @@ h2 {
 .error {
     color: #e74c3c;
     font-weight: bold;
+}
+
+/* Suggestion Card Styles */
+.suggestion-card {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: box-shadow 0.3s;
+}
+
+.suggestion-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.suggestion-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.suggestion-icon {
+    font-size: 1.5em;
+    margin-right: 12px;
+}
+
+.suggestion-category {
+    margin: 0;
+    font-size: 1.2em;
+    color: #2c3e50;
+}
+
+.suggestion-text {
+    color: #34495e;
+    margin-bottom: 12px;
+}
+
+.suggestion-benefit {
+    background-color: #e8f6f3;
+    border-left: 3px solid #1abc9c;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    font-size: 0.95em;
+}
+
+.suggestion-step {
+    font-size: 0.9em;
+    color: #7f8c8d;
+    text-align: right;
+}
+
+/* Optimized Process Section */
+.optimized-process-container h3 {
+    color: #34495e;
+}
+
+.optimized-process-text {
+    background-color: #f8f9f9;
+    border-left: 4px solid #3498db;
+    padding: 15px;
+    border-radius: 4px;
+    color: #555;
+    white-space: pre-wrap; /* To respect line breaks from the API */
+    min-height: 50px;
 }
