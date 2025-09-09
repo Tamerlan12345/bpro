@@ -1,13 +1,13 @@
-// --- НАЧАЛО КОДА ДЛЯ ПОЛНОЙ ЗАМЕНЫ В SCRIPT.JS ---
+
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Configuration ---
+
     const API_URL = '/api/generate';
 
-    // --- State Management ---
+
     let suggestions = [];
     let currentDiagramScale = 1;
 
-    // --- DOM Elements ---
+
     const processDescriptionInput = document.getElementById('process-description');
     const improveBtn = document.getElementById('improve-btn');
     const stepCounter = document.getElementById('step-counter');
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadSvgBtn = document.getElementById('download-svg-btn');
     const resultsBlock = document.querySelector('.results-block');
 
-    // --- Initialization ---
+
     mermaid.initialize({
         startOnLoad: false,
         theme: 'base',
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Event Listeners ---
+
     processDescriptionInput.addEventListener('input', updateStepCounter);
     improveBtn.addEventListener('click', handleImproveRequest);
     applyImprovementsBtn.addEventListener('click', handleApplyImprovements);
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     downloadPngBtn.addEventListener('click', downloadDiagramPNG);
     downloadSvgBtn.addEventListener('click', downloadDiagramSVG);
 
-    // --- Core Functions ---
+
     function updateStepCounter() {
         const text = processDescriptionInput.value;
         const lines = text.split('\n').filter(line => line.trim() !== '');
@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- UI & Helper Functions ---
+
     function handleCardSelection(e) {
         const card = e.target.closest('.suggestion-card');
         if (card) {
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(url);
     }
 
-    // --- API Functions & Prompts ---
+
     async function callGeminiAPI(prompt) {
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -277,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
     }
 
-    // --- Initial UI State ---
+
     updateStepCounter();
 });
-// --- КОНЕЦ КОДА ДЛЯ ПОЛНОЙ ЗАМЕНЫ В SCRIPT.JS ---
+
