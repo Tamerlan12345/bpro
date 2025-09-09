@@ -1,4 +1,4 @@
-// Загружаем переменные окружения из файла .env
+
 require('dotenv').config();
 
 const express = require('express');
@@ -6,27 +6,27 @@ const fetch = require('node-fetch');
 const cors = require('cors');
 
 const app = express();
-// Важно: Укажите порт из переменных окружения или 3000 по умолчанию
+
 const PORT = process.env.PORT || 3000;
 
-// --- Middlewares ---
-app.use(express.json()); // Для парсинга JSON-тела запроса
 
-// Отдаем статические файлы из папки 'public'
+app.use(express.json()); 
+
+
 app.use(express.static('public'));
 
-// Так как фронтенд и бэкенд теперь на одном домене, сложная настройка CORS не нужна.
-// Оставляем простой вызов для возможности локальной разработки с других портов.
+
+
 app.use(cors());
 
 
-// --- Routes ---
+
 app.post('/api/generate', async (req, res) => {
   const { prompt } = req.body;
   const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
 
-  // Проверка, что промпт и ключ API существуют
+
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt is required' });
   }
@@ -57,7 +57,7 @@ app.post('/api/generate', async (req, res) => {
   }
 });
 
-// --- Server Activation ---
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
