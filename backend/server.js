@@ -12,11 +12,12 @@ const PORT = process.env.PORT || 3000;
 // --- Middlewares ---
 app.use(express.json()); // Для парсинга JSON-тела запроса
 
-// Настройка CORS: разрешаем запросы только с вашего фронтенд-домена
-const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5500' // Укажите URL вашего фронтенда
-};
-app.use(cors(corsOptions));
+// Отдаем статические файлы из папки 'public'
+app.use(express.static('public'));
+
+// Так как фронтенд и бэкенд теперь на одном домене, сложная настройка CORS не нужна.
+// Оставляем простой вызов для возможности локальной разработки с других портов.
+app.use(cors());
 
 
 // --- Routes ---
