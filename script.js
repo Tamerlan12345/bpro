@@ -1,9 +1,7 @@
 // --- НАЧАЛО КОДА ДЛЯ ПОЛНОЙ ЗАМЕНЫ В SCRIPT.JS ---
 document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration ---
-    // ВАЖНО: Вставьте ваш настоящий API-ключ. Без него генерация не будет работать.
-    const API_KEY = 'AIzaSyCisFe9LE9ykOlc7JOn7NEJQDJ3LaMMFqI'; 
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+    const API_URL = '/api/generate'; // The new proxy endpoint
 
     // --- State Management ---
     let suggestions = [];
@@ -247,15 +245,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            // The serverless function expects a JSON body with a `prompt` key.
+            body: JSON.stringify({ prompt: prompt })
         });
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error ? errorData.error.message : 'Unknown API error');
+            // The user will now see the more specific error message from the backend.
+            const errorMessage = errorData.error ? errorData.error.message : 'Unknown API error';
+            throw new Error(errorMessage);
         }
         const data = await response.json();
         if (!data.candidates || !data.candidates[0].content) {
-            throw new Error('Invalid API response structure');
+            throw new Error('Invalid API response structure from Google');
         }
         return data.candidates[0].content.parts[0].text;
     }
