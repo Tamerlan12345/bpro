@@ -1,7 +1,7 @@
 // --- НАЧАЛО КОДА ДЛЯ ПОЛНОЙ ЗАМЕНЫ В SCRIPT.JS ---
 document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration ---
-    const API_URL = '/api/generate'; // The new proxy endpoint
+    const API_URL = 'http://localhost:3000/api/generate'; // Для локальной разработки
 
     // --- State Management ---
     let suggestions = [];
