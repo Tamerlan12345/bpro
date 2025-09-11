@@ -371,9 +371,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const dept = await response.json();
             department = dept;
             departmentError.textContent = '';
-            departmentLogin.style.display = 'none';
-            chatLogin.style.display = 'block';
-            await loadChats(department.id);
+
+            if (department.name === 'admin') {
+                // Admin Flow: Go directly to the admin panel
+                loginContainer.style.display = 'none';
+                adminPanel.style.display = 'block';
+                mainContainer.style.display = 'none'; // Ensure user container is hidden
+                loadAdminPanel();
+            } else {
+                // Regular User Flow: Proceed to chat selection
+                departmentLogin.style.display = 'none';
+                chatLogin.style.display = 'block';
+                await loadChats(department.id);
+            }
         } catch (error) {
             console.error('Department login error:', error);
             departmentError.textContent = 'Ошибка входа';
