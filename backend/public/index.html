@@ -74,6 +74,7 @@
 
     <div class="container" style="display: none;">
         <header>
+            <button id="back-to-admin-btn" style="display: none;">← Назад в админ-панель</button>
             <h1 id="chat-name-header">BizMap AI Agent</h1>
             <p>Опишите ваш бизнес-процесс, и ИИ построит схему и предложит улучшения.</p>
             <div id="action-buttons">
@@ -112,11 +113,12 @@
                         <div class="placeholder-content">
                             <svg class="placeholder-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10a4 4 0 1 0-8 0 4 4 0 0 0 8 0z"/><path d="M12 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M6 10a4 4 0 1 0-8 0 4 4 0 0 0 8 0zM12 6V2"/><path d="M12 22v-4"/><path d="m15 7 2-2"/><path d="m5 17 2 2"/><path d="m15 17-2 2"/><path d="m5 7 2-2"/></svg>
                             <p>Здесь появится интерактивная схема процесса</p>
-                            <button id="render-diagram-btn" class="button-secondary">Показать схему</button>
+                            <button id="render-diagram-btn" class="button-secondary">Создать схему</button>
                         </div>
                         <div id="diagram-container" class="diagram-container" style="display: none;"></div>
                     </div>
                     <div id="diagram-toolbar" class="diagram-toolbar" style="display: none;">
+                        <button id="regenerate-diagram-btn" title="Перегенерировать схему">Перегенерировать</button>
                         <button id="zoom-in-btn" title="Приблизить">+</button>
                         <button id="zoom-out-btn" title="Отдалить">-</button>
                         <button id="download-png-btn" title="Скачать PNG">PNG</button>
