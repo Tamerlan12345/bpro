@@ -572,23 +572,59 @@ button.button-secondary:hover {
     background-color: #FAFAC8;
 }
 
-.admin-forms-container {
-    display: flex;
-    gap: 40px;
-    margin-bottom: 30px;
+.admin-main-view {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 30px;
 }
 
-#create-department-form, #create-chat-form {
-    flex: 1;
+#department-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.department-card {
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.department-card:hover {
+    background-color: #f8f9fa;
+}
+
+.department-card.selected {
+    background-color: var(--primary-color);
+    color: var(--white-color);
+    border-color: var(--primary-hover-color);
+}
+
+#chat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.chat-item {
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: var(--border-radius);
+}
+
+#create-department-form {
+    margin-bottom: 20px;
     padding: 20px;
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
-    margin-bottom: 20px;
 }
-#create-chat-form h3 {
+#create-department-form h3 {
     margin-top: 0;
 }
-#create-chat-form input {
+#create-department-form input {
     width: 100%;
     padding: 10px;
     margin-bottom: 10px;
