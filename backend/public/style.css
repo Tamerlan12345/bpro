@@ -492,6 +492,39 @@ button.button-secondary:hover {
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
 }
+
+#chat-selection-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.chat-card {
+    padding: 20px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.chat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow);
+}
+
+.chat-card.selected {
+    border-color: var(--primary-color);
+    background-color: #E9EFFF;
+    font-weight: 600;
+}
+
+.chat-icon {
+    font-size: 2em;
+    display: block;
+    margin-bottom: 10px;
+}
 .comment-form button {
     width: 100%;
 }
@@ -539,7 +572,14 @@ button.button-secondary:hover {
     background-color: #FAFAC8;
 }
 
-#create-chat-form {
+.admin-forms-container {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 30px;
+}
+
+#create-department-form, #create-chat-form {
+    flex: 1;
     padding: 20px;
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);

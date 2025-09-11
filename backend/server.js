@@ -21,49 +21,27 @@ app.use(express.static('public'));
 
 
 
-// Department authentication / creation
+// Department authentication
 app.post('/api/auth/department', async (req, res) => {
     const { name, password } = req.body;
 
-    // Check if department exists
-    const { data: department, error: fetchError } = await supabase
+    const { data: department, error } = await supabase
         .from('departments')
         .select('id, name, hashed_password')
         .eq('name', name)
         .single();
 
-    // If department exists, check password
-    if (department) {
-        const passwordMatches = await bcrypt.compare(password, department.hashed_password);
-        if (passwordMatches) {
-            return res.json({ id: department.id, name: department.name });
-        } else {
-            return res.status(401).json({ error: 'Invalid password' });
-        }
+    if (error || !department) {
+        return res.status(401).json({ error: 'Invalid department or password' });
     }
 
-    // If department does not exist (and no other error occurred), create it
-    if (fetchError && fetchError.code === 'PGRST116') { // PGRST116: "The result contains 0 rows"
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+    const passwordMatches = await bcrypt.compare(password, department.hashed_password);
 
-        const { data: newDepartment, error: insertError } = await supabase
-            .from('departments')
-            .insert([{ name, hashed_password: hashedPassword }])
-            .select('id, name')
-            .single();
-
-        if (insertError) {
-            return res.status(500).json({ error: 'Could not create department', details: insertError.message });
-        }
-
-        return res.status(201).json(newDepartment);
+    if (!passwordMatches) {
+        return res.status(401).json({ error: 'Invalid department or password' });
     }
 
-    // Handle other potential errors during fetch
-    if(fetchError) {
-        return res.status(500).json({ error: 'Database error', details: fetchError.message });
-    }
+    res.json({ id: department.id, name: department.name });
 });
 
 // Admin: Get chats in review
@@ -77,6 +55,24 @@ app.get('/api/admin/chats/in_review', async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
     res.json(data);
+});
+
+// Admin: Create a new department
+// TODO: Add a middleware to check if the user is an admin
+app.post('/api/departments', async (req, res) => {
+    const { name, password } = req.body;
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const { data, error } = await supabase
+        .from('departments')
+        .insert([{ name, hashed_password: hashedPassword }])
+        .select();
+
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
+    res.status(201).json(data);
 });
 
 // Admin: Get completed chats
