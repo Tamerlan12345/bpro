@@ -49,10 +49,25 @@ app.get('/api/admin/chats/in_review', async (req, res) => {
     const { data, error } = await supabase
         .from('chat_statuses')
         .select('*, chats(*)')
-        .eq('status', 'in_review');
+        .eq('status', 'pending_review');
 
     if (error) {
         return res.status(500).json({ error: error.message });
+    }
+    res.json(data);
+});
+
+// Get chat status
+app.get('/api/chats/:id/status', async (req, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase
+        .from('chat_statuses')
+        .select('status')
+        .eq('chat_id', id)
+        .single();
+
+    if (error || !data) {
+        return res.status(404).json({ error: 'Status not found' });
     }
     res.json(data);
 });
@@ -128,7 +143,7 @@ app.get('/api/chats', async (req, res) => {
     const { department_id } = req.query;
     const { data, error } = await supabase
         .from('chats')
-        .select('id, name')
+        .select('id, name, chat_statuses(status)')
         .eq('department_id', department_id);
 
     if (error) {
@@ -165,6 +180,41 @@ app.post('/api/chats', async (req, res) => {
     res.status(201).json(chatData);
 });
 
+// Middleware to check if a user has permission to edit a chat
+const checkChatPermission = async (req, res, next) => {
+    const { id: chatId } = req.params;
+    // The user's role is sent in a custom header. This is not secure for production
+    // but follows the existing pattern of the app. A proper auth system is needed.
+    const userRole = req.headers['x-user-role'];
+
+    if (!userRole) {
+        return res.status(401).json({ error: 'User role not provided via X-User-Role header' });
+    }
+
+    const { data: statusData, error } = await supabase
+        .from('chat_statuses')
+        .select('status')
+        .eq('chat_id', chatId)
+        .single();
+
+    if (error || !statusData) {
+        return res.status(404).json({ error: 'Chat not found' });
+    }
+
+    const { status } = statusData;
+
+    // Define permissions based on the chat status
+    const canEdit =
+        (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) ||
+        (userRole === 'admin' && status === 'pending_review');
+
+    if (!canEdit) {
+        return res.status(403).json({ error: 'You do not have permission to edit this chat in its current state.' });
+    }
+
+    next();
+};
+
 // Get all versions for a chat
 app.get('/api/chats/:id/versions', async (req, res) => {
     const { id } = req.params;
@@ -181,7 +231,7 @@ app.get('/api/chats/:id/versions', async (req, res) => {
 });
 
 // Create a new version for a chat
-app.post('/api/chats/:id/versions', async (req, res) => {
+app.post('/api/chats/:id/versions', checkChatPermission, async (req, res) => {
     const { id } = req.params;
     const { process_text, mermaid_code } = req.body;
     const { data, error } = await supabase
@@ -225,13 +275,52 @@ app.post('/api/chats/:id/comments', async (req, res) => {
     res.status(201).json(data);
 });
 
+const checkStatusChangePermission = async (req, res, next) => {
+    const { id: chatId } = req.params;
+    const { status: newStatus } = req.body;
+    const userRole = req.headers['x-user-role'];
+
+    if (!userRole || !newStatus) {
+        return res.status(400).json({ error: 'User role and new status are required.' });
+    }
+
+    const { data: statusData, error } = await supabase
+        .from('chat_statuses')
+        .select('status')
+        .eq('chat_id', chatId)
+        .single();
+
+    if (error || !statusData) {
+        return res.status(404).json({ error: 'Chat not found' });
+    }
+    const { status: currentStatus } = statusData;
+
+    let canChange = false;
+    if (userRole === 'user') {
+        if ((currentStatus === 'draft' || currentStatus === 'needs_revision') && newStatus === 'pending_review') {
+            canChange = true;
+        }
+    } else if (userRole === 'admin') {
+        if (currentStatus === 'pending_review' && (newStatus === 'needs_revision' || newStatus === 'completed')) {
+            canChange = true;
+        }
+    }
+
+    if (!canChange) {
+        return res.status(403).json({ error: `User role '${userRole}' cannot change status from '${currentStatus}' to '${newStatus}'` });
+    }
+
+    next();
+};
+
 // Update chat status
-app.put('/api/chats/:id/status', async (req, res) => {
+app.put('/api/chats/:id/status', checkStatusChangePermission, async (req, res) => {
     const { id } = req.params;
-    const { status, user_seen, admin_seen } = req.body;
+    const { status } = req.body;
     const { data, error } = await supabase
         .from('chat_statuses')
-        .upsert({ chat_id: id, status, user_seen, admin_seen })
+        .update({ status: status })
+        .eq('chat_id', id)
         .select();
 
     if (error) {
