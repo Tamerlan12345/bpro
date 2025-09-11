@@ -3,13 +3,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const API_URL = '/api/generate';
 
-
     let suggestions = [];
     let currentDiagramScale = 1;
+    let department = null;
+    let chatId = null;
 
+    // Login elements
+    const loginContainer = document.getElementById('login-container');
+    const departmentLogin = document.getElementById('department-login');
+    const chatLogin = document.getElementById('chat-login');
+    const departmentNameInput = document.getElementById('department-name');
+    const departmentPasswordInput = document.getElementById('department-password');
+    const departmentLoginBtn = document.getElementById('department-login-btn');
+    const departmentError = document.getElementById('department-error');
+    const chatSelect = document.getElementById('chat-select');
+    const chatPasswordInput = document.getElementById('chat-password');
+    const chatLoginBtn = document.getElementById('chat-login-btn');
+    const chatError = document.getElementById('chat-error');
+    const chatNameHeader = document.getElementById('chat-name-header');
 
+    // Main app elements
+    const mainContainer = document.querySelector('.container');
+    const adminPanel = document.getElementById('admin-panel');
+    const createChatForm = document.getElementById('create-chat-form');
+    const newChatNameInput = document.getElementById('new-chat-name');
+    const newChatPasswordInput = document.getElementById('new-chat-password');
+    const createChatBtn = document.getElementById('create-chat-btn');
+    const inReviewList = document.getElementById('in-review-list');
+    const completedList = document.getElementById('completed-list');
+    const actionButtons = document.getElementById('action-buttons');
+    const saveVersionBtn = document.getElementById('save-version-btn');
+    const sendReviewBtn = document.getElementById('send-review-btn');
+    const completeBtn = document.getElementById('complete-btn');
+    const archiveBtn = document.getElementById('archive-btn');
     const processDescriptionInput = document.getElementById('process-description');
     const improveBtn = document.getElementById('improve-btn');
+    const versionHistoryContainer = document.getElementById('version-history-container');
+    const commentsContainer = document.getElementById('comments-container');
+    const commentInput = document.getElementById('comment-input');
+    const addCommentBtn = document.getElementById('add-comment-btn');
     const stepCounter = document.getElementById('step-counter');
     const userPromptInput = document.getElementById('user-prompt');
     const suggestionsContainer = document.getElementById('suggestions-container');
@@ -42,7 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-
+    // Event Listeners
+    departmentLoginBtn.addEventListener('click', handleDepartmentLogin);
+    chatLoginBtn.addEventListener('click', handleChatLogin);
     processDescriptionInput.addEventListener('input', updateStepCounter);
     improveBtn.addEventListener('click', handleImproveRequest);
     applyImprovementsBtn.addEventListener('click', handleApplyImprovements);
@@ -53,6 +87,15 @@ document.addEventListener('DOMContentLoaded', () => {
     zoomOutBtn.addEventListener('click', () => zoomDiagram(0.9));
     downloadPngBtn.addEventListener('click', downloadDiagramPNG);
     downloadSvgBtn.addEventListener('click', downloadDiagramSVG);
+    saveVersionBtn.addEventListener('click', handleSaveVersion);
+    sendReviewBtn.addEventListener('click', () => handleUpdateStatus('in_review'));
+    completeBtn.addEventListener('click', () => handleUpdateStatus('completed'));
+    archiveBtn.addEventListener('click', () => handleUpdateStatus('archived'));
+    addCommentBtn.addEventListener('click', handleAddComment);
+    inReviewList.addEventListener('click', handleAdminChatSelection);
+    completedList.addEventListener('click', handleAdminChatSelection);
+    versionHistoryContainer.addEventListener('click', handleVersionSelection);
+    createChatBtn.addEventListener('click', handleCreateChat);
 
 
     function updateStepCounter() {
@@ -126,14 +169,22 @@ document.addEventListener('DOMContentLoaded', () => {
         diagramContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
         diagramToolbar.style.display = 'none';
 
-        try {
-            const mermaidCode = await getMermaidCode(description);
-            await renderDiagram(mermaidCode);
-            diagramToolbar.style.display = 'flex';
-        } catch (error) {
-            diagramContainer.innerHTML = '<p class="placeholder-text error">Не удалось построить схему.</p>';
-            console.error('ОШИБКА:', error);
+        let lastError = null;
+        for (let i = 0; i < 3; i++) {
+            try {
+                const mermaidCode = await getMermaidCode(description);
+                console.log("Generated Mermaid Code (Attempt " + (i + 1) + "):", mermaidCode);
+                await renderDiagram(mermaidCode);
+                diagramToolbar.style.display = 'flex';
+                return; // Success
+            } catch (error) {
+                console.error(`Attempt ${i + 1} failed:`, error);
+                lastError = error;
+            }
         }
+
+        diagramContainer.innerHTML = '<p class="placeholder-text error">Не удалось построить схему после нескольких попыток.</p>';
+        console.error('ОШИБКА:', lastError);
     }
 
 
@@ -273,11 +324,246 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function getMermaidCode(processDescription) {
-        const prompt = `Преобразуй пошаговое описание процесса в код Mermaid.js (синтаксис flowchart TD). Правильно определи связи между шагами. Ответ должен содержать ТОЛЬКО код Mermaid. ОПИСАНИЕ: "${processDescription}"`;
+        const prompt = `Ты — эксперт по визуализации бизнес-процессов с помощью Mermaid.js. Твоя задача — создать семантически корректную и визуально насыщенную схему.
+Инструкции:
+1.  Используй синтаксис 'flowchart TD'.
+2.  Для каждого шага процесса ОБЯЗАТЕЛЬНО включай текст шага внутрь узла. Пример: A["Клиент оставляет заявку"].
+3.  Используй разные фигуры в зависимости от семантики шага:
+    -   Если шаг описывает принятие решения (например, содержит слова "если", "да/нет", "проверка"), используй фигуру РОМБА: id{Текст}.
+    -   Если шаг связан с базой данных, хранилищем или записью информации, используй фигуру ЦИЛИНДРА: id[(Текст)].
+    -   Если шаг связан с документом, отчетом или бумажной работой, используй фигуру ДОКУМЕНТА: id>Текст].
+    -   Для всех остальных стандартных шагов используй ПРЯМОУГОЛЬНИК: id["Текст"].
+4.  Применяй стили к фигурам:
+    -   Для ромбов (решения): style id fill:#E6E6FA,stroke:#333,stroke-width:2px
+    -   Для цилиндров (БД): style id fill:#D3D3D3,stroke:#333,stroke-width:2px
+    -   Для документов: style id fill:#FAFAC8,stroke:#333,stroke-width:2px
+5.  Твой ответ должен содержать ТОЛЬКО код Mermaid.js, без каких-либо объяснений или \`\`\`mermaid ... \`\`\` оберток.
+
+ОПИСАНИЕ ПРОЦЕССА:
+"${processDescription}"`;
         return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
     }
 
+    // --- Authentication Functions ---
 
-    updateStepCounter();
+    async function handleDepartmentLogin() {
+        const name = departmentNameInput.value;
+        const password = departmentPasswordInput.value;
+        if (!name || !password) return;
+
+        try {
+            const response = await fetch('/api/auth/department', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, password })
+            });
+
+            if (!response.ok) {
+                departmentError.textContent = 'Неверные данные для входа';
+                return;
+            }
+
+            const dept = await response.json();
+            department = dept;
+            departmentError.textContent = '';
+            departmentLogin.style.display = 'none';
+            chatLogin.style.display = 'block';
+            await loadChats(department.id);
+        } catch (error) {
+            console.error('Department login error:', error);
+            departmentError.textContent = 'Ошибка входа';
+        }
+    }
+
+    async function loadChats(deptId) {
+        try {
+            const response = await fetch(`/api/chats?department_id=${deptId}`);
+            const chats = await response.json();
+            chatSelect.innerHTML = chats.map(chat => `<option value="${chat.id}">${chat.name}</option>`).join('');
+        } catch (error) {
+            console.error('Error loading chats:', error);
+            chatError.textContent = 'Не удалось загрузить чаты';
+        }
+    }
+
+    async function handleChatLogin() {
+        const selectedChatId = chatSelect.value;
+        const selectedChatName = chatSelect.options[chatSelect.selectedIndex].text;
+        const password = chatPasswordInput.value;
+        if (!selectedChatId || !password) return;
+
+        try {
+            const response = await fetch('/api/auth/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ department_id: department.id, name: selectedChatName, password })
+            });
+
+            if (!response.ok) {
+                chatError.textContent = 'Неверный пароль чата';
+                return;
+            }
+
+            const chat = await response.json();
+            chatId = chat.id;
+            chatError.textContent = '';
+            showMainApp(chat.name);
+        } catch (error) {
+            console.error('Chat login error:', error);
+            chatError.textContent = 'Ошибка входа в чат';
+        }
+    }
+
+    function showMainApp(chatName) {
+        loginContainer.style.display = 'none';
+        mainContainer.style.display = 'block';
+        chatNameHeader.textContent = `Чат: ${chatName}`;
+        updateStepCounter();
+        loadChatData();
+
+        // TODO: This is an insecure way to determine roles and is for demonstration purposes only.
+        // In a production environment, the user's role should be securely determined
+        // based on the authenticated session and returned from the backend.
+        if (department.name === 'admin') {
+            adminPanel.style.display = 'block';
+            loadAdminPanel();
+            completeBtn.style.display = 'inline-block';
+            archiveBtn.style.display = 'inline-block';
+        }
+    }
+
+    async function loadChatData() {
+        await loadVersions();
+        await loadComments();
+    }
+
+    async function loadVersions() {
+        const response = await fetch(`/api/chats/${chatId}/versions`);
+        const versions = await response.json();
+        renderVersions(versions);
+    }
+
+    function renderVersions(versions) {
+        versionHistoryContainer.innerHTML = versions.map(v => `
+            <div class="version-item" data-version-id="${v.id}">
+                <span>Версия от ${new Date(v.created_at).toLocaleString()}</span>
+                <button>Посмотреть</button>
+            </div>
+        `).join('');
+    }
+
+    async function loadComments() {
+        const response = await fetch(`/api/chats/${chatId}/comments`);
+        const comments = await response.json();
+        renderComments(comments);
+    }
+
+    function renderComments(comments) {
+        commentsContainer.innerHTML = comments.map(c => `
+            <div class="comment ${c.author_role}">
+                <span class="comment-author">${c.author_role}</span>
+                <p class="comment-text">${c.text}</p>
+                <span class="comment-date">${new Date(c.created_at).toLocaleString()}</span>
+            </div>
+        `).join('');
+    }
+
+    async function handleSaveVersion() {
+        const process_text = processDescriptionInput.value;
+        const mermaid_code = await getMermaidCode(process_text);
+        await fetch(`/api/chats/${chatId}/versions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ process_text, mermaid_code })
+        });
+        await loadVersions();
+    }
+
+    async function handleUpdateStatus(status) {
+        await fetch(`/api/chats/${chatId}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, user_seen: false, admin_seen: false })
+        });
+        alert(`Статус чата обновлен на: ${status}`);
+    }
+
+    async function handleAddComment() {
+        const text = commentInput.value;
+        if (!text.trim()) return;
+        const author_role = (department.name === 'admin') ? 'admin' : 'user';
+
+        await fetch(`/api/chats/${chatId}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ author_role, text })
+        });
+        commentInput.value = '';
+        await loadComments();
+    }
+
+    async function loadAdminPanel() {
+        const inReviewResponse = await fetch('/api/admin/chats/in_review');
+        const inReviewChats = await inReviewResponse.json();
+        inReviewList.innerHTML = inReviewChats.map(chat => `<li><a href="#" data-chat-id="${chat.chat_id}">${chat.chats.name}</a></li>`).join('');
+
+        const completedResponse = await fetch('/api/admin/chats/completed');
+        const completedChats = await completedResponse.json();
+        completedList.innerHTML = completedChats.map(chat => `<li><a href="#" data-chat-id="${chat.chat_id}">${chat.chats.name}</a></li>`).join('');
+    }
+
+    function openTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+        tablinks = document.getElementsByClassName("tab-link");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+
+    function handleAdminChatSelection(e) {
+        if (e.target.tagName === 'A') {
+            e.preventDefault();
+            chatId = e.target.dataset.chatId;
+            loadChatData();
+        }
+    }
+
+    async function handleVersionSelection(e) {
+        if (e.target.tagName === 'BUTTON') {
+            const versionId = e.target.parentElement.dataset.versionId;
+            const response = await fetch(`/api/chats/${chatId}/versions`);
+            const versions = await response.json();
+            const selectedVersion = versions.find(v => v.id == versionId);
+            if (selectedVersion) {
+                processDescriptionInput.value = selectedVersion.process_text;
+                renderDiagram(selectedVersion.mermaid_code);
+            }
+        }
+    }
+
+    async function handleCreateChat() {
+        const name = newChatNameInput.value;
+        const password = newChatPasswordInput.value;
+        if (!name || !password) return;
+
+        await fetch('/api/chats', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ department_id: department.id, name, password })
+        });
+
+        newChatNameInput.value = '';
+        newChatPasswordInput.value = '';
+        await loadChats(department.id);
+    }
+
+    // Initial setup
+    // updateStepCounter(); // This will be called after login
 });
 

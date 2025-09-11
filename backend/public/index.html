@@ -9,10 +9,55 @@
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
-    <div class="container">
+    <div id="login-container" class="login-container">
+        <div id="department-login" class="login-form">
+            <h2>Вход для департамента</h2>
+            <p>Введите название и пароль вашего подразделения.</p>
+            <input type="text" id="department-name" placeholder="Название департамента">
+            <input type="password" id="department-password" placeholder="Пароль департамента">
+            <button id="department-login-btn" class="button-primary">Войти</button>
+            <p id="department-error" class="error-message"></p>
+        </div>
+        <div id="chat-login" class="login-form" style="display: none;">
+            <h2>Выбор и вход в чат</h2>
+            <p>Выберите чат и введите его пароль.</p>
+            <select id="chat-select"></select>
+            <input type="password" id="chat-password" placeholder="Пароль чата">
+            <button id="chat-login-btn" class="button-primary">Войти в чат</button>
+            <p id="chat-error" class="error-message"></p>
+        </div>
+    </div>
+
+    <div id="admin-panel" style="display: none;">
+        <h2>Панель администратора</h2>
+        <div id="create-chat-form">
+            <h3>Создать новый чат</h3>
+            <input type="text" id="new-chat-name" placeholder="Название чата">
+            <input type="password" id="new-chat-password" placeholder="Пароль чата">
+            <button id="create-chat-btn">Создать</button>
+        </div>
+        <div class="admin-tabs">
+            <button class="tab-link active" onclick="openTab(event, 'in-review')">В работе</button>
+            <button class="tab-link" onclick="openTab(event, 'completed')">Завершенные</button>
+        </div>
+        <div id="in-review" class="tab-content" style="display: block;">
+            <ul id="in-review-list"></ul>
+        </div>
+        <div id="completed" class="tab-content">
+            <ul id="completed-list"></ul>
+        </div>
+    </div>
+
+    <div class="container" style="display: none;">
         <header>
-            <h1>Анализатор и визуализатор бизнес-процессов</h1>
+            <h1 id="chat-name-header">Анализатор и визуализатор бизнес-процессов</h1>
             <p>Опишите ваш бизнес-процесс, и ИИ построит схему и предложит улучшения.</p>
+            <div id="action-buttons">
+                <button id="save-version-btn">Сохранить версию</button>
+                <button id="send-review-btn">Отправить на проверку</button>
+                <button id="complete-btn" style="display: none;">Завершить</button>
+                <button id="archive-btn" style="display: none;">Архивировать</button>
+            </div>
         </header>
 
         <main class="main-content">
@@ -52,7 +97,18 @@
                         <button id="zoom-out-btn" title="Отдалить">-</button>
                         <button id="download-png-btn" title="Скачать PNG">PNG</button>
                         <button id="download-svg-btn" title="Скачать SVG">SVG</button>
+                        <button id="download-vsdx-btn" title="Экспорт в VSDX временно недоступен" disabled>VSDX</button>
                     </div>
+                </div>
+
+                <div class="legend">
+                    <h4>Легенда</h4>
+                    <ul>
+                        <li><span class="legend-shape rect"></span> - Стандартный шаг процесса</li>
+                        <li><span class="legend-shape diamond"></span> - Принятие решения</li>
+                        <li><span class="legend-shape cylinder"></span> - База данных / Хранилище</li>
+                        <li><span class="legend-shape document"></span> - Документ / Отчет</li>
+                    </ul>
                 </div>
             </div>
 
@@ -71,6 +127,20 @@
                         <p class="placeholder-text">Предложения от ИИ появятся здесь после анализа вашего процесса.</p>
                     </div>
                     <button id="apply-improvements-btn" disabled>Применить выбранные улучшения</button>
+                </div>
+
+                <div class="version-history-block">
+                    <h3>История версий</h3>
+                    <div id="version-history-container"></div>
+                </div>
+
+                <div class="comments-block">
+                    <h3>Комментарии</h3>
+                    <div id="comments-container"></div>
+                    <div class="comment-form">
+                        <textarea id="comment-input" placeholder="Введите ваш комментарий..."></textarea>
+                        <button id="add-comment-btn">Отправить</button>
+                    </div>
                 </div>
             </div>
         </main>
