@@ -19,10 +19,10 @@
             <p id="department-error" class="error-message"></p>
         </div>
         <div id="chat-login" class="login-form" style="display: none;">
-            <h2>Выбор и вход в чат</h2>
-            <p>Выберите чат и введите его пароль.</p>
-            <select id="chat-select"></select>
-            <input type="password" id="chat-password" placeholder="Пароль чата">
+            <h2>Выбор чата</h2>
+            <p>Выберите чат, кликнув на него, а затем введите пароль.</p>
+            <div id="chat-selection-container"></div>
+            <input type="password" id="chat-password" placeholder="Пароль выбранного чата">
             <button id="chat-login-btn" class="button-primary">Войти в чат</button>
             <p id="chat-error" class="error-message"></p>
         </div>
@@ -30,8 +30,15 @@
 
     <div id="admin-panel" style="display: none;">
         <h2>Панель администратора</h2>
-        <div id="create-chat-form">
-            <h3>Создать новый чат</h3>
+        <div class="admin-forms-container">
+            <div id="create-department-form">
+                <h3>Создать департамент</h3>
+                <input type="text" id="new-department-name" placeholder="Название департамента">
+                <input type="password" id="new-department-password" placeholder="Пароль">
+                <button id="create-department-btn">Создать</button>
+            </div>
+            <div id="create-chat-form">
+                <h3>Создать новый чат</h3>
             <input type="text" id="new-chat-name" placeholder="Название чата">
             <input type="password" id="new-chat-password" placeholder="Пароль чата">
             <button id="create-chat-btn">Создать</button>

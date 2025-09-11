@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const departmentPasswordInput = document.getElementById('department-password');
     const departmentLoginBtn = document.getElementById('department-login-btn');
     const departmentError = document.getElementById('department-error');
-    const chatSelect = document.getElementById('chat-select');
+    const chatSelectionContainer = document.getElementById('chat-selection-container');
     const chatPasswordInput = document.getElementById('chat-password');
     const chatLoginBtn = document.getElementById('chat-login-btn');
     const chatError = document.getElementById('chat-error');
@@ -25,6 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Main app elements
     const mainContainer = document.querySelector('.container');
     const adminPanel = document.getElementById('admin-panel');
+    const createDepartmentForm = document.getElementById('create-department-form');
+    const newDepartmentNameInput = document.getElementById('new-department-name');
+    const newDepartmentPasswordInput = document.getElementById('new-department-password');
+    const createDepartmentBtn = document.getElementById('create-department-btn');
     const createChatForm = document.getElementById('create-chat-form');
     const newChatNameInput = document.getElementById('new-chat-name');
     const newChatPasswordInput = document.getElementById('new-chat-password');
@@ -96,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     completedList.addEventListener('click', handleAdminChatSelection);
     versionHistoryContainer.addEventListener('click', handleVersionSelection);
     createChatBtn.addEventListener('click', handleCreateChat);
+    createDepartmentBtn.addEventListener('click', handleCreateDepartment);
 
 
     function updateStepCounter() {
@@ -379,7 +384,19 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`/api/chats?department_id=${deptId}`);
             const chats = await response.json();
-            chatSelect.innerHTML = chats.map(chat => `<option value="${chat.id}">${chat.name}</option>`).join('');
+            chatSelectionContainer.innerHTML = chats.map(chat => `
+                <div class="chat-card" data-chat-id="${chat.id}" data-chat-name="${chat.name}">
+                    <span class="chat-icon">💬</span>
+                    <span class="chat-name">${chat.name}</span>
+                </div>
+            `).join('');
+
+            document.querySelectorAll('.chat-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    document.querySelectorAll('.chat-card').forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                });
+            });
         } catch (error) {
             console.error('Error loading chats:', error);
             chatError.textContent = 'Не удалось загрузить чаты';
@@ -387,10 +404,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleChatLogin() {
-        const selectedChatId = chatSelect.value;
-        const selectedChatName = chatSelect.options[chatSelect.selectedIndex].text;
+        const selectedChatCard = document.querySelector('.chat-card.selected');
+        if (!selectedChatCard) {
+            chatError.textContent = 'Пожалуйста, выберите чат';
+            return;
+        }
+
+        const selectedChatId = selectedChatCard.dataset.chatId;
+        const selectedChatName = selectedChatCard.dataset.chatName;
         const password = chatPasswordInput.value;
-        if (!selectedChatId || !password) return;
+        if (!password) {
+            chatError.textContent = 'Пожалуйста, введите пароль';
+            return;
+        }
 
         try {
             const response = await fetch('/api/auth/chat', {
@@ -561,6 +587,22 @@ document.addEventListener('DOMContentLoaded', () => {
         newChatNameInput.value = '';
         newChatPasswordInput.value = '';
         await loadChats(department.id);
+    }
+
+    async function handleCreateDepartment() {
+        const name = newDepartmentNameInput.value;
+        const password = newDepartmentPasswordInput.value;
+        if (!name || !password) return;
+
+        await fetch('/api/departments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, password })
+        });
+
+        newDepartmentNameInput.value = '';
+        newDepartmentPasswordInput.value = '';
+        alert('Департамент создан!');
     }
 
     // Initial setup
