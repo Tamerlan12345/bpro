@@ -33,6 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const newChatNameInput = document.getElementById('new-chat-name');
     const newChatPasswordInput = document.getElementById('new-chat-password');
     const createChatBtn = document.getElementById('create-chat-btn');
+    const departmentList = document.getElementById('department-list');
+    const chatList = document.getElementById('chat-list');
+    const chatListHeader = document.getElementById('chat-list-header');
+    const selectedDepartmentName = document.getElementById('selected-department-name');
     const inReviewList = document.getElementById('in-review-list');
     const completedList = document.getElementById('completed-list');
     const actionButtons = document.getElementById('action-buttons');
@@ -99,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inReviewList.addEventListener('click', handleAdminChatSelection);
     completedList.addEventListener('click', handleAdminChatSelection);
     versionHistoryContainer.addEventListener('click', handleVersionSelection);
+    departmentList.addEventListener('click', handleDepartmentSelection);
     createChatBtn.addEventListener('click', handleCreateChat);
     createDepartmentBtn.addEventListener('click', handleCreateDepartment);
 
@@ -394,6 +399,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`/api/chats?department_id=${deptId}`);
             const chats = await response.json();
+
+            if (chats.length === 0) {
+                chatSelectionContainer.innerHTML = '<p class="placeholder-text">Для этого департамента еще не создано ни одного чата.</p>';
+                return;
+            }
+
             chatSelectionContainer.innerHTML = chats.map(chat => `
                 <div class="chat-card" data-chat-id="${chat.id}" data-chat-name="${chat.name}">
                     <span class="chat-icon">💬</span>
@@ -539,6 +550,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadAdminPanel() {
+        // Load departments
+        const response = await fetch('/api/departments');
+        const departments = await response.json();
+        departmentList.innerHTML = departments.map(dept => `
+            <div class="department-card" data-dept-id="${dept.id}" data-dept-name="${dept.name}">
+                ${dept.name}
+            </div>
+        `).join('');
+
+        // Load chats for review
         const inReviewResponse = await fetch('/api/admin/chats/in_review');
         const inReviewChats = await inReviewResponse.json();
         inReviewList.innerHTML = inReviewChats.map(chat => `<li><a href="#" data-chat-id="${chat.chat_id}">${chat.chats.name}</a></li>`).join('');
@@ -546,6 +567,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const completedResponse = await fetch('/api/admin/chats/completed');
         const completedChats = await completedResponse.json();
         completedList.innerHTML = completedChats.map(chat => `<li><a href="#" data-chat-id="${chat.chat_id}">${chat.chats.name}</a></li>`).join('');
+    }
+
+    async function handleDepartmentSelection(e) {
+        const deptCard = e.target.closest('.department-card');
+        if (!deptCard) return;
+
+        document.querySelectorAll('.department-card').forEach(c => c.classList.remove('selected'));
+        deptCard.classList.add('selected');
+
+        const deptId = deptCard.dataset.deptId;
+        const deptName = deptCard.dataset.deptName;
+
+        chatListHeader.textContent = `Чаты в "${deptName}"`;
+        selectedDepartmentName.textContent = deptName;
+        createChatForm.style.display = 'block';
+
+        const response = await fetch(`/api/chats?department_id=${deptId}`);
+        const chats = await response.json();
+        chatList.innerHTML = chats.map(chat => `<div class="chat-item">${chat.name}</div>`).join('');
     }
 
     function openTab(evt, tabName) {
@@ -584,6 +624,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleCreateChat() {
+        const selectedDeptCard = document.querySelector('.department-card.selected');
+        if (!selectedDeptCard) {
+            alert('Сначала выберите департамент!');
+            return;
+        }
+        const deptId = selectedDeptCard.dataset.deptId;
+
         const name = newChatNameInput.value;
         const password = newChatPasswordInput.value;
         if (!name || !password) return;
@@ -591,12 +638,15 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetch('/api/chats', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ department_id: department.id, name, password })
+            body: JSON.stringify({ department_id: deptId, name, password })
         });
 
         newChatNameInput.value = '';
         newChatPasswordInput.value = '';
-        await loadChats(department.id);
+
+        // Refresh the chat list for the currently selected department
+        const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+        selectedDeptCard.dispatchEvent(event);
     }
 
     async function handleCreateDepartment() {

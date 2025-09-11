@@ -30,20 +30,37 @@
 
     <div id="admin-panel" style="display: none;">
         <h2>Панель администратора</h2>
-        <div class="admin-forms-container">
-            <div id="create-department-form">
-                <h3>Создать департамент</h3>
-                <input type="text" id="new-department-name" placeholder="Название департамента">
-                <input type="password" id="new-department-password" placeholder="Пароль">
-                <button id="create-department-btn">Создать</button>
-            </div>
-            <div id="create-chat-form">
-                <h3>Создать новый чат</h3>
-            <input type="text" id="new-chat-name" placeholder="Название чата">
-            <input type="password" id="new-chat-password" placeholder="Пароль чата">
-            <button id="create-chat-btn">Создать</button>
+
+        <div id="create-department-form">
+            <h3>Создать новый департамент</h3>
+            <input type="text" id="new-department-name" placeholder="Название департамента">
+            <input type="password" id="new-department-password" placeholder="Пароль">
+            <button id="create-department-btn">Создать</button>
         </div>
-        <div class="admin-tabs">
+
+        <hr>
+
+        <h3>Управление чатами</h3>
+        <div class="admin-main-view">
+            <div id="department-list-container">
+                <h4>Департаменты</h4>
+                <div id="department-list"></div>
+            </div>
+            <div id="chat-list-container">
+                <h4 id="chat-list-header">Чаты</h4>
+                <div id="chat-list"></div>
+                <div id="create-chat-form" style="display: none;">
+                    <h5>Создать новый чат для <span id="selected-department-name"></span></h5>
+                    <input type="text" id="new-chat-name" placeholder="Название чата">
+                    <input type="password" id="new-chat-password" placeholder="Пароль чата">
+                    <button id="create-chat-btn">Создать</button>
+                </div>
+            </div>
+        </div>
+
+        <hr>
+        <h3>Чаты на проверке</h3>
+         <div class="admin-tabs">
             <button class="tab-link active" onclick="openTab(event, 'in-review')">В работе</button>
             <button class="tab-link" onclick="openTab(event, 'completed')">Завершенные</button>
         </div>

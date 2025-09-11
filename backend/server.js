@@ -75,6 +75,18 @@ app.post('/api/departments', async (req, res) => {
     res.status(201).json(data);
 });
 
+// Admin: Get all departments
+app.get('/api/departments', async (req, res) => {
+    const { data, error } = await supabase
+        .from('departments')
+        .select('id, name');
+
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
+    res.json(data);
+});
+
 // Admin: Get completed chats
 app.get('/api/admin/chats/completed', async (req, res) => {
     const { data, error } = await supabase
