@@ -21,26 +21,49 @@ app.use(express.static('public'));
 
 
 
-// Department authentication
+// Department authentication / creation
 app.post('/api/auth/department', async (req, res) => {
     const { name, password } = req.body;
-    const { data: department, error } = await supabase
+
+    // Check if department exists
+    const { data: department, error: fetchError } = await supabase
         .from('departments')
         .select('id, name, hashed_password')
         .eq('name', name)
         .single();
 
-    if (error || !department) {
-        return res.status(401).json({ error: 'Invalid department or password' });
+    // If department exists, check password
+    if (department) {
+        const passwordMatches = await bcrypt.compare(password, department.hashed_password);
+        if (passwordMatches) {
+            return res.json({ id: department.id, name: department.name });
+        } else {
+            return res.status(401).json({ error: 'Invalid password' });
+        }
     }
 
-    const passwordMatches = await bcrypt.compare(password, department.hashed_password);
+    // If department does not exist (and no other error occurred), create it
+    if (fetchError && fetchError.code === 'PGRST116') { // PGRST116: "The result contains 0 rows"
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-    if (!passwordMatches) {
-        return res.status(401).json({ error: 'Invalid department or password' });
+        const { data: newDepartment, error: insertError } = await supabase
+            .from('departments')
+            .insert([{ name, hashed_password: hashedPassword }])
+            .select('id, name')
+            .single();
+
+        if (insertError) {
+            return res.status(500).json({ error: 'Could not create department', details: insertError.message });
+        }
+
+        return res.status(201).json(newDepartment);
     }
 
-    res.json({ id: department.id, name: department.name });
+    // Handle other potential errors during fetch
+    if(fetchError) {
+        return res.status(500).json({ error: 'Database error', details: fetchError.message });
+    }
 });
 
 // Admin: Get chats in review
