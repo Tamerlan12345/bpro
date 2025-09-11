@@ -568,6 +568,29 @@ button.button-secondary:hover {
     display: block;
     margin-bottom: 10px;
 }
+
+.chat-status {
+    margin-top: 15px;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    display: inline-block;
+}
+
+.tab-content li a {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .comment-form button {
     width: 100%;
 }

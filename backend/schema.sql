@@ -24,7 +24,8 @@ CREATE TABLE process_versions (
 
 -- Create ENUM types
 CREATE TYPE author_role AS ENUM ('user', 'admin');
-CREATE TYPE chat_status AS ENUM ('draft', 'in_review', 'completed', 'archived');
+-- The new, more descriptive status for chat workflows
+CREATE TYPE chat_status AS ENUM ('draft', 'pending_review', 'needs_revision', 'completed', 'archived');
 
 -- Create comments table
 CREATE TABLE comments (
@@ -38,7 +39,5 @@ CREATE TABLE comments (
 -- Create chat_statuses table
 CREATE TABLE chat_statuses (
     chat_id UUID PRIMARY KEY REFERENCES chats(id) ON DELETE CASCADE,
-    status chat_status DEFAULT 'draft',
-    user_seen BOOLEAN DEFAULT false,
-    admin_seen BOOLEAN DEFAULT false
+    status chat_status DEFAULT 'draft'
 );

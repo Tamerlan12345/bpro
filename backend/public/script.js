@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const actionButtons = document.getElementById('action-buttons');
     const saveVersionBtn = document.getElementById('save-version-btn');
     const sendReviewBtn = document.getElementById('send-review-btn');
+    const sendRevisionBtn = document.getElementById('send-revision-btn');
     const completeBtn = document.getElementById('complete-btn');
     const archiveBtn = document.getElementById('archive-btn');
     const backToAdminBtn = document.getElementById('back-to-admin-btn');
@@ -112,7 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     downloadSvgBtn.addEventListener('click', downloadDiagramSVG);
     saveVersionBtn.addEventListener('click', handleSaveVersion);
-    sendReviewBtn.addEventListener('click', () => handleUpdateStatus('in_review'));
+    sendReviewBtn.addEventListener('click', () => handleUpdateStatus('pending_review'));
+    sendRevisionBtn.addEventListener('click', () => handleUpdateStatus('needs_revision'));
     completeBtn.addEventListener('click', () => handleUpdateStatus('completed'));
     archiveBtn.addEventListener('click', () => handleUpdateStatus('archived'));
     addCommentBtn.addEventListener('click', handleAddComment);
@@ -193,14 +195,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const clickedButton = event.currentTarget;
         setButtonLoading(clickedButton, true, 'Генерирую...');
 
-        // Only show loading spinner in diagram container if it's not already showing a diagram
         if (diagramContainer.style.display === 'none' || placeholderContent.style.display !== 'none') {
             placeholderContent.style.display = 'none';
             diagramContainer.style.display = 'flex';
             diagramContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
         }
 
-        diagramToolbar.style.display = 'flex'; // Show toolbar immediately
+        diagramToolbar.style.display = 'flex';
 
         let lastError = null;
         for (let i = 0; i < 3; i++) {
@@ -213,10 +214,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 await renderDiagram(mermaidCode);
 
                 lastGeneratedDescription = description.trim();
-                renderDiagramBtn.style.display = 'none'; // Hide initial button
-                regenerateDiagramBtn.disabled = true; // Disable until text changes
                 setButtonLoading(clickedButton, false, 'Перегенерировать');
-                return; // Success
+                return;
             } catch (error) {
                 console.error(`Attempt ${i + 1} failed:`, error);
                 lastError = error;
@@ -298,6 +297,9 @@ document.addEventListener('DOMContentLoaded', () => {
             svg.style.maxWidth = '100%';
             currentDiagramScale = 1;
             zoomDiagram(1);
+            diagramToolbar.style.display = 'flex';
+            renderDiagramBtn.style.display = 'none';
+            regenerateDiagramBtn.disabled = true;
         }
     }
 
@@ -439,22 +441,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    const statusMap = {
+        draft: { text: 'Черновик', color: 'grey' },
+        pending_review: { text: 'На проверке', color: 'orange' },
+        needs_revision: { text: 'Нужны правки', color: 'red' },
+        completed: { text: 'Завершен', color: 'green' },
+        archived: { text: 'В архиве', color: 'grey' }
+    };
+
+    function getStatusIndicator(status) {
+        const statusInfo = statusMap[status] || { text: status, color: 'grey' };
+        return `<span class="status-indicator" style="background-color: ${statusInfo.color};"></span> ${statusInfo.text}`;
+    }
+
     async function loadChats(deptId) {
         try {
             const response = await fetch(`/api/chats?department_id=${deptId}`);
-            const chats = await response.json();
+            const allChats = await response.json();
 
-            if (chats.length === 0) {
-                chatSelectionContainer.innerHTML = '<p class="placeholder-text">Для этого департамента еще не создано ни одного чата.</p>';
+            // Filter out completed and archived chats for the department view
+            const activeChats = allChats.filter(chat => {
+                const status = chat.chat_statuses?.status || 'draft';
+                return status !== 'completed' && status !== 'archived';
+            });
+
+            if (activeChats.length === 0) {
+                chatSelectionContainer.innerHTML = '<p class="placeholder-text">Для этого департамента нет активных чатов.</p>';
                 return;
             }
 
-            chatSelectionContainer.innerHTML = chats.map(chat => `
+            chatSelectionContainer.innerHTML = activeChats.map(chat => {
+                const status = chat.chat_statuses?.status || 'draft';
+                return `
                 <div class="chat-card" data-chat-id="${chat.id}" data-chat-name="${chat.name}">
                     <span class="chat-icon">💬</span>
                     <span class="chat-name">${chat.name}</span>
+                    <div class="chat-status">${getStatusIndicator(status)}</div>
                 </div>
-            `).join('');
+            `}).join('');
 
             document.querySelectorAll('.chat-card').forEach(card => {
                 card.addEventListener('click', () => {
@@ -516,29 +540,55 @@ document.addEventListener('DOMContentLoaded', () => {
         // In a production environment, the user's role should be securely determined
         // based on the authenticated session and returned from the backend.
         if (department.name === 'admin') {
-            adminPanel.style.display = 'block';
-            loadAdminPanel();
-            completeBtn.style.display = 'inline-block';
-            archiveBtn.style.display = 'inline-block';
+            // This function is for showing the main app view.
+            // The admin-specific buttons are handled in loadChatData now.
+            // We should not be showing the admin panel here.
         }
     }
 
     async function loadChatData() {
-        await loadVersions();
-        await loadComments();
-    }
+        // Fetch all data in parallel
+        const [versionsResponse, commentsResponse, statusResponse] = await Promise.all([
+            fetch(`/api/chats/${chatId}/versions`),
+            fetch(`/api/chats/${chatId}/comments`),
+            fetch(`/api/chats/${chatId}/status`)
+        ]);
 
-    let chatVersions = []; // Store versions to avoid re-fetching
+        // Process responses
+        chatVersions = await versionsResponse.json();
+        const comments = await commentsResponse.json();
+        const { status } = await statusResponse.json();
 
-    async function loadVersions() {
-        const response = await fetch(`/api/chats/${chatId}/versions`);
-        chatVersions = await response.json();
+        // Render data
         renderVersions(chatVersions);
+        renderComments(comments);
+
         // Automatically display the latest version if it exists
         if (chatVersions.length > 0) {
             await displayVersion(chatVersions[0]);
         }
+
+        // Determine editing permissions
+        const userRole = department.name === 'admin' ? 'admin' : 'user';
+        let isLocked = true; // Lock by default
+        if (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) {
+            isLocked = false;
+        } else if (userRole === 'admin' && status === 'pending_review') {
+            isLocked = false;
+        }
+        setEditingLocked(isLocked);
+
+        // Update button states based on status and role
+        const isUser = userRole === 'user';
+        const isAdmin = userRole === 'admin';
+
+        sendReviewBtn.style.display = (isUser && (status === 'draft' || status === 'needs_revision')) ? 'inline-block' : 'none';
+
+        sendRevisionBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
+        completeBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
     }
+
+    let chatVersions = []; // Store versions to avoid re-fetching
 
     function renderVersions(versions) {
         versionHistoryContainer.innerHTML = versions.map(v => `
@@ -553,19 +603,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!version) return;
 
         processDescriptionInput.value = version.process_text;
-        updateStepCounter(); // Update step counter when loading new version
+        updateStepCounter();
 
         if (version.mermaid_code && version.mermaid_code.trim() !== '') {
             placeholderContent.style.display = 'none';
             diagramContainer.style.display = 'flex';
-            diagramContainer.innerHTML = ''; // Clear previous diagram
+            diagramContainer.innerHTML = '';
             await renderDiagram(version.mermaid_code);
-            diagramToolbar.style.display = 'flex';
+            lastGeneratedDescription = version.process_text.trim();
         } else {
             placeholderContent.style.display = 'flex';
             diagramContainer.innerHTML = '';
             diagramContainer.style.display = 'none';
             diagramToolbar.style.display = 'none';
+            lastGeneratedDescription = null;
         }
     }
 
@@ -587,22 +638,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleSaveVersion() {
         const process_text = processDescriptionInput.value;
+        if (!process_text.trim()) {
+            alert("Нельзя сохранить пустую версию.");
+            return;
+        }
         const mermaid_code = await getMermaidCode(process_text);
-        await fetch(`/api/chats/${chatId}/versions`, {
+        const userRole = department.name === 'admin' ? 'admin' : 'user';
+        const response = await fetch(`/api/chats/${chatId}/versions`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-Role': userRole
+            },
             body: JSON.stringify({ process_text, mermaid_code })
         });
-        await loadVersions();
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            alert(`Ошибка сохранения: ${errorData.error}`);
+            return;
+        }
+
+        await loadChatData();
     }
 
     async function handleUpdateStatus(status) {
-        await fetch(`/api/chats/${chatId}/status`, {
+        // Auto-save the current work before changing the status
+        await handleSaveVersion();
+
+        const userRole = department.name === 'admin' ? 'admin' : 'user';
+        const response = await fetch(`/api/chats/${chatId}/status`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status, user_seen: false, admin_seen: false })
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-Role': userRole
+            },
+            body: JSON.stringify({ status })
         });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            alert(`Ошибка обновления статуса: ${errorData.error}`);
+            return;
+        }
+
         alert(`Статус чата обновлен на: ${status}`);
+        // After updating status, we need to refresh the UI to reflect locked state etc.
+        loadChatData();
     }
 
     async function handleAddComment() {
@@ -632,11 +714,25 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load chats for review
         const inReviewResponse = await fetch('/api/admin/chats/in_review');
         const inReviewChats = await inReviewResponse.json();
-        inReviewList.innerHTML = inReviewChats.map(chat => `<li><a href="#" data-chat-id="${chat.chat_id}">${chat.chats.name}</a></li>`).join('');
+        inReviewList.innerHTML = inReviewChats.map(chat => `
+            <li>
+                <a href="#" data-chat-id="${chat.chat_id}">
+                    <span>${chat.chats.name}</span>
+                    <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
+                </a>
+            </li>
+        `).join('');
 
         const completedResponse = await fetch('/api/admin/chats/completed');
         const completedChats = await completedResponse.json();
-        completedList.innerHTML = completedChats.map(chat => `<li><a href="#" data-chat-id="${chat.chat_id}">${chat.chats.name}</a></li>`).join('');
+        completedList.innerHTML = completedChats.map(chat => `
+            <li>
+                <a href="#" data-chat-id="${chat.chat_id}">
+                    <span>${chat.chats.name}</span>
+                    <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
+                </a>
+            </li>
+        `).join('');
     }
 
     async function handleDepartmentSelection(e) {
@@ -743,6 +839,25 @@ document.addEventListener('DOMContentLoaded', () => {
         newDepartmentNameInput.value = '';
         newDepartmentPasswordInput.value = '';
         alert('Департамент создан!');
+    }
+
+    function setEditingLocked(isLocked) {
+        processDescriptionInput.disabled = isLocked;
+        userPromptInput.disabled = isLocked;
+        improveBtn.disabled = isLocked;
+        applyImprovementsBtn.disabled = isLocked;
+        saveVersionBtn.disabled = isLocked;
+        sendReviewBtn.disabled = isLocked;
+
+        // Add a visual cue to the container
+        const leftColumn = document.querySelector('.left-column');
+        if (isLocked) {
+            leftColumn.style.opacity = '0.6';
+            leftColumn.style.pointerEvents = 'none';
+        } else {
+            leftColumn.style.opacity = '1';
+            leftColumn.style.pointerEvents = 'auto';
+        }
     }
 
     // Initial setup
