@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendReviewBtn = document.getElementById('send-review-btn');
     const completeBtn = document.getElementById('complete-btn');
     const archiveBtn = document.getElementById('archive-btn');
+    const backToAdminBtn = document.getElementById('back-to-admin-btn');
     const processDescriptionInput = document.getElementById('process-description');
     const improveBtn = document.getElementById('improve-btn');
     const versionHistoryContainer = document.getElementById('version-history-container');
@@ -60,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const diagramPlaceholder = document.getElementById('diagram-placeholder');
     const placeholderContent = document.querySelector('.placeholder-content');
     const renderDiagramBtn = document.getElementById('render-diagram-btn');
+    const regenerateDiagramBtn = document.getElementById('regenerate-diagram-btn');
     const diagramContainer = document.getElementById('diagram-container');
     const diagramToolbar = document.getElementById('diagram-toolbar');
     const zoomInBtn = document.getElementById('zoom-in-btn');
@@ -82,18 +84,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    let lastGeneratedDescription = null;
+
     // Event Listeners
     departmentLoginBtn.addEventListener('click', handleDepartmentLogin);
     chatLoginBtn.addEventListener('click', handleChatLogin);
-    processDescriptionInput.addEventListener('input', updateStepCounter);
+    processDescriptionInput.addEventListener('input', () => {
+        updateStepCounter();
+        if (lastGeneratedDescription !== null) {
+            const currentDescription = processDescriptionInput.value;
+            regenerateDiagramBtn.disabled = currentDescription.trim() === lastGeneratedDescription.trim();
+        }
+    });
     improveBtn.addEventListener('click', handleImproveRequest);
     applyImprovementsBtn.addEventListener('click', handleApplyImprovements);
     suggestionsContainer.addEventListener('click', handleCardSelection);
     selectAllCheckbox.addEventListener('change', handleSelectAll);
     renderDiagramBtn.addEventListener('click', handleRenderDiagram);
+    regenerateDiagramBtn.addEventListener('click', handleRenderDiagram);
     zoomInBtn.addEventListener('click', () => zoomDiagram(1.1));
     zoomOutBtn.addEventListener('click', () => zoomDiagram(0.9));
     downloadPngBtn.addEventListener('click', downloadDiagramPNG);
+    backToAdminBtn.addEventListener('click', () => {
+        mainContainer.style.display = 'none';
+        adminPanel.style.display = 'block';
+        backToAdminBtn.style.display = 'none';
+    });
     downloadSvgBtn.addEventListener('click', downloadDiagramSVG);
     saveVersionBtn.addEventListener('click', handleSaveVersion);
     sendReviewBtn.addEventListener('click', () => handleUpdateStatus('in_review'));
@@ -170,22 +186,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function handleRenderDiagram() {
+    async function handleRenderDiagram(event) {
         const description = processDescriptionInput.value;
         if (!description.trim()) return;
 
-        placeholderContent.style.display = 'none';
-        diagramContainer.style.display = 'flex';
-        diagramContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
-        diagramToolbar.style.display = 'none';
+        const clickedButton = event.currentTarget;
+        setButtonLoading(clickedButton, true, 'Генерирую...');
+
+        // Only show loading spinner in diagram container if it's not already showing a diagram
+        if (diagramContainer.style.display === 'none' || placeholderContent.style.display !== 'none') {
+            placeholderContent.style.display = 'none';
+            diagramContainer.style.display = 'flex';
+            diagramContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+        }
+
+        diagramToolbar.style.display = 'flex'; // Show toolbar immediately
 
         let lastError = null;
         for (let i = 0; i < 3; i++) {
             try {
                 const mermaidCode = await getMermaidCode(description);
+                if (!mermaidCode || mermaidCode.trim() === '') {
+                    throw new Error("Generated Mermaid code is empty.");
+                }
                 console.log("Generated Mermaid Code (Attempt " + (i + 1) + "):", mermaidCode);
                 await renderDiagram(mermaidCode);
-                diagramToolbar.style.display = 'flex';
+
+                lastGeneratedDescription = description.trim();
+                renderDiagramBtn.style.display = 'none'; // Hide initial button
+                regenerateDiagramBtn.disabled = true; // Disable until text changes
+                setButtonLoading(clickedButton, false, 'Перегенерировать');
                 return; // Success
             } catch (error) {
                 console.error(`Attempt ${i + 1} failed:`, error);
@@ -193,7 +223,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        diagramContainer.innerHTML = '<p class="placeholder-text error">Не удалось построить схему после нескольких попыток.</p>';
+        diagramContainer.innerHTML = `<p class="placeholder-text error">Не удалось построить схему. Ошибка: ${lastError.message}</p>`;
+        setButtonLoading(clickedButton, false, clickedButton.id === 'render-diagram-btn' ? 'Создать схему' : 'Перегенерировать');
         console.error('ОШИБКА:', lastError);
     }
 
@@ -279,8 +310,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function downloadDiagramPNG() {
         const svgElement = diagramContainer.querySelector('svg');
-        if (!svgElement) return;
-        html2canvas(svgElement, {backgroundColor: null}).then(canvas => {
+        console.log("Downloading PNG, SVG element:", svgElement);
+        if (!svgElement) {
+            alert("Сначала сгенерируйте схему.");
+            return;
+        }
+        html2canvas(svgElement, { backgroundColor: null }).then(canvas => {
             const link = document.createElement('a');
             link.download = 'process-diagram.png';
             link.href = canvas.toDataURL('image/png');
@@ -290,8 +325,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function downloadDiagramSVG() {
         const svgElement = diagramContainer.querySelector('svg');
-        if (!svgElement) return;
-        const svgData = new XMLSerializer().serializeToString(svgElement);
+        console.log("Downloading SVG, SVG element:", svgElement);
+        if (!svgElement) {
+            alert("Сначала сгенерируйте схему.");
+            return;
+        }
+        const svgHeader = '<?xml version="1.0" standalone="no"?>\r\n';
+        const svgData = svgHeader + new XMLSerializer().serializeToString(svgElement);
         const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -334,22 +374,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function getMermaidCode(processDescription) {
-        const prompt = `Ты — эксперт по визуализации бизнес-процессов с помощью Mermaid.js. Твоя задача — создать семантически корректную и визуально насыщенную схему.
-Инструкции:
-1.  Используй синтаксис 'flowchart TD'.
-2.  Для каждого шага процесса ОБЯЗАТЕЛЬНО включай текст шага внутрь узла. Пример: A["Клиент оставляет заявку"].
-3.  Используй разные фигуры в зависимости от семантики шага:
-    -   Если шаг описывает принятие решения (например, содержит слова "если", "да/нет", "проверка"), используй фигуру РОМБА: id{Текст}.
-    -   Если шаг связан с базой данных, хранилищем или записью информации, используй фигуру ЦИЛИНДРА: id[(Текст)].
-    -   Если шаг связан с документом, отчетом или бумажной работой, используй фигуру ДОКУМЕНТА: id>Текст].
-    -   Для всех остальных стандартных шагов используй ПРЯМОУГОЛЬНИК: id["Текст"].
-4.  Применяй стили к фигурам:
-    -   Для ромбов (решения): style id fill:#E6E6FA,stroke:#333,stroke-width:2px
-    -   Для цилиндров (БД): style id fill:#D3D3D3,stroke:#333,stroke-width:2px
-    -   Для документов: style id fill:#FAFAC8,stroke:#333,stroke-width:2px
-5.  Твой ответ должен содержать ТОЛЬКО код Mermaid.js, без каких-либо объяснений или \`\`\`mermaid ... \`\`\` оберток.
+        const prompt = `Твоя задача — ПРЕОБРАЗОВАТЬ текстовое описание бизнес-процесса в код Mermaid.js для диаграммы 'flowchart TD'. Ты должен СТРОГО следовать этим правилам:
 
-ОПИСАНИЕ ПРОЦЕССА:
+1.  **СИНТАКСИС И НАПРАВЛЕНИЕ:** Всегда используй 'flowchart TD'.
+
+2.  **АНАЛИЗ СЕМАНТИКИ ШАГА ДЛЯ ВЫБОРА ФИГУРЫ:**
+    *   **ПРЯМОУГОЛЬНИК (Стандартное действие):** \`id["Текст"]\`. Используй для большинства шагов, описывающих активное действие (например, "Отправить письмо", "Позвонить клиенту", "Создать отчет").
+    *   **РОМБ (Решение или Условие):** \`id{Текст}\`. Используй ТОЛЬКО для шагов, где принимается решение. Ищи ключевые слова: "если", "проверить", "да/нет", "условие", "выбор", "валидация". Пример: \`B{Заявка корректна?}\`.
+    *   **ЦИЛИНДР (Данные или Хранилище):** \`id[(Текст)]\`. Используй для шагов, обозначающих хранение, запись или извлечение данных. Ищи ключевые слова: "база данных", "БД", "система", "записать в", "сохранить", "получить из". Пример: \`C[(Сохранить данные в CRM)]\`.
+    *   **ДОКУМЕНТ:** \`id>Текст]\`. Используй для шагов, связанных с документами. Ищи ключевые слова: "документ", "отчет", "счет", "форма", "заявка". Пример: \`D>Сформировать счет]\`.
+
+3.  **СТИЛИЗАЦИЯ:** Обязательно применяй стили к фигурам ПОСЛЕ их определения.
+    *   \`style id fill:#E6E6FA,stroke:#333,stroke-width:2px\` для РОМБОВ.
+    *   \`style id fill:#D3D3D3,stroke:#333,stroke-width:2px\` для ЦИЛИНДРОВ.
+    *   \`style id fill:#FAFAC8,stroke:#333,stroke-width:2px\` для ДОКУМЕНТОВ.
+
+4.  **ФОРМАТ ОТВЕТА:**
+    *   Твой ответ должен содержать **ТОЛЬКО** код Mermaid.js.
+    *   **ЗАПРЕЩЕНО** включать в ответ любые объяснения, комментарии или markdown-обертки типа \`\`\`mermaid.
+
+ИСХОДНЫЙ ПРОЦЕСС:
 "${processDescription}"`;
         return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
     }
@@ -484,10 +528,16 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadComments();
     }
 
+    let chatVersions = []; // Store versions to avoid re-fetching
+
     async function loadVersions() {
         const response = await fetch(`/api/chats/${chatId}/versions`);
-        const versions = await response.json();
-        renderVersions(versions);
+        chatVersions = await response.json();
+        renderVersions(chatVersions);
+        // Automatically display the latest version if it exists
+        if (chatVersions.length > 0) {
+            await displayVersion(chatVersions[0]);
+        }
     }
 
     function renderVersions(versions) {
@@ -497,6 +547,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button>Посмотреть</button>
             </div>
         `).join('');
+    }
+
+    async function displayVersion(version) {
+        if (!version) return;
+
+        processDescriptionInput.value = version.process_text;
+        updateStepCounter(); // Update step counter when loading new version
+
+        if (version.mermaid_code && version.mermaid_code.trim() !== '') {
+            placeholderContent.style.display = 'none';
+            diagramContainer.style.display = 'flex';
+            diagramContainer.innerHTML = ''; // Clear previous diagram
+            await renderDiagram(version.mermaid_code);
+            diagramToolbar.style.display = 'flex';
+        } else {
+            placeholderContent.style.display = 'flex';
+            diagramContainer.innerHTML = '';
+            diagramContainer.style.display = 'none';
+            diagramToolbar.style.display = 'none';
+        }
     }
 
     async function loadComments() {
@@ -619,18 +689,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // Ensure admin-specific buttons are visible in the chat view
             completeBtn.style.display = 'inline-block';
             archiveBtn.style.display = 'inline-block';
+            backToAdminBtn.style.display = 'block';
         }
     }
 
     async function handleVersionSelection(e) {
         if (e.target.tagName === 'BUTTON') {
             const versionId = e.target.parentElement.dataset.versionId;
-            const response = await fetch(`/api/chats/${chatId}/versions`);
-            const versions = await response.json();
-            const selectedVersion = versions.find(v => v.id == versionId);
+            const selectedVersion = chatVersions.find(v => v.id == versionId);
             if (selectedVersion) {
-                processDescriptionInput.value = selectedVersion.process_text;
-                renderDiagram(selectedVersion.mermaid_code);
+                await displayVersion(selectedVersion);
             }
         }
     }

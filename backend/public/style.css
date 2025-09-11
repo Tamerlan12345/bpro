@@ -45,10 +45,27 @@ body {
 }
 
 header {
+    position: relative;
     text-align: center;
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 25px;
     margin-bottom: 40px;
+}
+
+#back-to-admin-btn {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted-color);
+    padding: 8px 16px;
+    font-size: 0.9em;
+}
+
+#back-to-admin-btn:hover {
+    background-color: var(--light-bg-color);
+    color: var(--text-color);
 }
 
 header h1 {
