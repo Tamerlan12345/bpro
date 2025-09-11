@@ -606,7 +606,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.tagName === 'A') {
             e.preventDefault();
             chatId = e.target.dataset.chatId;
+            const chatName = e.target.textContent;
+
+            // Hide admin panel and show the main chat container
+            adminPanel.style.display = 'none';
+            mainContainer.style.display = 'block';
+
+            // Set chat name and load its data
+            chatNameHeader.textContent = `Чат: ${chatName}`;
             loadChatData();
+
+            // Ensure admin-specific buttons are visible in the chat view
+            completeBtn.style.display = 'inline-block';
+            archiveBtn.style.display = 'inline-block';
         }
     }
 
