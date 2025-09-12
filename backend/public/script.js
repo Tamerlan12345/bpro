@@ -763,6 +763,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 </a>
             </li>
         `).join('');
+
+        const pendingResponse = await fetch('/api/admin/chats/pending');
+        const pendingChats = await pendingResponse.json();
+        pendingList.innerHTML = pendingChats.map(chat => `
+            <li>
+                <a href="#" data-chat-id="${chat.chat_id}">
+                    <span>${chat.chats.name}</span>
+                    <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
+                </a>
+            </li>
+        `).join('');
     }
 
     async function handleDepartmentSelection(e) {
