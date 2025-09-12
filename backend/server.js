@@ -120,7 +120,7 @@ app.get('/api/admin/chats/completed', async (req, res) => {
     const { data, error } = await supabase
         .from('chat_statuses')
         .select('*, chats(*)')
-        .eq('status', 'completed');
+        .in('status', ['completed', 'archived']);
 
     if (error) {
         return res.status(500).json({ error: error.message });
