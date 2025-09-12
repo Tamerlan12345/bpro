@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let chatId = null;
 
     // Login elements
+    const authWrapper = document.querySelector('.auth-wrapper');
     const loginContainer = document.getElementById('login-container');
     const departmentLogin = document.getElementById('department-login');
     const chatLogin = document.getElementById('chat-login');
@@ -124,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     backToAdminBtn.addEventListener('click', () => {
         mainContainer.style.display = 'none';
+        authWrapper.style.display = 'flex'; // Show the wrapper for login/admin
         adminPanel.style.display = 'block';
         backToAdminBtn.style.display = 'none';
     });
@@ -562,7 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showMainApp(chatName) {
-        loginContainer.style.display = 'none';
+        authWrapper.style.display = 'none'; // Hide the whole login/admin section
         mainContainer.style.display = 'block';
         chatNameHeader.textContent = `Чат: ${chatName}`;
         updateStepCounter();
@@ -853,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const chatName = e.target.querySelector('span').textContent;
 
             // Hide admin panel and show the main chat container
-            adminPanel.style.display = 'none';
+            authWrapper.style.display = 'none';
             mainContainer.style.display = 'block';
 
             // Set chat name and load its data
