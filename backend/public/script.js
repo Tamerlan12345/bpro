@@ -75,6 +75,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadVsdxBtn = document.getElementById('download-vsdx-btn');
     const resultsBlock = document.querySelector('.results-block');
 
+    // Edit Department Modal Elements
+    const editDepartmentModal = document.getElementById('edit-department-modal');
+    const editDepartmentIdInput = document.getElementById('edit-department-id');
+    const editDepartmentNameInput = document.getElementById('edit-department-name');
+    const editDepartmentPasswordInput = document.getElementById('edit-department-password');
+    const saveDepartmentBtn = document.getElementById('save-department-btn');
+    const closeModalBtn = editDepartmentModal.querySelector('.close-btn');
+
 
     mermaid.initialize({
         startOnLoad: false,
@@ -737,7 +745,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const departments = await response.json();
         departmentList.innerHTML = departments.map(dept => `
             <div class="department-card" data-dept-id="${dept.id}" data-dept-name="${dept.name}">
-                ${dept.name}
+                <span>${dept.name}</span>
+                <button class="edit-dept-btn" data-dept-id="${dept.id}" data-dept-name="${dept.name}">✏️ Редактировать</button>
             </div>
         `).join('');
 
@@ -797,6 +806,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleDepartmentSelection(e) {
+        const editBtn = e.target.closest('.edit-dept-btn');
+        if (editBtn) {
+            const id = editBtn.dataset.deptId;
+            const name = editBtn.dataset.deptName;
+            openEditDepartmentModal(id, name);
+            return;
+        }
+
         const deptCard = e.target.closest('.department-card');
         if (!deptCard) return;
 
@@ -926,6 +943,58 @@ document.addEventListener('DOMContentLoaded', () => {
             leftColumn.style.pointerEvents = isTextLocked ? 'none' : 'auto';
         }
     }
+
+    // --- Department Edit Modal Logic ---
+    function openEditDepartmentModal(id, name) {
+        editDepartmentIdInput.value = id;
+        editDepartmentNameInput.value = name;
+        editDepartmentPasswordInput.value = ''; // Clear password field
+        editDepartmentModal.style.display = 'block';
+    }
+
+    function closeEditDepartmentModal() {
+        editDepartmentModal.style.display = 'none';
+    }
+
+    async function handleSaveDepartment() {
+        const id = editDepartmentIdInput.value;
+        const name = editDepartmentNameInput.value;
+        const password = editDepartmentPasswordInput.value;
+
+        if (!name.trim()) {
+            alert('Название департамента не может быть пустым.');
+            return;
+        }
+
+        const body = { name: name.trim() };
+        if (password) {
+            body.password = password;
+        }
+
+        try {
+            const response = await fetch(`/api/departments/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            if (response.ok) {
+                alert('Департамент успешно обновлен.');
+                closeEditDepartmentModal();
+                await loadAdminPanel(); // Refresh the department list
+            } else {
+                const errorData = await response.json();
+                alert(`Ошибка обновления: ${errorData.error}`);
+            }
+        } catch (error) {
+            console.error('Failed to save department:', error);
+            alert('Произошла ошибка при сохранении департамента.');
+        }
+    }
+
+    closeModalBtn.addEventListener('click', closeEditDepartmentModal);
+    saveDepartmentBtn.addEventListener('click', handleSaveDepartment);
+
 
     // Initial setup
     // updateStepCounter(); // This will be called after login

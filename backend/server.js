@@ -115,6 +115,38 @@ app.get('/api/departments', async (req, res) => {
     res.json(data);
 });
 
+// Admin: Update a department
+// TODO: Add a middleware to check if the user is an admin
+app.put('/api/departments/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, password } = req.body;
+
+    if (!name) {
+        return res.status(400).json({ error: 'Department name is required' });
+    }
+
+    const updateData = { name };
+
+    if (password) {
+        const salt = await bcrypt.genSalt(10);
+        updateData.hashed_password = await bcrypt.hash(password, salt);
+    }
+
+    const { data, error } = await supabase
+        .from('departments')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating department:', error);
+        return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data);
+});
+
 // Admin: Get completed chats
 app.get('/api/admin/chats/completed', async (req, res) => {
     const { data, error } = await supabase

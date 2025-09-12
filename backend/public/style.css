@@ -536,6 +536,67 @@ button.button-secondary:hover {
     border-radius: var(--border-radius);
 }
 
+/* --- Modal Styles --- */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 100; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto; /* 15% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+    border-radius: var(--border-radius);
+    position: relative;
+}
+
+.modal-content h2 {
+    margin-top: 0;
+}
+
+.modal-content .form-group {
+    margin-bottom: 15px;
+}
+
+.modal-content label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.modal-content input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.close-btn {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
 #chat-selection-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -660,6 +721,26 @@ button.button-secondary:hover {
 
 .department-card:hover {
     background-color: #f8f9fa;
+}
+
+.department-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.department-card .edit-dept-btn {
+    padding: 5px 10px;
+    font-size: 0.9em;
+    background-color: var(--secondary-color);
+    color: var(--white-color);
+    border: 1px solid var(--border-color);
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.department-card:hover .edit-dept-btn {
+    opacity: 1;
 }
 
 .department-card.selected {
