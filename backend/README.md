@@ -55,3 +55,15 @@ Follow these instructions to run the backend server locally for development or t
     Ensure your hosting provider uses the `npm start` command to run the application. This is the default for most Node.js environments.
 
 **Important:** Never commit your `.env` file or your `GOOGLE_API_KEY` to a Git repository. Add `.env` to your `.gitignore` file.
+
+### Database Patching
+
+If you are encountering errors related to the `chat_status` enum, you may need to patch your database. This can happen if your database schema is out of sync with the application code.
+
+To apply the patch, run the following command from the `backend` directory:
+
+```bash
+node patch-db.js
+```
+
+This will add the `pending_review` value to the `chat_status` enum in your database. You only need to run this script once.
