@@ -248,10 +248,13 @@ const checkChatPermission = async (req, res, next) => {
 
     const { status } = statusData;
 
-    // Define permissions based on the chat status
+    // Define permissions based on the chat status.
+    // Admin can always save a version; this is required for status changes to work
+    // as the frontend bundles saving with status updates. The UI prevents editing text
+    // for completed/archived chats already.
     const canEdit =
         (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) ||
-        (userRole === 'admin' && status === 'pending_review');
+        (userRole === 'admin');
 
     if (!canEdit) {
         return res.status(403).json({ error: 'You do not have permission to edit this chat in its current state.' });
@@ -347,6 +350,10 @@ const checkStatusChangePermission = async (req, res, next) => {
         }
     } else if (userRole === 'admin') {
         if (currentStatus === 'pending_review' && (newStatus === 'needs_revision' || newStatus === 'completed')) {
+            canChange = true;
+        }
+        // Admins should be able to archive a chat from any status
+        if (newStatus === 'archived') {
             canChange = true;
         }
     }
