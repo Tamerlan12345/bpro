@@ -9,9 +9,14 @@
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
-    <div id="login-container" class="login-container">
-        <div id="department-login" class="login-form">
-            <h2>Вход для департамента</h2>
+    <div class="auth-wrapper">
+        <header class="app-header">
+            <h1><a href="/">BizMap AI</a></h1>
+        </header>
+        <main>
+            <div id="login-container" class="login-container">
+                <div id="department-login" class="login-form">
+                    <h2>Вход для департамента</h2>
             <p>Введите название и пароль вашего подразделения.</p>
             <input type="text" id="department-name" placeholder="Название департамента">
             <input type="password" id="department-password" placeholder="Пароль департамента">
@@ -31,17 +36,18 @@
     <div id="admin-panel" style="display: none;">
         <h2>Панель администратора</h2>
 
-        <div id="create-department-form">
+        <div class="admin-section">
             <h3>Создать новый департамент</h3>
-            <input type="text" id="new-department-name" placeholder="Название департамента">
-            <input type="password" id="new-department-password" placeholder="Пароль">
-            <button id="create-department-btn">Создать</button>
+            <div id="create-department-form">
+                <input type="text" id="new-department-name" placeholder="Название департамента">
+                <input type="password" id="new-department-password" placeholder="Пароль">
+                <button id="create-department-btn">Создать</button>
+            </div>
         </div>
 
-        <hr>
-
-        <h3>Управление чатами</h3>
-        <div class="admin-main-view">
+        <div class="admin-section">
+            <h3>Управление чатами</h3>
+            <div class="admin-main-view">
             <div id="department-list-container">
                 <h4>Департаменты</h4>
                 <div id="department-list"></div>
@@ -57,11 +63,12 @@
                 </div>
             </div>
         </div>
+        </div>
 
-        <hr>
-        <h3>Чаты на проверке</h3>
-         <div class="admin-tabs">
-            <button id="in-review-tab" class="tab-link active">На проверке</button>
+        <div class="admin-section">
+            <h3>Чаты на проверке</h3>
+            <div class="admin-tabs">
+                <button id="in-review-tab" class="tab-link active">На проверке</button>
             <button id="pending-tab" class="tab-link">В работе</button>
             <button id="completed-tab" class="tab-link">Завершенные</button>
         </div>
@@ -74,6 +81,9 @@
         <div id="completed" class="tab-content">
             <ul id="completed-list"></ul>
         </div>
+    </div>
+    </div>
+        </main>
     </div>
 
     <div class="container" style="display: none;">
