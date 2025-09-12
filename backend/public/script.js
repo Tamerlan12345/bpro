@@ -767,19 +767,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Load and render all chat lists
         try {
-            const [inReviewResponse, completedResponse, pendingResponse] = await Promise.all([
+            const responses = await Promise.all([
                 fetch('/api/admin/chats/in_review'),
                 fetch('/api/admin/chats/completed'),
                 fetch('/api/admin/chats/pending')
             ]);
 
-            const inReviewChats = await inReviewResponse.json();
+            for (const res of responses) {
+                if (!res.ok) {
+                    const errorBody = await res.text();
+                    throw new Error(`Failed to fetch ${res.url}: ${res.status} ${res.statusText}. Body: ${errorBody}`);
+                }
+            }
+
+            const [inReviewChats, completedChats, pendingChats] = await Promise.all(
+                responses.map(res => res.json())
+            );
+
             renderChatList(inReviewList, inReviewChats, 'In Review');
-
-            const completedChats = await completedResponse.json();
             renderChatList(completedList, completedChats, 'Completed');
-
-            const pendingChats = await pendingResponse.json();
             renderChatList(pendingList, pendingChats, 'Pending');
 
         } catch (error) {

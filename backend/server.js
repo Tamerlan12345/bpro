@@ -48,7 +48,7 @@ app.post('/api/auth/department', async (req, res) => {
 app.get('/api/admin/chats/in_review', async (req, res) => {
     const { data, error } = await supabase
         .from('chat_statuses')
-        .select('*, chats(*)')
+        .select('chat_id, status, chats(name)')
         .eq('status', 'pending_review');
 
     if (error) {
@@ -61,7 +61,7 @@ app.get('/api/admin/chats/in_review', async (req, res) => {
 app.get('/api/admin/chats/pending', async (req, res) => {
     const { data, error } = await supabase
         .from('chat_statuses')
-        .select('*, chats(*)')
+        .select('chat_id, status, chats(name)')
         .in('status', ['draft', 'needs_revision']);
 
     if (error) {
@@ -119,7 +119,7 @@ app.get('/api/departments', async (req, res) => {
 app.get('/api/admin/chats/completed', async (req, res) => {
     const { data, error } = await supabase
         .from('chat_statuses')
-        .select('*, chats(*)')
+        .select('chat_id, status, chats(name)')
         .in('status', ['completed', 'archived']);
 
     if (error) {
