@@ -741,39 +741,53 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `).join('');
 
-        // Load chats for review
-        const inReviewResponse = await fetch('/api/admin/chats/in_review');
-        const inReviewChats = await inReviewResponse.json();
-        inReviewList.innerHTML = inReviewChats.map(chat => `
-            <li>
-                <a href="#" data-chat-id="${chat.chat_id}">
-                    <span>${chat.chats.name}</span>
-                    <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
-                </a>
-            </li>
-        `).join('');
+        const renderChatList = (listElement, chats, listName) => {
+            const validChats = chats.filter(chat => {
+                if (!chat.chats) {
+                    console.warn(`[Admin Panel] Chat with status '${chat.status}' and ID '${chat.chat_id}' will not be displayed in '${listName}' list because it has no associated chat data (orphaned status).`);
+                    return false;
+                }
+                return true;
+            });
 
-        const completedResponse = await fetch('/api/admin/chats/completed');
-        const completedChats = await completedResponse.json();
-        completedList.innerHTML = completedChats.map(chat => `
-            <li>
-                <a href="#" data-chat-id="${chat.chat_id}">
-                    <span>${chat.chats.name}</span>
-                    <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
-                </a>
-            </li>
-        `).join('');
+            if (validChats.length === 0) {
+                listElement.innerHTML = '<li>Нет чатов для отображения</li>';
+                return;
+            }
 
-        const pendingResponse = await fetch('/api/admin/chats/pending');
-        const pendingChats = await pendingResponse.json();
-        pendingList.innerHTML = pendingChats.map(chat => `
-            <li>
-                <a href="#" data-chat-id="${chat.chat_id}">
-                    <span>${chat.chats.name}</span>
-                    <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
-                </a>
-            </li>
-        `).join('');
+            listElement.innerHTML = validChats.map(chat => `
+                <li>
+                    <a href="#" data-chat-id="${chat.chat_id}">
+                        <span>${chat.chats.name}</span>
+                        <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
+                    </a>
+                </li>
+            `).join('');
+        };
+
+        // Load and render all chat lists
+        try {
+            const [inReviewResponse, completedResponse, pendingResponse] = await Promise.all([
+                fetch('/api/admin/chats/in_review'),
+                fetch('/api/admin/chats/completed'),
+                fetch('/api/admin/chats/pending')
+            ]);
+
+            const inReviewChats = await inReviewResponse.json();
+            renderChatList(inReviewList, inReviewChats, 'In Review');
+
+            const completedChats = await completedResponse.json();
+            renderChatList(completedList, completedChats, 'Completed');
+
+            const pendingChats = await pendingResponse.json();
+            renderChatList(pendingList, pendingChats, 'Pending');
+
+        } catch (error) {
+            console.error("Failed to load admin chat lists:", error);
+            inReviewList.innerHTML = '<li>Ошибка загрузки</li>';
+            completedList.innerHTML = '<li>Ошибка загрузки</li>';
+            pendingList.innerHTML = '<li>Ошибка загрузки</li>';
+        }
     }
 
     async function handleDepartmentSelection(e) {
