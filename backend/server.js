@@ -205,8 +205,8 @@ const checkChatPermission = async (req, res, next) => {
 
     // Define permissions based on the chat status
     const canEdit =
-        (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) ||
-        (userRole === 'admin' && status === 'pending_review');
+        userRole === 'admin' ||
+        (userRole === 'user' && (status === 'draft' || status === 'needs_revision'));
 
     if (!canEdit) {
         return res.status(403).json({ error: 'You do not have permission to edit this chat in its current state.' });
@@ -296,12 +296,12 @@ const checkStatusChangePermission = async (req, res, next) => {
     const { status: currentStatus } = statusData;
 
     let canChange = false;
-    if (userRole === 'user') {
+    if (userRole === 'admin') {
+        // Admins can change status freely
+        canChange = true;
+    } else if (userRole === 'user') {
+        // Users can only submit for review
         if ((currentStatus === 'draft' || currentStatus === 'needs_revision') && newStatus === 'pending_review') {
-            canChange = true;
-        }
-    } else if (userRole === 'admin') {
-        if (currentStatus === 'pending_review' && (newStatus === 'needs_revision' || newStatus === 'completed')) {
             canChange = true;
         }
     }
