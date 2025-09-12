@@ -414,7 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ИСХОДНЫЙ ПРОЦЕСС:
 "${processDescription}"`;
-        return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
+        return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim().replace(/\\"/g, '"'));
     }
 
     // --- Authentication Functions ---
