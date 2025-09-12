@@ -39,6 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectedDepartmentName = document.getElementById('selected-department-name');
     const inReviewList = document.getElementById('in-review-list');
     const completedList = document.getElementById('completed-list');
+    const inReviewTab = document.getElementById('in-review-tab');
+    const completedTab = document.getElementById('completed-tab');
     const actionButtons = document.getElementById('action-buttons');
     const saveVersionBtn = document.getElementById('save-version-btn');
     const sendReviewBtn = document.getElementById('send-review-btn');
@@ -124,7 +126,22 @@ document.addEventListener('DOMContentLoaded', () => {
     departmentList.addEventListener('click', handleDepartmentSelection);
     createChatBtn.addEventListener('click', handleCreateChat);
     createDepartmentBtn.addEventListener('click', handleCreateDepartment);
+    inReviewTab.addEventListener('click', (event) => openTab(event, 'in-review'));
+    completedTab.addEventListener('click', (event) => openTab(event, 'completed'));
 
+    function openTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+        tablinks = document.getElementsByClassName("tab-link");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
 
     function updateStepCounter() {
         const text = processDescriptionInput.value;
@@ -546,6 +563,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    let chatVersions = []; // Store versions to avoid re-fetching
+
     async function loadChatData() {
         // Fetch all data in parallel
         const [versionsResponse, commentsResponse, statusResponse] = await Promise.all([
@@ -566,6 +585,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Automatically display the latest version if it exists
         if (chatVersions.length > 0) {
             await displayVersion(chatVersions[0]);
+        } else {
+            // If no versions, ensure diagram is cleared
+            await displayVersion(null);
         }
 
         // Determine editing permissions
@@ -583,12 +605,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const isAdmin = userRole === 'admin';
 
         sendReviewBtn.style.display = (isUser && (status === 'draft' || status === 'needs_revision')) ? 'inline-block' : 'none';
-
         sendRevisionBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
         completeBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
     }
-
-    let chatVersions = []; // Store versions to avoid re-fetching
 
     function renderVersions(versions) {
         versionHistoryContainer.innerHTML = versions.map(v => `
@@ -600,7 +619,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function displayVersion(version) {
-        if (!version) return;
+        if (!version) {
+            // Reset the view if there is no version to display
+            processDescriptionInput.value = '';
+            updateStepCounter();
+            placeholderContent.style.display = 'flex';
+            diagramContainer.innerHTML = '';
+            diagramContainer.style.display = 'none';
+            diagramToolbar.style.display = 'none';
+            renderDiagramBtn.style.display = 'block'; // Show the initial create button
+            lastGeneratedDescription = null;
+            return;
+        }
 
         processDescriptionInput.value = version.process_text;
         updateStepCounter();
@@ -616,14 +646,9 @@ document.addEventListener('DOMContentLoaded', () => {
             diagramContainer.innerHTML = '';
             diagramContainer.style.display = 'none';
             diagramToolbar.style.display = 'none';
+            renderDiagramBtn.style.display = 'block'; // Show the initial create button
             lastGeneratedDescription = null;
         }
-    }
-
-    async function loadComments() {
-        const response = await fetch(`/api/chats/${chatId}/comments`);
-        const comments = await response.json();
-        renderComments(comments);
     }
 
     function renderComments(comments) {
@@ -683,8 +708,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         alert(`Статус чата обновлен на: ${status}`);
-        // After updating status, we need to refresh the UI to reflect locked state etc.
-        loadChatData();
+        // The UI is already refreshed by the handleSaveVersion -> loadChatData call
     }
 
     async function handleAddComment() {
