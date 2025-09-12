@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
 
     const API_URL = '/api/generate';
@@ -73,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomOutBtn = document.getElementById('zoom-out-btn');
     const downloadPngBtn = document.getElementById('download-png-btn');
     const downloadSvgBtn = document.getElementById('download-svg-btn');
+    const downloadVsdxBtn = document.getElementById('download-vsdx-btn');
     const resultsBlock = document.querySelector('.results-block');
 
 
@@ -110,12 +110,15 @@ document.addEventListener('DOMContentLoaded', () => {
     zoomInBtn.addEventListener('click', () => zoomDiagram(1.1));
     zoomOutBtn.addEventListener('click', () => zoomDiagram(0.9));
     downloadPngBtn.addEventListener('click', downloadDiagramPNG);
+    downloadSvgBtn.addEventListener('click', downloadDiagramSVG);
+    downloadVsdxBtn.addEventListener('click', () => {
+        alert('Экспорт в VSDX в данный момент не поддерживается. Рекомендуется использовать экспорт в SVG, так как этот формат можно импортировать в Visio.');
+    });
     backToAdminBtn.addEventListener('click', () => {
         mainContainer.style.display = 'none';
         adminPanel.style.display = 'block';
         backToAdminBtn.style.display = 'none';
     });
-    downloadSvgBtn.addEventListener('click', downloadDiagramSVG);
     saveVersionBtn.addEventListener('click', handleSaveVersion);
     sendReviewBtn.addEventListener('click', () => handleUpdateStatus('pending_review'));
     sendRevisionBtn.addEventListener('click', () => handleUpdateStatus('needs_revision'));
@@ -418,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ИСХОДНЫЙ ПРОЦЕСС:
 "${processDescription}"`;
-        return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim().replace(/\\"/g, '"'));
+        return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
     }
 
     // --- Authentication Functions ---
@@ -596,19 +599,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Determine editing permissions
         const userRole = department.name === 'admin' ? 'admin' : 'user';
-        let isLocked = true; // Lock by default
-        if (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) {
-            isLocked = false;
-        } else if (userRole === 'admin' && status === 'pending_review') {
-            isLocked = false;
+        const isAdmin = userRole === 'admin';
+        let isTextLocked = true;
+        if (isAdmin) {
+            // Admins can always edit text, but not save if completed/archived
+            isTextLocked = (status === 'completed' || status === 'archived');
+        } else {
+            isTextLocked = !['draft', 'needs_revision'].includes(status);
         }
-        setEditingLocked(isLocked);
+        setEditingLocked(isTextLocked, isAdmin);
 
         // Update button states based on status and role
-        const isUser = userRole === 'user';
-        const isAdmin = userRole === 'admin';
-
-        sendReviewBtn.style.display = (isUser && (status === 'draft' || status === 'needs_revision')) ? 'inline-block' : 'none';
+        sendReviewBtn.style.display = (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) ? 'inline-block' : 'none';
         sendRevisionBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
         completeBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
     }
@@ -751,18 +753,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </li>
         `).join('');
 
-        // Load pending chats
-        const pendingResponse = await fetch('/api/admin/chats/pending');
-        const pendingChats = await pendingResponse.json();
-        pendingList.innerHTML = pendingChats.map(chat => `
-            <li>
-                <a href="#" data-chat-id="${chat.chat_id}">
-                    <span>${chat.chats.name}</span>
-                    <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
-                </a>
-            </li>
-        `).join('');
-
         const completedResponse = await fetch('/api/admin/chats/completed');
         const completedChats = await completedResponse.json();
         completedList.innerHTML = completedChats.map(chat => `
@@ -881,26 +871,31 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Департамент создан!');
     }
 
-    function setEditingLocked(isLocked) {
-        processDescriptionInput.disabled = isLocked;
-        userPromptInput.disabled = isLocked;
-        improveBtn.disabled = isLocked;
-        applyImprovementsBtn.disabled = isLocked;
-        saveVersionBtn.disabled = isLocked;
-        sendReviewBtn.disabled = isLocked;
+    function setEditingLocked(isTextLocked, isAdmin) {
+        // Text editing controls are locked based on the flag
+        processDescriptionInput.disabled = isTextLocked;
+        userPromptInput.disabled = isTextLocked;
+        improveBtn.disabled = isTextLocked;
+        applyImprovementsBtn.disabled = isTextLocked;
+        saveVersionBtn.disabled = isTextLocked;
+        sendReviewBtn.disabled = isTextLocked;
 
-        // Add a visual cue to the container
         const leftColumn = document.querySelector('.left-column');
-        if (isLocked) {
+        if (isTextLocked) {
             leftColumn.style.opacity = '0.6';
-            leftColumn.style.pointerEvents = 'none';
         } else {
             leftColumn.style.opacity = '1';
+        }
+
+        // For admins, diagram controls should always be interactive.
+        // For users, they are locked when text editing is locked.
+        if (isAdmin) {
             leftColumn.style.pointerEvents = 'auto';
+        } else {
+            leftColumn.style.pointerEvents = isTextLocked ? 'none' : 'auto';
         }
     }
 
     // Initial setup
     // updateStepCounter(); // This will be called after login
 });
-
