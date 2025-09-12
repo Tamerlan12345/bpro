@@ -38,8 +38,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatListHeader = document.getElementById('chat-list-header');
     const selectedDepartmentName = document.getElementById('selected-department-name');
     const inReviewList = document.getElementById('in-review-list');
+    const pendingList = document.getElementById('pending-list');
     const completedList = document.getElementById('completed-list');
     const inReviewTab = document.getElementById('in-review-tab');
+    const pendingTab = document.getElementById('pending-tab');
     const completedTab = document.getElementById('completed-tab');
     const actionButtons = document.getElementById('action-buttons');
     const saveVersionBtn = document.getElementById('save-version-btn');
@@ -121,12 +123,14 @@ document.addEventListener('DOMContentLoaded', () => {
     archiveBtn.addEventListener('click', () => handleUpdateStatus('archived'));
     addCommentBtn.addEventListener('click', handleAddComment);
     inReviewList.addEventListener('click', handleAdminChatSelection);
+    pendingList.addEventListener('click', handleAdminChatSelection);
     completedList.addEventListener('click', handleAdminChatSelection);
     versionHistoryContainer.addEventListener('click', handleVersionSelection);
     departmentList.addEventListener('click', handleDepartmentSelection);
     createChatBtn.addEventListener('click', handleCreateChat);
     createDepartmentBtn.addEventListener('click', handleCreateDepartment);
     inReviewTab.addEventListener('click', (event) => openTab(event, 'in-review'));
+    pendingTab.addEventListener('click', (event) => openTab(event, 'pending'));
     completedTab.addEventListener('click', (event) => openTab(event, 'completed'));
 
     function openTab(evt, tabName) {
@@ -739,6 +743,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const inReviewResponse = await fetch('/api/admin/chats/in_review');
         const inReviewChats = await inReviewResponse.json();
         inReviewList.innerHTML = inReviewChats.map(chat => `
+            <li>
+                <a href="#" data-chat-id="${chat.chat_id}">
+                    <span>${chat.chats.name}</span>
+                    <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
+                </a>
+            </li>
+        `).join('');
+
+        // Load pending chats
+        const pendingResponse = await fetch('/api/admin/chats/pending');
+        const pendingChats = await pendingResponse.json();
+        pendingList.innerHTML = pendingChats.map(chat => `
             <li>
                 <a href="#" data-chat-id="${chat.chat_id}">
                     <span>${chat.chats.name}</span>
