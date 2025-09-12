@@ -57,6 +57,19 @@ app.get('/api/admin/chats/in_review', async (req, res) => {
     res.json(data);
 });
 
+// Admin: Get pending chats (draft or needs_revision)
+app.get('/api/admin/chats/pending', async (req, res) => {
+    const { data, error } = await supabase
+        .from('chat_statuses')
+        .select('*, chats(*)')
+        .in('status', ['draft', 'needs_revision']);
+
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
+    res.json(data);
+});
+
 // Get chat status
 app.get('/api/chats/:id/status', async (req, res) => {
     const { id } = req.params;
