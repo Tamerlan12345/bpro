@@ -59,27 +59,22 @@ app.get('/api/admin/chats/in_review', async (req, res) => {
 
 // Admin: Get pending chats (draft or needs_revision)
 app.get('/api/admin/chats/pending', async (req, res) => {
-    const { department_id } = req.query;
-
-    if (!department_id) {
-        return res.status(400).json({ error: 'Department ID is required' });
-    }
-
+    // Убираем зависимость от department_id для общего обзора администратора
     const { data, error } = await supabase
         .from('chats')
-        .select('id, name, chat_statuses!inner(status)')
-        .eq('department_id', department_id)
+        .select('id, name, chat_statuses!inner(status), departments(name)') // Добавляем название департамента для контекста
         .in('chat_statuses.status', ['draft', 'needs_revision']);
 
     if (error) {
         return res.status(500).json({ error: error.message });
     }
 
+    // Трансформируем данные для удобства фронтенда
     const transformedData = data.map(chat => ({
         chat_id: chat.id,
         status: chat.chat_statuses.status,
         chats: {
-            name: chat.name
+            name: `${chat.name} (${chat.departments.name})` // Показываем чат и его департамент
         }
     }));
 
