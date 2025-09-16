@@ -59,15 +59,31 @@ app.get('/api/admin/chats/in_review', async (req, res) => {
 
 // Admin: Get pending chats (draft or needs_revision)
 app.get('/api/admin/chats/pending', async (req, res) => {
+    const { department_id } = req.query;
+
+    if (!department_id) {
+        return res.status(400).json({ error: 'Department ID is required' });
+    }
+
     const { data, error } = await supabase
-        .from('chat_statuses')
-        .select('chat_id, status, chats(name)')
-        .in('status', ['draft', 'needs_revision']);
+        .from('chats')
+        .select('id, name, chat_statuses!inner(status)')
+        .eq('department_id', department_id)
+        .in('chat_statuses.status', ['draft', 'needs_revision']);
 
     if (error) {
         return res.status(500).json({ error: error.message });
     }
-    res.json(data);
+
+    const transformedData = data.map(chat => ({
+        chat_id: chat.id,
+        status: chat.chat_statuses.status,
+        chats: {
+            name: chat.name
+        }
+    }));
+
+    res.json(transformedData);
 });
 
 // Get chat status
@@ -418,6 +434,8 @@ app.post('/api/generate', async (req, res) => {
 });
 
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+module.exports = { app, server };
