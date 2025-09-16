@@ -105,9 +105,9 @@ document.addEventListener('DOMContentLoaded', () => {
     chatLoginBtn.addEventListener('click', handleChatLogin);
     processDescriptionInput.addEventListener('input', () => {
         updateStepCounter();
+        // The regenerate button should always be enabled, so we don't need to check the description
         if (lastGeneratedDescription !== null) {
-            const currentDescription = processDescriptionInput.value;
-            regenerateDiagramBtn.disabled = currentDescription.trim() === lastGeneratedDescription.trim();
+            regenerateDiagramBtn.disabled = false;
         }
     });
     improveBtn.addEventListener('click', handleImproveRequest);
@@ -238,27 +238,49 @@ document.addEventListener('DOMContentLoaded', () => {
         diagramToolbar.style.display = 'flex';
 
         let lastError = null;
+        let mermaidCode = '';
+
+        // Try to generate the diagram up to 3 times
         for (let i = 0; i < 3; i++) {
             try {
-                const mermaidCode = await getMermaidCode(description);
+                console.log(`Attempt ${i + 1} to generate Mermaid code...`);
+                mermaidCode = await getMermaidCode(description);
                 if (!mermaidCode || mermaidCode.trim() === '') {
                     throw new Error("Generated Mermaid code is empty.");
                 }
-                console.log("Generated Mermaid Code (Attempt " + (i + 1) + "):", mermaidCode);
+
+                console.log("Attempting to render:", mermaidCode);
                 await renderDiagram(mermaidCode);
 
                 lastGeneratedDescription = description.trim();
                 setButtonLoading(clickedButton, false, 'Перегенерировать');
-                return;
+                return; // Success
             } catch (error) {
                 console.error(`Attempt ${i + 1} failed:`, error);
                 lastError = error;
+                // If this was the last attempt, try to fix the code
+                if (i === 2 && mermaidCode) {
+                    try {
+                        console.log("Attempting to fix the failed Mermaid code...");
+                        const fixedCode = await getFixedMermaidCode(mermaidCode, lastError.message);
+                        console.log("Got fixed code, attempting to render again:", fixedCode);
+                        await renderDiagram(fixedCode);
+
+                        lastGeneratedDescription = description.trim();
+                        setButtonLoading(clickedButton, false, 'Перегенерировать');
+                        return; // Success after fix
+                    } catch (fixError) {
+                        console.error("Failed to fix and render the code:", fixError);
+                        lastError = fixError; // The final error is the fixing error
+                    }
+                }
             }
         }
 
+        // If all attempts fail, show the final error
         diagramContainer.innerHTML = `<p class="placeholder-text error">Не удалось построить схему. Ошибка: ${lastError.message}</p>`;
         setButtonLoading(clickedButton, false, clickedButton.id === 'render-diagram-btn' ? 'Создать схему' : 'Перегенерировать');
-        console.error('ОШИБКА:', lastError);
+        console.error('ОШИБКА ПОСЛЕ ВСЕХ ПОПЫТОК:', lastError);
     }
 
 
@@ -333,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
             zoomDiagram(1);
             diagramToolbar.style.display = 'flex';
             renderDiagramBtn.style.display = 'none';
-            regenerateDiagramBtn.disabled = true;
+            regenerateDiagramBtn.disabled = false; // Always keep enabled
         }
     }
 
@@ -431,6 +453,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ИСХОДНЫЙ ПРОЦЕСС:
 "${processDescription}"`;
+        return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
+    }
+
+    async function getFixedMermaidCode(brokenCode, errorMessage) {
+        const prompt = `Ты — эксперт по Mermaid.js. Тебе дали код с ошибкой. Твоя задача — ИСПРАВИТЬ ЕГО.
+
+НЕИСПРАВНЫЙ КОД:
+\`\`\`
+${brokenCode}
+\`\`\`
+
+СООБЩЕНИЕ ОБ ОШИБКЕ:
+"${errorMessage}"
+
+Проанализируй ошибку и верни ИСПРАВЛЕННЫЙ код. Ответ должен содержать ТОЛЬКО код Mermaid.js, без объяснений и markdown.`;
         return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
     }
 
