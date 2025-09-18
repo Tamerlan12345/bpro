@@ -132,7 +132,7 @@ app.get('/api/admin/chats/pending', isAuthenticated, isAdmin, async (req, res) =
     const { data, error } = await supabase
         .from('chats')
         .select('id, name, chat_statuses!inner(status), departments(name)') // Добавляем название департамента для контекста
-        .in('chat_statuses.status', ['draft', 'needs_revision']);
+        .or('status.eq.draft,status.eq.needs_revision', { referencedTable: 'chat_statuses' });
 
     if (error) {
         return res.status(500).json({ error: error.message });

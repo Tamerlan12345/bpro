@@ -115,3 +115,48 @@ describe('API Security and Authorization', () => {
         });
     });
 });
+
+describe('GET /api/admin/chats/pending', () => {
+    let agent;
+
+    beforeEach(async () => {
+        agent = request.agent(app);
+        const adminDept = { id: 1, name: 'admin', hashed_password: 'admin_hash' };
+
+        // Mock the admin login process
+        when(bcrypt.compare).calledWith('adminpass', adminDept.hashed_password).mockResolvedValue(true);
+
+        // Ensure the mock for 'eq' is specific to the login call
+        const singleMock = jest.fn().mockResolvedValue({ data: adminDept, error: null });
+        when(mockSupabase.eq).calledWith('name', 'admin').mockReturnValue({ single: singleMock });
+
+        // Log in as admin
+        await agent
+            .post('/api/auth/department')
+            .send({ name: 'admin', password: 'adminpass' })
+            .expect(200);
+    });
+
+    it('should return pending chats for an admin user', async () => {
+        const mockPendingChats = [
+            { id: 101, name: 'Chat 1', chat_statuses: { status: 'draft' }, departments: { name: 'Dept A' } },
+            { id: 102, name: 'Chat 2', chat_statuses: { status: 'needs_revision' }, departments: { name: 'Dept B' } }
+        ];
+
+        const orMock = jest.fn().mockResolvedValue({ data: mockPendingChats, error: null });
+
+        // Mock the specific Supabase call for pending chats
+        const selectMock = jest.fn().mockReturnValue({ or: orMock });
+        when(mockSupabase.from).calledWith('chats').mockReturnValue({ select: selectMock });
+
+        const response = await agent.get('/api/admin/chats/pending');
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveLength(2);
+        expect(response.body[0].chats.name).toBe('Chat 1 (Dept A)');
+        expect(response.body[1].status).toBe('needs_revision');
+
+        // Verify that the '.or' method was called correctly
+        expect(orMock).toHaveBeenCalledWith('status.eq.draft,status.eq.needs_revision', { referencedTable: 'chat_statuses' });
+    });
+});
