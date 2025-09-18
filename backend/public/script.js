@@ -98,6 +98,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    /**
+     * A wrapper for the fetch API that includes credentials and handles HTTP errors.
+     * This ensures the session cookie is sent with each request.
+     * @param {string} url - The URL to fetch.
+     * @param {object} options - The options for the fetch request.
+     * @returns {Promise<Response>} - A promise that resolves to the fetch Response object.
+     * @throws {Error} - Throws an error if the network response is not ok.
+     */
+    async function fetchWithAuth(url, options = {}) {
+        // Ensure credentials (like session cookies) are included in the request.
+        const finalOptions = {
+            ...options,
+            credentials: 'include'
+        };
+
+        const response = await fetch(url, finalOptions);
+
+        if (!response.ok) {
+            // Attempt to parse the server's JSON error response.
+            const errorData = await response.json().catch(() => {
+                // If the response isn't valid JSON, create a generic error.
+                return { error: `HTTP Error: ${response.status} ${response.statusText}` };
+            });
+            // Throw an error that can be caught by the calling function's catch block.
+            throw new Error(errorData.error || 'An unknown network error occurred.');
+        }
+
+        return response; // Return the successful response object.
+    }
+
     let lastGeneratedDescription = null;
 
     // Event Listeners
@@ -527,7 +557,7 @@ ${brokenCode}
 
     async function loadChats(deptId) {
         try {
-            const response = await fetch(`/api/chats?department_id=${deptId}`);
+            const response = await fetchWithAuth(`/api/chats?department_id=${deptId}`);
             const allChats = await response.json();
 
             // Filter out completed and archived chats for the department view
@@ -559,7 +589,7 @@ ${brokenCode}
             });
         } catch (error) {
             console.error('Error loading chats:', error);
-            chatError.textContent = 'Не удалось загрузить чаты';
+            chatError.textContent = `Не удалось загрузить чаты: ${error.message}`;
         }
     }
 
@@ -570,7 +600,6 @@ ${brokenCode}
             return;
         }
 
-        const selectedChatId = selectedChatCard.dataset.chatId;
         const selectedChatName = selectedChatCard.dataset.chatName;
         const password = chatPasswordInput.value;
         if (!password) {
@@ -579,16 +608,11 @@ ${brokenCode}
         }
 
         try {
-            const response = await fetch('/api/auth/chat', {
+            const response = await fetchWithAuth('/api/auth/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ department_id: department.id, name: selectedChatName, password })
             });
-
-            if (!response.ok) {
-                chatError.textContent = 'Неверный пароль чата';
-                return;
-            }
 
             const chat = await response.json();
             chatId = chat.id;
@@ -596,7 +620,7 @@ ${brokenCode}
             showMainApp(chat.name);
         } catch (error) {
             console.error('Chat login error:', error);
-            chatError.textContent = 'Ошибка входа в чат';
+            chatError.textContent = `Ошибка входа в чат: ${error.message}`;
         }
     }
 
@@ -611,53 +635,52 @@ ${brokenCode}
     let chatVersions = []; // Store versions to avoid re-fetching
 
     async function loadChatData() {
-        // Fetch all data in parallel
-        const [versionsResponse, commentsResponse, statusResponse] = await Promise.all([
-            fetch(`/api/chats/${chatId}/versions`),
-            fetch(`/api/chats/${chatId}/comments`),
-            fetch(`/api/chats/${chatId}/status`)
-        ]);
+        try {
+            // Fetch all data in parallel
+            const [versionsResponse, commentsResponse, statusResponse] = await Promise.all([
+                fetchWithAuth(`/api/chats/${chatId}/versions`),
+                fetchWithAuth(`/api/chats/${chatId}/comments`),
+                fetchWithAuth(`/api/chats/${chatId}/status`)
+            ]);
 
-        // Check if any request failed (e.g., due to session timeout)
-        if ([versionsResponse, commentsResponse, statusResponse].some(res => !res.ok)) {
-            alert('Your session may have expired. Please log in again.');
+            // Process responses
+            chatVersions = await versionsResponse.json();
+            const comments = await commentsResponse.json();
+            const { status } = await statusResponse.json();
+
+            // Render data
+            renderVersions(chatVersions);
+            renderComments(comments);
+
+            // Automatically display the latest version if it exists
+            if (chatVersions.length > 0) {
+                await displayVersion(chatVersions[0]);
+            } else {
+                // If no versions, ensure diagram is cleared
+                await displayVersion(null);
+            }
+
+            // Determine editing permissions based on the role from the authenticated session
+            const userRole = department.role;
+            const isAdmin = userRole === 'admin';
+            let isTextLocked = true;
+            if (isAdmin) {
+                // Admins can always edit text, but not save if completed/archived
+                isTextLocked = (status === 'completed' || status === 'archived');
+            } else {
+                isTextLocked = !['draft', 'needs_revision'].includes(status);
+            }
+            setEditingLocked(isTextLocked, isAdmin);
+
+            // Update button states based on status and role
+            sendReviewBtn.style.display = (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) ? 'inline-block' : 'none';
+            sendRevisionBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
+            completeBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
+        } catch (error) {
+            console.error('Failed to load chat data:', error);
+            alert(`Failed to load chat data: ${error.message}. Your session may have expired.`);
             window.location.reload(); // Force a reload to go back to the login page
-            return;
         }
-
-        // Process responses
-        chatVersions = await versionsResponse.json();
-        const comments = await commentsResponse.json();
-        const { status } = await statusResponse.json();
-
-        // Render data
-        renderVersions(chatVersions);
-        renderComments(comments);
-
-        // Automatically display the latest version if it exists
-        if (chatVersions.length > 0) {
-            await displayVersion(chatVersions[0]);
-        } else {
-            // If no versions, ensure diagram is cleared
-            await displayVersion(null);
-        }
-
-        // Determine editing permissions based on the role from the authenticated session
-        const userRole = department.role;
-        const isAdmin = userRole === 'admin';
-        let isTextLocked = true;
-        if (isAdmin) {
-            // Admins can always edit text, but not save if completed/archived
-            isTextLocked = (status === 'completed' || status === 'archived');
-        } else {
-            isTextLocked = !['draft', 'needs_revision'].includes(status);
-        }
-        setEditingLocked(isTextLocked, isAdmin);
-
-        // Update button states based on status and role
-        sendReviewBtn.style.display = (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) ? 'inline-block' : 'none';
-        sendRevisionBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
-        completeBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
     }
 
     function renderVersions(versions) {
@@ -718,125 +741,114 @@ ${brokenCode}
             alert("Нельзя сохранить пустую версию.");
             return;
         }
-        const mermaid_code = await getMermaidCode(process_text);
-        // The X-User-Role header is no longer needed. The server uses the session.
-        const response = await fetch(`/api/chats/${chatId}/versions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ process_text, mermaid_code })
-        });
+        try {
+            const mermaid_code = await getMermaidCode(process_text);
+            await fetchWithAuth(`/api/chats/${chatId}/versions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ process_text, mermaid_code })
+            });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            alert(`Ошибка сохранения: ${errorData.error}`);
-            return;
+            await loadChatData();
+        } catch (error) {
+            alert(`Ошибка сохранения: ${error.message}`);
         }
-
-        await loadChatData();
     }
 
     async function handleUpdateStatus(status) {
-        // Auto-save the current work before changing the status
-        await handleSaveVersion();
+        try {
+            // Auto-save the current work before changing the status
+            await handleSaveVersion();
 
-        // The X-User-Role header is no longer needed. The server uses the session.
-        const response = await fetch(`/api/chats/${chatId}/status`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ status })
-        });
+            await fetchWithAuth(`/api/chats/${chatId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status })
+            });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            alert(`Ошибка обновления статуса: ${errorData.error}`);
-            return;
+            alert(`Статус чата обновлен на: ${status}`);
+            // The UI is already refreshed by the handleSaveVersion -> loadChatData call
+        } catch (error) {
+            alert(`Ошибка обновления статуса: ${error.message}`);
         }
-
-        alert(`Статус чата обновлен на: ${status}`);
-        // The UI is already refreshed by the handleSaveVersion -> loadChatData call
     }
 
     async function handleAddComment() {
         const text = commentInput.value;
         if (!text.trim()) return;
 
-        // The backend now determines the role from the session.
-        // We only need to send the text content.
-        await fetch(`/api/chats/${chatId}/comments`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
-        });
-        commentInput.value = '';
-        await loadComments(); // Reload comments to show the new one
+        try {
+            await fetchWithAuth(`/api/chats/${chatId}/comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            commentInput.value = '';
+            await loadComments(); // Reload comments to show the new one
+        } catch (error) {
+            alert(`Failed to add comment: ${error.message}`);
+        }
     }
 
     async function loadComments() {
-        const response = await fetch(`/api/chats/${chatId}/comments`);
-        if (!response.ok) {
-            console.error('Failed to load comments');
-            return;
+        try {
+            const response = await fetchWithAuth(`/api/chats/${chatId}/comments`);
+            const comments = await response.json();
+            renderComments(comments);
+        } catch (error) {
+            console.error('Failed to load comments', error);
         }
-        const comments = await response.json();
-        renderComments(comments);
     }
 
     async function loadAdminPanel() {
-        // Load departments
-        const response = await fetch('/api/departments');
-        const departments = await response.json();
-        departmentList.innerHTML = departments.map(dept => `
-            <div class="department-card" data-dept-id="${dept.id}" data-dept-name="${dept.name}">
-                <span>${dept.name}</span>
-                <button class="edit-dept-btn" data-dept-id="${dept.id}" data-dept-name="${dept.name}">✏️ Редактировать</button>
-            </div>
-        `).join('');
-
-        const renderChatList = (listElement, chats, listName) => {
-            const validChats = chats.filter(chat => {
-                if (!chat.chats) {
-                    console.warn(`[Admin Panel] Chat with status '${chat.status}' and ID '${chat.chat_id}' will not be displayed in '${listName}' list because it has no associated chat data (orphaned status).`);
-                    return false;
-                }
-                return true;
-            });
-
-            if (validChats.length === 0) {
-                listElement.innerHTML = '<li>Нет чатов для отображения</li>';
-                return;
-            }
-
-            listElement.innerHTML = validChats.map(chat => `
-                <li>
-                    <a href="#" data-chat-id="${chat.chat_id}">
-                        <span>${chat.chats.name}</span>
-                        <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
-                    </a>
-                </li>
-            `).join('');
-        };
-
-        // Load and render all chat lists
         try {
-            const responses = await Promise.all([
-                fetch('/api/admin/chats/in_review'),
-                fetch('/api/admin/chats/completed'),
-                fetch('/api/admin/chats/pending')
+            // Load departments
+            const deptsResponse = await fetchWithAuth('/api/departments');
+            const departments = await deptsResponse.json();
+            departmentList.innerHTML = departments.map(dept => `
+                <div class="department-card" data-dept-id="${dept.id}" data-dept-name="${dept.name}">
+                    <span>${dept.name}</span>
+                    <button class="edit-dept-btn" data-dept-id="${dept.id}" data-dept-name="${dept.name}">✏️ Редактировать</button>
+                </div>
+            `).join('');
+
+            const renderChatList = (listElement, chats, listName) => {
+                const validChats = chats.filter(chat => {
+                    if (!chat.chats) {
+                        console.warn(`[Admin Panel] Chat with status '${chat.status}' and ID '${chat.chat_id}' will not be displayed in '${listName}' list because it has no associated chat data (orphaned status).`);
+                        return false;
+                    }
+                    return true;
+                });
+
+                if (validChats.length === 0) {
+                    listElement.innerHTML = '<li>Нет чатов для отображения</li>';
+                    return;
+                }
+
+                listElement.innerHTML = validChats.map(chat => `
+                    <li>
+                        <a href="#" data-chat-id="${chat.chat_id}">
+                            <span>${chat.chats.name}</span>
+                            <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
+                        </a>
+                    </li>
+                `).join('');
+            };
+
+            // Load and render all chat lists
+            const [inReviewResponse, completedResponse, pendingResponse] = await Promise.all([
+                fetchWithAuth('/api/admin/chats/in_review'),
+                fetchWithAuth('/api/admin/chats/completed'),
+                fetchWithAuth('/api/admin/chats/pending')
             ]);
 
-            for (const res of responses) {
-                if (!res.ok) {
-                    const errorBody = await res.text();
-                    throw new Error(`Failed to fetch ${res.url}: ${res.status} ${res.statusText}. Body: ${errorBody}`);
-                }
-            }
-
             const [inReviewChats, completedChats, pendingChats] = await Promise.all(
-                responses.map(res => res.json())
+                [inReviewResponse, completedResponse, pendingResponse].map(res => res.json())
             );
 
             renderChatList(inReviewList, inReviewChats, 'In Review');
@@ -845,9 +857,10 @@ ${brokenCode}
 
         } catch (error) {
             console.error("Failed to load admin chat lists:", error);
-            inReviewList.innerHTML = '<li>Ошибка загрузки</li>';
-            completedList.innerHTML = '<li>Ошибка загрузки</li>';
-            pendingList.innerHTML = '<li>Ошибка загрузки</li>';
+            const errorHtml = `<li>Ошибка загрузки: ${error.message}</li>`;
+            inReviewList.innerHTML = errorHtml;
+            completedList.innerHTML = errorHtml;
+            pendingList.innerHTML = errorHtml;
         }
     }
 
@@ -873,9 +886,13 @@ ${brokenCode}
         selectedDepartmentName.textContent = deptName;
         createChatForm.style.display = 'block';
 
-        const response = await fetch(`/api/chats?department_id=${deptId}`);
-        const chats = await response.json();
-        chatList.innerHTML = chats.map(chat => `<div class="chat-item">${chat.name}</div>`).join('');
+        try {
+            const response = await fetchWithAuth(`/api/chats?department_id=${deptId}`);
+            const chats = await response.json();
+            chatList.innerHTML = chats.map(chat => `<div class="chat-item">${chat.name}</div>`).join('');
+        } catch (error) {
+            chatList.innerHTML = `<div class="error-text">Не удалось загрузить чаты: ${error.message}</div>`;
+        }
     }
 
     function openTab(evt, tabName) {
@@ -935,18 +952,22 @@ ${brokenCode}
         const password = newChatPasswordInput.value;
         if (!name || !password) return;
 
-        await fetch('/api/chats', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ department_id: deptId, name, password })
-        });
+        try {
+            await fetchWithAuth('/api/chats', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ department_id: deptId, name, password })
+            });
 
-        newChatNameInput.value = '';
-        newChatPasswordInput.value = '';
+            newChatNameInput.value = '';
+            newChatPasswordInput.value = '';
 
-        // Refresh the chat list for the currently selected department
-        const event = new MouseEvent('click', { bubbles: true, cancelable: true });
-        selectedDeptCard.dispatchEvent(event);
+            // Refresh the chat list for the currently selected department
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+            selectedDeptCard.dispatchEvent(event);
+        } catch (error) {
+            alert(`Не удалось создать чат: ${error.message}`);
+        }
     }
 
     async function handleCreateDepartment() {
@@ -954,15 +975,19 @@ ${brokenCode}
         const password = newDepartmentPasswordInput.value;
         if (!name || !password) return;
 
-        await fetch('/api/departments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, password })
-        });
+        try {
+            await fetchWithAuth('/api/departments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, password })
+            });
 
-        newDepartmentNameInput.value = '';
-        newDepartmentPasswordInput.value = '';
-        alert('Департамент создан!');
+            newDepartmentNameInput.value = '';
+            newDepartmentPasswordInput.value = '';
+            alert('Департамент создан!');
+        } catch (error) {
+            alert(`Не удалось создать департамент: ${error.message}`);
+        }
     }
 
     function setEditingLocked(isTextLocked, isAdmin) {
@@ -1018,23 +1043,18 @@ ${brokenCode}
         }
 
         try {
-            const response = await fetch(`/api/departments/${id}`, {
+            await fetchWithAuth(`/api/departments/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
 
-            if (response.ok) {
-                alert('Департамент успешно обновлен.');
-                closeEditDepartmentModal();
-                await loadAdminPanel(); // Refresh the department list
-            } else {
-                const errorData = await response.json();
-                alert(`Ошибка обновления: ${errorData.error}`);
-            }
+            alert('Департамент успешно обновлен.');
+            closeEditDepartmentModal();
+            await loadAdminPanel(); // Refresh the department list
         } catch (error) {
             console.error('Failed to save department:', error);
-            alert('Произошла ошибка при сохранении департамента.');
+            alert(`Произошла ошибка при сохранении департамента: ${error.message}`);
         }
     }
 
