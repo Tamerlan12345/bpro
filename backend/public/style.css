@@ -733,18 +733,6 @@ button.button-secondary:hover {
     background-color: #f8f9fa;
     border-radius: var(--border-radius);
 }
-
-.chat-card.inactive {
-    opacity: 0.6;
-    background-color: #f8f9fa;
-    cursor: not-allowed;
-}
-
-.chat-card.inactive:hover {
-    transform: none;
-    box-shadow: none;
-    border-color: var(--border-color);
-}
 .legend h4 {
     margin-top: 0;
     margin-bottom: 10px;
