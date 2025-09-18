@@ -1,5 +1,5 @@
 
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 
 const express = require('express');
 const fetch = require('node-fetch');
@@ -15,6 +15,13 @@ const PORT = process.env.PORT || 3000;
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+// Validate Supabase environment variables
+if (!supabaseUrl || !supabaseKey) {
+  console.error("Error: SUPABASE_URL and SUPABASE_ANON_KEY must be set in the .env file.");
+  process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // CORS configuration must allow credentials
