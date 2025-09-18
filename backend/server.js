@@ -6,6 +6,8 @@ const fetch = require('node-fetch');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
+const session = require('express-session');
+const FileStore = require('session-file-store')(session);
 
 const app = express();
 
@@ -15,10 +17,50 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-app.use(cors());
+// CORS configuration must allow credentials
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://127.0.0.1:5500',
+    credentials: true
+}));
+
 app.use(express.json()); 
+
+// Session middleware
+app.use(session({
+    store: new FileStore({
+        logFn: function() {}, // Suppress verbose logging
+        path: './sessions'
+    }),
+    secret: process.env.SESSION_SECRET || 'a-very-weak-secret-for-dev',
+    resave: false,
+    saveUninitialized: false, // Only save sessions when data is added
+    cookie: {
+        httpOnly: true, // Prevent client-side JS from accessing the cookie
+        secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
+
 app.use(express.static('public'));
 
+
+// --- Authorization Middleware ---
+
+// Checks if a user is authenticated (logged in)
+const isAuthenticated = (req, res, next) => {
+    if (req.session.user) {
+        return next();
+    }
+    res.status(401).json({ error: 'Unauthorized: You must be logged in.' });
+};
+
+// Checks if a user is an administrator
+const isAdmin = (req, res, next) => {
+    if (req.session.user && req.session.user.role === 'admin') {
+        return next();
+    }
+    res.status(403).json({ error: 'Forbidden: Administrator access required.' });
+};
 
 
 // Department authentication
@@ -41,11 +83,38 @@ app.post('/api/auth/department', async (req, res) => {
         return res.status(401).json({ error: 'Invalid department or password' });
     }
 
-    res.json({ id: department.id, name: department.name });
+    const role = department.name === 'admin' ? 'admin' : 'user';
+
+    // Store user information in the session
+    req.session.user = {
+        id: department.id,
+        name: department.name,
+        role: role,
+    };
+
+    // Return user info, including the role
+    res.json({
+        id: department.id,
+        name: department.name,
+        role: role
+    });
+});
+
+// Logout
+app.post('/api/auth/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            // Handle error case
+            return res.status(500).json({ error: 'Could not log out, please try again.' });
+        }
+        // Ensure the cookie is cleared
+        res.clearCookie('connect.sid'); // Default name for express-session cookie
+        res.status(200).json({ message: 'Logged out successfully' });
+    });
 });
 
 // Admin: Get chats in review
-app.get('/api/admin/chats/in_review', async (req, res) => {
+app.get('/api/admin/chats/in_review', isAuthenticated, isAdmin, async (req, res) => {
     const { data, error } = await supabase
         .from('chat_statuses')
         .select('chat_id, status, chats(name)')
@@ -58,7 +127,7 @@ app.get('/api/admin/chats/in_review', async (req, res) => {
 });
 
 // Admin: Get pending chats (draft or needs_revision)
-app.get('/api/admin/chats/pending', async (req, res) => {
+app.get('/api/admin/chats/pending', isAuthenticated, isAdmin, async (req, res) => {
     // Убираем зависимость от department_id для общего обзора администратора
     const { data, error } = await supabase
         .from('chats')
@@ -82,7 +151,7 @@ app.get('/api/admin/chats/pending', async (req, res) => {
 });
 
 // Get chat status
-app.get('/api/chats/:id/status', async (req, res) => {
+app.get('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const { data, error } = await supabase
         .from('chat_statuses')
@@ -97,8 +166,7 @@ app.get('/api/chats/:id/status', async (req, res) => {
 });
 
 // Admin: Create a new department
-// TODO: Add a middleware to check if the user is an admin
-app.post('/api/departments', async (req, res) => {
+app.post('/api/departments', isAuthenticated, isAdmin, async (req, res) => {
     const { name, password } = req.body;
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -115,7 +183,7 @@ app.post('/api/departments', async (req, res) => {
 });
 
 // Admin: Get all departments
-app.get('/api/departments', async (req, res) => {
+app.get('/api/departments', isAuthenticated, isAdmin, async (req, res) => {
     const { data, error } = await supabase
         .from('departments')
         .select('id, name');
@@ -127,8 +195,7 @@ app.get('/api/departments', async (req, res) => {
 });
 
 // Admin: Update a department
-// TODO: Add a middleware to check if the user is an admin
-app.put('/api/departments/:id', async (req, res) => {
+app.put('/api/departments/:id', isAuthenticated, isAdmin, async (req, res) => {
     const { id } = req.params;
     const { name, password } = req.body;
 
@@ -159,7 +226,7 @@ app.put('/api/departments/:id', async (req, res) => {
 });
 
 // Admin: Get completed chats
-app.get('/api/admin/chats/completed', async (req, res) => {
+app.get('/api/admin/chats/completed', isAuthenticated, isAdmin, async (req, res) => {
     const { data, error } = await supabase
         .from('chat_statuses')
         .select('chat_id, status, chats(name)')
@@ -171,8 +238,8 @@ app.get('/api/admin/chats/completed', async (req, res) => {
     res.json(data);
 });
 
-// Chat authentication
-app.post('/api/auth/chat', async (req, res) => {
+// Chat authentication - This is for a specific chat password, separate from department login
+app.post('/api/auth/chat', isAuthenticated, async (req, res) => {
     const { department_id, name, password } = req.body;
     const { data: chat, error } = await supabase
         .from('chats')
@@ -195,8 +262,14 @@ app.post('/api/auth/chat', async (req, res) => {
 });
 
 // Get all chats for a department
-app.get('/api/chats', async (req, res) => {
+app.get('/api/chats', isAuthenticated, async (req, res) => {
     const { department_id } = req.query;
+
+    // Security check: ensure the logged-in user can only see their own department's chats, unless they are an admin
+    if (req.session.user.role !== 'admin' && req.session.user.id.toString() !== department_id) {
+        return res.status(403).json({ error: 'Forbidden: You can only view your own department\'s chats.' });
+    }
+
     const { data, error } = await supabase
         .from('chats')
         .select('id, name, chat_statuses(status)')
@@ -208,8 +281,8 @@ app.get('/api/chats', async (req, res) => {
     res.json(data);
 });
 
-// Create a new chat
-app.post('/api/chats', async (req, res) => {
+// Create a new chat (must be admin to create a chat for a department)
+app.post('/api/chats', isAuthenticated, isAdmin, async (req, res) => {
     const { department_id, name, password } = req.body;
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -239,13 +312,7 @@ app.post('/api/chats', async (req, res) => {
 // Middleware to check if a user has permission to edit a chat
 const checkChatPermission = async (req, res, next) => {
     const { id: chatId } = req.params;
-    // The user's role is sent in a custom header. This is not secure for production
-    // but follows the existing pattern of the app. A proper auth system is needed.
-    const userRole = req.headers['x-user-role'];
-
-    if (!userRole) {
-        return res.status(401).json({ error: 'User role not provided via X-User-Role header' });
-    }
+    const userRole = req.session.user.role;
 
     const { data: statusData, error } = await supabase
         .from('chat_statuses')
@@ -259,10 +326,6 @@ const checkChatPermission = async (req, res, next) => {
 
     const { status } = statusData;
 
-    // Define permissions based on the chat status.
-    // Admin can always save a version; this is required for status changes to work
-    // as the frontend bundles saving with status updates. The UI prevents editing text
-    // for completed/archived chats already.
     const canEdit =
         (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) ||
         (userRole === 'admin');
@@ -275,7 +338,7 @@ const checkChatPermission = async (req, res, next) => {
 };
 
 // Get all versions for a chat
-app.get('/api/chats/:id/versions', async (req, res) => {
+app.get('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const { data, error } = await supabase
         .from('process_versions')
@@ -290,7 +353,7 @@ app.get('/api/chats/:id/versions', async (req, res) => {
 });
 
 // Create a new version for a chat
-app.post('/api/chats/:id/versions', checkChatPermission, async (req, res) => {
+app.post('/api/chats/:id/versions', isAuthenticated, checkChatPermission, async (req, res) => {
     const { id } = req.params;
     const { process_text, mermaid_code } = req.body;
     const { data, error } = await supabase
@@ -305,7 +368,7 @@ app.post('/api/chats/:id/versions', checkChatPermission, async (req, res) => {
 });
 
 // Get all comments for a chat
-app.get('/api/chats/:id/comments', async (req, res) => {
+app.get('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const { data, error } = await supabase
         .from('comments')
@@ -320,9 +383,12 @@ app.get('/api/chats/:id/comments', async (req, res) => {
 });
 
 // Create a new comment for a chat
-app.post('/api/chats/:id/comments', async (req, res) => {
+app.post('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     const { id } = req.params;
-    const { author_role, text } = req.body;
+    const { text } = req.body;
+    // The author's role is now determined by the session, not the request body
+    const author_role = req.session.user.role;
+
     const { data, error } = await supabase
         .from('comments')
         .insert([{ chat_id: id, author_role, text }])
@@ -337,10 +403,10 @@ app.post('/api/chats/:id/comments', async (req, res) => {
 const checkStatusChangePermission = async (req, res, next) => {
     const { id: chatId } = req.params;
     const { status: newStatus } = req.body;
-    const userRole = req.headers['x-user-role'];
+    const userRole = req.session.user.role;
 
-    if (!userRole || !newStatus) {
-        return res.status(400).json({ error: 'User role and new status are required.' });
+    if (!newStatus) {
+        return res.status(400).json({ error: 'New status is required.' });
     }
 
     const { data: statusData, error } = await supabase
@@ -363,7 +429,6 @@ const checkStatusChangePermission = async (req, res, next) => {
         if (currentStatus === 'pending_review' && (newStatus === 'needs_revision' || newStatus === 'completed')) {
             canChange = true;
         }
-        // Admins should be able to archive a chat from any status
         if (newStatus === 'archived') {
             canChange = true;
         }
@@ -377,7 +442,7 @@ const checkStatusChangePermission = async (req, res, next) => {
 };
 
 // Update chat status
-app.put('/api/chats/:id/status', checkStatusChangePermission, async (req, res) => {
+app.put('/api/chats/:id/status', isAuthenticated, checkStatusChangePermission, async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     const { data, error } = await supabase
