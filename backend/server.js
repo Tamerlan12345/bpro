@@ -8,6 +8,7 @@ const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
+const path = require('path');
 
 const app = express();
 
@@ -36,7 +37,7 @@ app.use(express.json());
 app.use(session({
     store: new FileStore({
         logFn: function() {}, // Suppress verbose logging
-        path: './sessions'
+        path: path.join(__dirname, 'sessions')
     }),
     secret: process.env.SESSION_SECRET || 'a-very-weak-secret-for-dev',
     resave: false,

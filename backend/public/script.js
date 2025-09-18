@@ -560,31 +560,31 @@ ${brokenCode}
             const response = await fetchWithAuth(`/api/chats?department_id=${deptId}`);
             const allChats = await response.json();
 
-            if (allChats.length === 0) {
-                chatSelectionContainer.innerHTML = '<p class="placeholder-text">Для этого департамента нет чатов.</p>';
+            // Filter out completed and archived chats for the department view
+            const activeChats = allChats.filter(chat => {
+                const status = chat.chat_statuses?.status || 'draft';
+                return status !== 'completed' && status !== 'archived';
+            });
+
+            if (activeChats.length === 0) {
+                chatSelectionContainer.innerHTML = '<p class="placeholder-text">Для этого департамента нет активных чатов.</p>';
                 return;
             }
 
-            chatSelectionContainer.innerHTML = allChats.map(chat => {
+            chatSelectionContainer.innerHTML = activeChats.map(chat => {
                 const status = chat.chat_statuses?.status || 'draft';
-                const isInactive = status === 'completed' || status === 'archived';
                 return `
-            <div class="chat-card ${isInactive ? 'inactive' : ''}" data-chat-id="${chat.id}" data-chat-name="${chat.name}">
-                <span class="chat-icon">💬</span>
-                <span class="chat-name">${chat.name}</span>
-                <div class="chat-status">${getStatusIndicator(status)}</div>
-            </div>
-        `}).join('');
+                <div class="chat-card" data-chat-id="${chat.id}" data-chat-name="${chat.name}">
+                    <span class="chat-icon">💬</span>
+                    <span class="chat-name">${chat.name}</span>
+                    <div class="chat-status">${getStatusIndicator(status)}</div>
+                </div>
+            `}).join('');
 
             document.querySelectorAll('.chat-card').forEach(card => {
                 card.addEventListener('click', () => {
-                    if (card.classList.contains('inactive')) {
-                        chatError.textContent = 'Этот чат завершен или архивирован.';
-                        return;
-                    }
                     document.querySelectorAll('.chat-card').forEach(c => c.classList.remove('selected'));
                     card.classList.add('selected');
-                    chatError.textContent = '';
                 });
             });
         } catch (error) {
