@@ -1,90 +1,117 @@
 const request = require('supertest');
-const express = require('express');
 const { when } = require('jest-when');
+const bcrypt = require('bcryptjs');
 
-// Mock the supabase client
-const mockSelect = jest.fn();
-const mockEq = jest.fn(() => ({
-    in: mockIn
-}));
-const mockIn = jest.fn(() => ({
-    select: mockSelect
-}));
+// Mock external dependencies
+jest.mock('bcryptjs');
 
+// A flexible mock for the Supabase client
 const mockSupabase = {
-    from: jest.fn(() => ({
-        select: mockSelect,
-        eq: mockEq
-    }))
+    from: jest.fn(),
+    select: jest.fn(),
+    insert: jest.fn(),
+    eq: jest.fn(),
+    in: jest.fn(),
+    single: jest.fn(),
 };
 
+// Default implementations that return `this` to allow chaining
+mockSupabase.from.mockReturnThis();
+mockSupabase.select.mockReturnThis();
+mockSupabase.insert.mockReturnThis();
+mockSupabase.eq.mockReturnThis();
+mockSupabase.in.mockReturnThis();
+mockSupabase.single.mockReturnThis();
+
+
 jest.mock('@supabase/supabase-js', () => ({
-    createClient: () => mockSupabase
+    createClient: () => mockSupabase,
 }));
 
-// Import the app after mocking
+// Import the app *after* mocks are set up
 const { app, server } = require('./server');
 
-describe('Admin API', () => {
+describe('API Security and Authorization', () => {
+    // Close the server after all tests to prevent Jest from hanging
     afterAll((done) => {
         server.close(done);
     });
 
-    afterEach(() => {
+    // Clear all mocks before each test to ensure isolation
+    beforeEach(() => {
         jest.clearAllMocks();
+        // Restore default chaining behavior for mocks
+        mockSupabase.from.mockReturnThis();
+        mockSupabase.select.mockReturnThis();
+        mockSupabase.insert.mockReturnThis();
+        mockSupabase.eq.mockReturnThis();
     });
 
-    describe('GET /api/admin/chats/pending', () => {
-        it('should return all pending chats (draft or needs_revision) from all departments', async () => {
-            const mockChats = [
-                {
-                    id: 'c1',
-                    name: 'Chat 1',
-                    chat_statuses: { status: 'draft' },
-                    departments: { name: 'Sales' }
-                },
-                {
-                    id: 'c2',
-                    name: 'Chat 2',
-                    chat_statuses: { status: 'needs_revision' },
-                    departments: { name: 'Support' }
-                },
-                // This chat should be filtered out by the '.in' clause
-                {
-                    id: 'c3',
-                    name: 'Chat 3',
-                    chat_statuses: { status: 'completed' },
-                    departments: { name: 'Sales' }
+    describe('Admin-only routes', () => {
+        const adminRoute = '/api/departments';
+        const payload = { name: 'New Test Dept', password: 'password123' };
+
+        it('should return 401 Unauthorized if the user is not logged in', async () => {
+            const response = await request(app).post(adminRoute).send(payload);
+            expect(response.status).toBe(401);
+            expect(response.body.error).toContain('Unauthorized');
+        });
+
+        it('should return 403 Forbidden if the user is logged in but not an admin', async () => {
+            const agent = request.agent(app); // Agent to persist session cookie
+            const userDept = { id: 2, name: 'user_dept', hashed_password: 'user_hash' };
+
+            // Mock the login process for a non-admin user
+            when(bcrypt.compare).calledWith('password', userDept.hashed_password).mockResolvedValue(true);
+            mockSupabase.eq.mockReturnValue({
+                single: jest.fn().mockResolvedValue({ data: userDept, error: null })
+            });
+
+            // Log in as the non-admin user
+            await agent
+                .post('/api/auth/department')
+                .send({ name: 'user_dept', password: 'password' })
+                .expect(200);
+
+            // Attempt to access the admin route
+            const response = await agent.post(adminRoute).send(payload);
+            expect(response.status).toBe(403);
+            expect(response.body.error).toContain('Forbidden');
+        });
+
+        it('should return 201 Created if the user is an admin', async () => {
+            const agent = request.agent(app);
+            const adminDept = { id: 1, name: 'admin', hashed_password: 'admin_hash' };
+            const newDept = { id: 99, ...payload };
+
+            // Mock the admin login process
+            when(bcrypt.compare).calledWith('adminpass', adminDept.hashed_password).mockResolvedValue(true);
+            mockSupabase.eq.mockReturnValue({
+                single: jest.fn().mockResolvedValue({ data: adminDept, error: null })
+            });
+
+            // Log in as admin
+            await agent
+                .post('/api/auth/department')
+                .send({ name: 'admin', password: 'adminpass' })
+                .expect(200);
+
+            // Mock the department creation database call
+            when(bcrypt.hash).mockResolvedValue('new_hashed_password');
+            mockSupabase.from.mockImplementation((table) => {
+                if (table === 'departments') {
+                    return {
+                        insert: jest.fn().mockReturnThis(),
+                        select: jest.fn().mockResolvedValue({ data: [newDept], error: null }),
+                    };
                 }
-            ];
+                return mockSupabase; // default mock
+            });
 
-            // Mock the Supabase query to return the first two chats
-            when(mockSupabase.from)
-                .calledWith('chats')
-                .mockReturnValue({
-                    select: jest.fn().mockReturnThis(),
-                    in: jest.fn().mockResolvedValue({
-                        data: [mockChats[0], mockChats[1]],
-                        error: null
-                    })
-                });
-
-            const response = await request(app).get('/api/admin/chats/pending');
-
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveLength(2);
-
-            // Check that the data is transformed correctly
-            expect(response.body[0].chat_id).toBe('c1');
-            expect(response.body[0].status).toBe('draft');
-            expect(response.body[0].chats.name).toBe('Chat 1 (Sales)');
-
-            expect(response.body[1].chat_id).toBe('c2');
-            expect(response.body[1].status).toBe('needs_revision');
-            expect(response.body[1].chats.name).toBe('Chat 2 (Support)');
-
-            // Verify that the query doesn't use .eq for department_id anymore
-            expect(mockEq).not.toHaveBeenCalled();
+            // Access the admin route
+            const response = await agent.post(adminRoute).send(payload);
+            expect(response.status).toBe(201);
+            expect(response.body[0].name).toBe(newDept.name);
         });
     });
 });

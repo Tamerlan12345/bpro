@@ -606,15 +606,6 @@ ${brokenCode}
         chatNameHeader.textContent = `Чат: ${chatName}`;
         updateStepCounter();
         loadChatData();
-
-        // TODO: This is an insecure way to determine roles and is for demonstration purposes only.
-        // In a production environment, the user's role should be securely determined
-        // based on the authenticated session and returned from the backend.
-        if (department.name === 'admin') {
-            // This function is for showing the main app view.
-            // The admin-specific buttons are handled in loadChatData now.
-            // We should not be showing the admin panel here.
-        }
     }
 
     let chatVersions = []; // Store versions to avoid re-fetching
@@ -626,6 +617,13 @@ ${brokenCode}
             fetch(`/api/chats/${chatId}/comments`),
             fetch(`/api/chats/${chatId}/status`)
         ]);
+
+        // Check if any request failed (e.g., due to session timeout)
+        if ([versionsResponse, commentsResponse, statusResponse].some(res => !res.ok)) {
+            alert('Your session may have expired. Please log in again.');
+            window.location.reload(); // Force a reload to go back to the login page
+            return;
+        }
 
         // Process responses
         chatVersions = await versionsResponse.json();
@@ -644,8 +642,8 @@ ${brokenCode}
             await displayVersion(null);
         }
 
-        // Determine editing permissions
-        const userRole = department.name === 'admin' ? 'admin' : 'user';
+        // Determine editing permissions based on the role from the authenticated session
+        const userRole = department.role;
         const isAdmin = userRole === 'admin';
         let isTextLocked = true;
         if (isAdmin) {
@@ -721,12 +719,11 @@ ${brokenCode}
             return;
         }
         const mermaid_code = await getMermaidCode(process_text);
-        const userRole = department.name === 'admin' ? 'admin' : 'user';
+        // The X-User-Role header is no longer needed. The server uses the session.
         const response = await fetch(`/api/chats/${chatId}/versions`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-User-Role': userRole
             },
             body: JSON.stringify({ process_text, mermaid_code })
         });
@@ -744,12 +741,11 @@ ${brokenCode}
         // Auto-save the current work before changing the status
         await handleSaveVersion();
 
-        const userRole = department.name === 'admin' ? 'admin' : 'user';
+        // The X-User-Role header is no longer needed. The server uses the session.
         const response = await fetch(`/api/chats/${chatId}/status`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'X-User-Role': userRole
             },
             body: JSON.stringify({ status })
         });
@@ -767,15 +763,26 @@ ${brokenCode}
     async function handleAddComment() {
         const text = commentInput.value;
         if (!text.trim()) return;
-        const author_role = (department.name === 'admin') ? 'admin' : 'user';
 
+        // The backend now determines the role from the session.
+        // We only need to send the text content.
         await fetch(`/api/chats/${chatId}/comments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ author_role, text })
+            body: JSON.stringify({ text })
         });
         commentInput.value = '';
-        await loadComments();
+        await loadComments(); // Reload comments to show the new one
+    }
+
+    async function loadComments() {
+        const response = await fetch(`/api/chats/${chatId}/comments`);
+        if (!response.ok) {
+            console.error('Failed to load comments');
+            return;
+        }
+        const comments = await response.json();
+        renderComments(comments);
     }
 
     async function loadAdminPanel() {
