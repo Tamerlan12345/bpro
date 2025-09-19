@@ -17,9 +17,9 @@ const PORT = process.env.PORT || 3000;
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
-// Validate Supabase environment variables
-if (!supabaseUrl || !supabaseKey) {
-  console.error("Error: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in the .env file.");
+// Validate environment variables
+if (!supabaseUrl || !supabaseKey || !process.env.SESSION_SECRET) {
+  console.error("Error: SUPABASE_URL, SUPABASE_SERVICE_KEY, and SESSION_SECRET must be set in the .env file.");
   process.exit(1);
 }
 
@@ -41,10 +41,8 @@ app.use(session({
         logFn: function() {}, // Suppress verbose logging
         path: path.join(__dirname, 'sessions')
     }),
-    // WARNING: This secret is hardcoded and insecure for production.
-    // For a real application, use a long, random string set via an
-    // environment variable (e.g., process.env.SESSION_SECRET).
-    secret: 'a-very-weak-secret-for-dev-that-should-be-changed',
+    // The secret is stored in an environment variable for security.
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false, // Only save sessions when data is added
     cookie: {
@@ -127,17 +125,39 @@ app.post('/api/auth/logout', (req, res) => {
     });
 });
 
+// Get current session status
+app.get('/api/auth/session', (req, res) => {
+    if (req.session.user) {
+        res.json({ user: req.session.user });
+    } else {
+        res.status(401).json({ user: null });
+    }
+});
+
 // Admin: Get chats in review
 app.get('/api/admin/chats/in_review', isAuthenticated, isAdmin, async (req, res) => {
     const { data, error } = await supabase
-        .from('chat_statuses')
-        .select('chat_id, status, chats(name)')
-        .eq('status', 'pending_review');
+        .from('chats')
+        .select('id, name, chat_statuses!inner(status), departments(name)')
+        .eq('chat_statuses.status', 'pending_review');
 
     if (error) {
         return res.status(500).json({ error: error.message });
     }
-    res.json(data);
+
+    // Transform data to be consistent with other admin endpoints
+    const transformedData = data.map(chat => ({
+        chat_id: chat.id,
+        status: chat.chat_statuses.status,
+        chats: {
+            name: chat.name
+        },
+        departments: {
+            name: chat.departments ? chat.departments.name : 'No Department'
+        }
+    }));
+
+    res.json(transformedData);
 });
 
 // Admin: Get pending chats (draft or needs_revision)
@@ -152,12 +172,15 @@ app.get('/api/admin/chats/pending', isAuthenticated, isAdmin, async (req, res) =
         return res.status(500).json({ error: error.message });
     }
 
-    // Трансформируем данные для удобства фронтенда
+    // Transform data to be consistent with other admin endpoints
     const transformedData = data.map(chat => ({
         chat_id: chat.id,
         status: chat.chat_statuses.status,
         chats: {
-            name: `${chat.name} (${chat.departments ? chat.departments.name : 'No Department'})` // Показываем чат и его департамент
+            name: chat.name
+        },
+        departments: {
+            name: chat.departments ? chat.departments.name : 'No Department'
         }
     }));
 
@@ -242,14 +265,26 @@ app.put('/api/departments/:id', isAuthenticated, isAdmin, async (req, res) => {
 // Admin: Get completed chats
 app.get('/api/admin/chats/completed', isAuthenticated, isAdmin, async (req, res) => {
     const { data, error } = await supabase
-        .from('chat_statuses')
-        .select('chat_id, status, chats(name)')
-        .in('status', ['completed', 'archived']);
+        .from('chats')
+        .select('id, name, chat_statuses!inner(status), departments(name)')
+        .in('chat_statuses.status', ['completed', 'archived']);
 
     if (error) {
         return res.status(500).json({ error: error.message });
     }
-    res.json(data);
+
+    // Transform data to be consistent with other admin endpoints
+    const transformedData = data.map(chat => ({
+        chat_id: chat.id,
+        status: chat.chat_statuses.status,
+        chats: {
+            name: chat.name
+        },
+        departments: {
+            name: chat.departments ? chat.departments.name : 'No Department'
+        }
+    }));
+    res.json(transformedData);
 });
 
 // Chat authentication - This is for a specific chat password, separate from department login
@@ -301,23 +336,16 @@ app.post('/api/chats', isAuthenticated, isAdmin, async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const { data: chatData, error: chatError } = await supabase
-        .from('chats')
-        .insert([{ department_id, name, hashed_password: hashedPassword }])
-        .select()
-        .single();
+    // Call the RPC function to create the chat and its status in one transaction
+    const { data: chatData, error } = await supabase.rpc('create_chat_with_status', {
+        department_id_arg: department_id,
+        name_arg: name,
+        hashed_password_arg: hashedPassword
+    }).single();
 
-    if (chatError) {
-        return res.status(500).json({ error: chatError.message });
-    }
-
-    const { error: statusError } = await supabase
-        .from('chat_statuses')
-        .insert([{ chat_id: chatData.id, status: 'draft' }]);
-
-    if (statusError) {
-        // Here you might want to delete the chat that was just created
-        return res.status(500).json({ error: statusError.message });
+    if (error) {
+        console.error('Error creating chat with RPC:', error);
+        return res.status(500).json({ error: error.message });
     }
 
     res.status(201).json(chatData);
@@ -340,9 +368,14 @@ const checkChatPermission = async (req, res, next) => {
 
     const { status } = statusData;
 
-    const canEdit =
-        (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) ||
-        (userRole === 'admin');
+    let canEdit = false;
+    if (userRole === 'user') {
+        // Users can edit drafts or chats needing revision
+        canEdit = (status === 'draft' || status === 'needs_revision');
+    } else if (userRole === 'admin') {
+        // Admins can edit any chat unless it is completed or archived
+        canEdit = (status !== 'completed' && status !== 'archived');
+    }
 
     if (!canEdit) {
         return res.status(403).json({ error: 'You do not have permission to edit this chat in its current state.' });
@@ -436,14 +469,17 @@ const checkStatusChangePermission = async (req, res, next) => {
 
     let canChange = false;
     if (userRole === 'user') {
+        // User can submit a draft or revision for review
         if ((currentStatus === 'draft' || currentStatus === 'needs_revision') && newStatus === 'pending_review') {
             canChange = true;
         }
     } else if (userRole === 'admin') {
+        // Admin can approve or reject a submission
         if (currentStatus === 'pending_review' && (newStatus === 'needs_revision' || newStatus === 'completed')) {
             canChange = true;
         }
-        if (newStatus === 'archived') {
+        // Admin can only archive a completed chat
+        if (currentStatus === 'completed' && newStatus === 'archived') {
             canChange = true;
         }
     }
