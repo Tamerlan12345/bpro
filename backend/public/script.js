@@ -2,6 +2,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const API_URL = '/api/generate';
 
+    const STATUS = {
+        DRAFT: 'draft',
+        PENDING_REVIEW: 'pending_review',
+        NEEDS_REVISION: 'needs_revision',
+        COMPLETED: 'completed',
+        ARCHIVED: 'archived'
+    };
+
     let suggestions = [];
     let currentDiagramScale = 1;
     let department = null;
@@ -130,10 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
         backToAdminBtn.style.display = 'none';
     });
     saveVersionBtn.addEventListener('click', handleSaveVersion);
-    sendReviewBtn.addEventListener('click', () => handleUpdateStatus('pending_review'));
-    sendRevisionBtn.addEventListener('click', () => handleUpdateStatus('needs_revision'));
-    completeBtn.addEventListener('click', () => handleUpdateStatus('completed'));
-    archiveBtn.addEventListener('click', () => handleUpdateStatus('archived'));
+    sendReviewBtn.addEventListener('click', () => handleUpdateStatus(STATUS.PENDING_REVIEW));
+    sendRevisionBtn.addEventListener('click', () => handleUpdateStatus(STATUS.NEEDS_REVISION));
+    completeBtn.addEventListener('click', () => handleUpdateStatus(STATUS.COMPLETED));
+    archiveBtn.addEventListener('click', () => handleUpdateStatus(STATUS.ARCHIVED));
     addCommentBtn.addEventListener('click', handleAddComment);
     inReviewList.addEventListener('click', handleAdminChatSelection);
     pendingList.addEventListener('click', handleAdminChatSelection);
@@ -486,7 +494,8 @@ ${brokenCode}
             });
 
             if (!response.ok) {
-                departmentError.textContent = 'Неверные данные для входа';
+                const errorData = await response.json();
+                departmentError.textContent = errorData.error || 'Неверные данные для входа';
                 return;
             }
 
@@ -586,7 +595,8 @@ ${brokenCode}
             });
 
             if (!response.ok) {
-                chatError.textContent = 'Неверный пароль чата';
+                const errorData = await response.json();
+                chatError.textContent = errorData.error || 'Неверный пароль чата';
                 return;
             }
 
@@ -648,16 +658,16 @@ ${brokenCode}
         let isTextLocked = true;
         if (isAdmin) {
             // Admins can always edit text, but not save if completed/archived
-            isTextLocked = (status === 'completed' || status === 'archived');
+            isTextLocked = (status === STATUS.COMPLETED || status === STATUS.ARCHIVED);
         } else {
-            isTextLocked = !['draft', 'needs_revision'].includes(status);
+            isTextLocked = ![STATUS.DRAFT, STATUS.NEEDS_REVISION].includes(status);
         }
         setEditingLocked(isTextLocked, isAdmin);
 
         // Update button states based on status and role
-        sendReviewBtn.style.display = (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) ? 'inline-block' : 'none';
-        sendRevisionBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
-        completeBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
+        sendReviewBtn.style.display = (userRole === 'user' && (status === STATUS.DRAFT || status === STATUS.NEEDS_REVISION)) ? 'inline-block' : 'none';
+        sendRevisionBtn.style.display = (isAdmin && status === STATUS.PENDING_REVIEW) ? 'inline-block' : 'none';
+        completeBtn.style.display = (isAdmin && status === STATUS.PENDING_REVIEW) ? 'inline-block' : 'none';
     }
 
     function renderVersions(versions) {
@@ -703,13 +713,29 @@ ${brokenCode}
     }
 
     function renderComments(comments) {
-        commentsContainer.innerHTML = comments.map(c => `
-            <div class="comment ${c.author_role}">
-                <span class="comment-author">${c.author_role}</span>
-                <p class="comment-text">${c.text}</p>
-                <span class="comment-date">${new Date(c.created_at).toLocaleString()}</span>
-            </div>
-        `).join('');
+        commentsContainer.innerHTML = ''; // Clear existing comments
+        comments.forEach(c => {
+            const commentDiv = document.createElement('div');
+            commentDiv.className = `comment ${c.author_role}`;
+
+            const authorSpan = document.createElement('span');
+            authorSpan.className = 'comment-author';
+            authorSpan.textContent = c.author_role;
+
+            const textP = document.createElement('p');
+            textP.className = 'comment-text';
+            textP.textContent = c.text; // Use textContent to prevent XSS
+
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'comment-date';
+            dateSpan.textContent = new Date(c.created_at).toLocaleString();
+
+            commentDiv.appendChild(authorSpan);
+            commentDiv.appendChild(textP);
+            commentDiv.appendChild(dateSpan);
+
+            commentsContainer.appendChild(commentDiv);
+        });
     }
 
     async function handleSaveVersion() {

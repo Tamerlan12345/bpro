@@ -69,7 +69,7 @@ app.post('/api/auth/department', async (req, res) => {
 
     const { data: department, error } = await supabase
         .from('departments')
-        .select('id, name, hashed_password')
+        .select('id, name, hashed_password, role')
         .eq('name', name)
         .single();
 
@@ -83,20 +83,18 @@ app.post('/api/auth/department', async (req, res) => {
         return res.status(401).json({ error: 'Invalid department or password' });
     }
 
-    const role = department.name === 'admin' ? 'admin' : 'user';
-
     // Store user information in the session
     req.session.user = {
         id: department.id,
         name: department.name,
-        role: role,
+        role: department.role,
     };
 
     // Return user info, including the role
     res.json({
         id: department.id,
         name: department.name,
-        role: role
+        role: department.role
     });
 });
 
@@ -287,26 +285,17 @@ app.post('/api/chats', isAuthenticated, isAdmin, async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const { data: chatData, error: chatError } = await supabase
-        .from('chats')
-        .insert([{ department_id, name, hashed_password: hashedPassword }])
-        .select()
-        .single();
+    const { data, error } = await supabase.rpc('create_chat_and_status', {
+        p_department_id: department_id,
+        p_name: name,
+        p_hashed_password: hashedPassword
+    });
 
-    if (chatError) {
-        return res.status(500).json({ error: chatError.message });
+    if (error) {
+        return res.status(500).json({ error: `Failed to create chat: ${error.message}` });
     }
 
-    const { error: statusError } = await supabase
-        .from('chat_statuses')
-        .insert([{ chat_id: chatData.id, status: 'draft' }]);
-
-    if (statusError) {
-        // Here you might want to delete the chat that was just created
-        return res.status(500).json({ error: statusError.message });
-    }
-
-    res.status(201).json(chatData);
+    res.status(201).json(data);
 });
 
 // Middleware to check if a user has permission to edit a chat
