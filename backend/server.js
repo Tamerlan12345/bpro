@@ -40,9 +40,7 @@ app.use(express.json());
 // Session middleware with PostgreSQL store
 const pgPool = new (require('pg').Pool)({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    },
+    ssl: true,
     // Force IPv4, as Render's environment may not support IPv6
     family: 4,
 });
