@@ -41,3 +41,30 @@ CREATE TABLE chat_statuses (
     chat_id UUID PRIMARY KEY REFERENCES chats(id) ON DELETE CASCADE,
     status chat_status DEFAULT 'draft'
 );
+
+-- RPC function to create a chat and its status atomically
+CREATE OR REPLACE FUNCTION create_chat_with_status(
+    department_id_arg UUID,
+    name_arg TEXT,
+    hashed_password_arg TEXT
+)
+RETURNS TABLE(id UUID, department_id UUID, name TEXT, hashed_password TEXT) AS $$
+DECLARE
+    new_chat_id UUID;
+BEGIN
+    -- Insert the new chat and get its ID
+    INSERT INTO chats (department_id, name, hashed_password)
+    VALUES (department_id_arg, name_arg, hashed_password_arg)
+    RETURNING chats.id INTO new_chat_id;
+
+    -- Insert the initial status for the new chat
+    INSERT INTO chat_statuses (chat_id, status)
+    VALUES (new_chat_id, 'draft');
+
+    -- Return the newly created chat record
+    RETURN QUERY
+    SELECT c.id, c.department_id, c.name, c.hashed_password
+    FROM chats c
+    WHERE c.id = new_chat_id;
+END;
+$$ LANGUAGE plpgsql;

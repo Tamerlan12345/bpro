@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatLoginBtn = document.getElementById('chat-login-btn');
     const chatError = document.getElementById('chat-error');
     const chatNameHeader = document.getElementById('chat-name-header');
+    const logoutBtn = document.getElementById('logout-btn');
 
     // Main app elements
     const mainContainer = document.querySelector('.container');
@@ -84,6 +85,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveDepartmentBtn = document.getElementById('save-department-btn');
     const closeModalBtn = editDepartmentModal.querySelector('.close-btn');
 
+    // Notification container
+    const notificationContainer = document.getElementById('notification-container');
+
+    /**
+     * Displays a non-blocking notification to the user.
+     * @param {string} message - The message to display.
+     * @param {string} type - The type of notification ('success' or 'error').
+     */
+    function showNotification(message, type = 'success') {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+
+        notificationContainer.appendChild(notification);
+
+        // Automatically remove the notification after the animation ends
+        setTimeout(() => {
+            notification.remove();
+        }, 5000); // 5 seconds total
+    }
 
     mermaid.initialize({
         startOnLoad: false,
@@ -133,6 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Listeners
     departmentLoginBtn.addEventListener('click', handleDepartmentLogin);
     chatLoginBtn.addEventListener('click', handleChatLogin);
+    logoutBtn.addEventListener('click', handleLogout);
     processDescriptionInput.addEventListener('input', () => {
         updateStepCounter();
         // The regenerate button should always be enabled, so we don't need to check the description
@@ -503,6 +525,15 @@ ${brokenCode}
 
     // --- Authentication Functions ---
 
+    async function handleLogout() {
+        try {
+            await fetchWithAuth('/api/auth/logout', { method: 'POST' });
+            window.location.reload(); // Easiest way to reset state
+        } catch (error) {
+            showNotification('Не удалось выйти из системы.', 'error');
+        }
+    }
+
     async function handleDepartmentLogin() {
         const name = departmentNameInput.value;
         const password = departmentPasswordInput.value;
@@ -523,6 +554,7 @@ ${brokenCode}
             const dept = await response.json();
             department = dept;
             departmentError.textContent = '';
+            logoutBtn.style.display = 'block';
 
             if (department.name === 'admin') {
                 // Admin Flow: Go directly to the admin panel
@@ -660,26 +692,13 @@ ${brokenCode}
                 await displayVersion(null);
             }
 
-            // Determine editing permissions based on the role from the authenticated session
-            const userRole = department.role;
-            const isAdmin = userRole === 'admin';
-            let isTextLocked = true;
-            if (isAdmin) {
-                // Admins can always edit text, but not save if completed/archived
-                isTextLocked = (status === 'completed' || status === 'archived');
-            } else {
-                isTextLocked = !['draft', 'needs_revision'].includes(status);
-            }
-            setEditingLocked(isTextLocked, isAdmin);
+            // Update the entire UI based on the user's role and the chat's status
+            updateInterfaceForStatus(status, department.role);
 
-            // Update button states based on status and role
-            sendReviewBtn.style.display = (userRole === 'user' && (status === 'draft' || status === 'needs_revision')) ? 'inline-block' : 'none';
-            sendRevisionBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
-            completeBtn.style.display = (isAdmin && status === 'pending_review') ? 'inline-block' : 'none';
         } catch (error) {
             console.error('Failed to load chat data:', error);
-            alert(`Failed to load chat data: ${error.message}. Your session may have expired.`);
-            window.location.reload(); // Force a reload to go back to the login page
+            showNotification(`Failed to load chat data: ${error.message}. Your session may have expired.`, 'error');
+            setTimeout(() => window.location.reload(), 5000); // Force a reload to go back to the login page
         }
     }
 
@@ -738,7 +757,7 @@ ${brokenCode}
     async function handleSaveVersion() {
         const process_text = processDescriptionInput.value;
         if (!process_text.trim()) {
-            alert("Нельзя сохранить пустую версию.");
+            showNotification("Нельзя сохранить пустую версию.", "error");
             return;
         }
         try {
@@ -750,10 +769,10 @@ ${brokenCode}
                 },
                 body: JSON.stringify({ process_text, mermaid_code })
             });
-
+            showNotification("Версия успешно сохранена.", "success");
             await loadChatData();
         } catch (error) {
-            alert(`Ошибка сохранения: ${error.message}`);
+            showNotification(`Ошибка сохранения: ${error.message}`, "error");
         }
     }
 
@@ -770,10 +789,10 @@ ${brokenCode}
                 body: JSON.stringify({ status })
             });
 
-            alert(`Статус чата обновлен на: ${status}`);
+            showNotification(`Статус чата обновлен на: ${status}`, 'success');
             // The UI is already refreshed by the handleSaveVersion -> loadChatData call
         } catch (error) {
-            alert(`Ошибка обновления статуса: ${error.message}`);
+            showNotification(`Ошибка обновления статуса: ${error.message}`, 'error');
         }
     }
 
@@ -790,7 +809,7 @@ ${brokenCode}
             commentInput.value = '';
             await loadComments(); // Reload comments to show the new one
         } catch (error) {
-            alert(`Failed to add comment: ${error.message}`);
+            showNotification(`Failed to add comment: ${error.message}`, 'error');
         }
     }
 
@@ -804,9 +823,8 @@ ${brokenCode}
         }
     }
 
-    async function loadAdminPanel() {
+    async function loadDepartments() {
         try {
-            // Load departments
             const deptsResponse = await fetchWithAuth('/api/departments');
             const departments = await deptsResponse.json();
             departmentList.innerHTML = departments.map(dept => `
@@ -815,11 +833,20 @@ ${brokenCode}
                     <button class="edit-dept-btn" data-dept-id="${dept.id}" data-dept-name="${dept.name}">✏️ Редактировать</button>
                 </div>
             `).join('');
+        } catch (error) {
+            departmentList.innerHTML = `<div class="error-text">Не удалось загрузить департаменты: ${error.message}</div>`;
+        }
+    }
+
+    async function loadAdminPanel() {
+        try {
+            // Load departments
+            await loadDepartments();
 
             const renderChatList = (listElement, chats, listName) => {
                 const validChats = chats.filter(chat => {
-                    if (!chat.chats) {
-                        console.warn(`[Admin Panel] Chat with status '${chat.status}' and ID '${chat.chat_id}' will not be displayed in '${listName}' list because it has no associated chat data (orphaned status).`);
+                    if (!chat.chats || !chat.departments) {
+                        console.warn(`[Admin Panel] Chat with status '${chat.status}' and ID '${chat.chat_id}' will not be displayed in '${listName}' list because it has missing chat or department data.`);
                         return false;
                     }
                     return true;
@@ -830,14 +857,16 @@ ${brokenCode}
                     return;
                 }
 
-                listElement.innerHTML = validChats.map(chat => `
+                listElement.innerHTML = validChats.map(chat => {
+                    const deptName = chat.departments.name === 'No Department' ? '' : ` <span class="chat-dept-name">(${chat.departments.name})</span>`;
+                    return `
                     <li>
-                        <a href="#" data-chat-id="${chat.chat_id}">
-                            <span>${chat.chats.name}</span>
+                        <a href="#" data-chat-id="${chat.chat_id}" data-chat-name="${chat.chats.name}">
+                            <span>${chat.chats.name}</span>${deptName}
                             <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
                         </a>
                     </li>
-                `).join('');
+                `}).join('');
             };
 
             // Load and render all chat lists
@@ -864,6 +893,25 @@ ${brokenCode}
         }
     }
 
+    async function loadChatListForDepartment(deptId, deptName) {
+        chatListHeader.textContent = `Чаты в "${deptName}"`;
+        selectedDepartmentName.textContent = deptName;
+        createChatForm.style.display = 'block';
+        chatList.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>'; // Show loading indicator
+
+        try {
+            const response = await fetchWithAuth(`/api/chats?department_id=${deptId}`);
+            const chats = await response.json();
+            if (chats.length === 0) {
+                chatList.innerHTML = '<div class="placeholder-text">Для этого департамента нет чатов.</div>';
+            } else {
+                chatList.innerHTML = chats.map(chat => `<div class="chat-item">${chat.name}</div>`).join('');
+            }
+        } catch (error) {
+            chatList.innerHTML = `<div class="error-text">Не удалось загрузить чаты: ${error.message}</div>`;
+        }
+    }
+
     async function handleDepartmentSelection(e) {
         const editBtn = e.target.closest('.edit-dept-btn');
         if (editBtn) {
@@ -882,17 +930,7 @@ ${brokenCode}
         const deptId = deptCard.dataset.deptId;
         const deptName = deptCard.dataset.deptName;
 
-        chatListHeader.textContent = `Чаты в "${deptName}"`;
-        selectedDepartmentName.textContent = deptName;
-        createChatForm.style.display = 'block';
-
-        try {
-            const response = await fetchWithAuth(`/api/chats?department_id=${deptId}`);
-            const chats = await response.json();
-            chatList.innerHTML = chats.map(chat => `<div class="chat-item">${chat.name}</div>`).join('');
-        } catch (error) {
-            chatList.innerHTML = `<div class="error-text">Не удалось загрузить чаты: ${error.message}</div>`;
-        }
+        await loadChatListForDepartment(deptId, deptName);
     }
 
     function openTab(evt, tabName) {
@@ -910,10 +948,11 @@ ${brokenCode}
     }
 
     function handleAdminChatSelection(e) {
-        if (e.target.tagName === 'A') {
+        const link = e.target.closest('a');
+        if (link) {
             e.preventDefault();
-            chatId = e.target.dataset.chatId;
-            const chatName = e.target.querySelector('span').textContent;
+            chatId = link.dataset.chatId;
+            const chatName = link.dataset.chatName;
 
             // Hide admin panel and show the main chat container
             authWrapper.style.display = 'none';
@@ -943,10 +982,11 @@ ${brokenCode}
     async function handleCreateChat() {
         const selectedDeptCard = document.querySelector('.department-card.selected');
         if (!selectedDeptCard) {
-            alert('Сначала выберите департамент!');
+            showNotification('Сначала выберите департамент!', 'error');
             return;
         }
         const deptId = selectedDeptCard.dataset.deptId;
+        const deptName = selectedDeptCard.dataset.deptName;
 
         const name = newChatNameInput.value;
         const password = newChatPasswordInput.value;
@@ -961,12 +1001,11 @@ ${brokenCode}
 
             newChatNameInput.value = '';
             newChatPasswordInput.value = '';
-
+            showNotification('Чат успешно создан.', 'success');
             // Refresh the chat list for the currently selected department
-            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
-            selectedDeptCard.dispatchEvent(event);
+            await loadChatListForDepartment(deptId, deptName);
         } catch (error) {
-            alert(`Не удалось создать чат: ${error.message}`);
+            showNotification(`Не удалось создать чат: ${error.message}`, 'error');
         }
     }
 
@@ -984,34 +1023,56 @@ ${brokenCode}
 
             newDepartmentNameInput.value = '';
             newDepartmentPasswordInput.value = '';
-            alert('Департамент создан!');
+            showNotification('Департамент создан!', 'success');
+            await loadDepartments(); // Refresh the list
         } catch (error) {
-            alert(`Не удалось создать департамент: ${error.message}`);
+            showNotification(`Не удалось создать департамент: ${error.message}`, 'error');
         }
     }
 
-    function setEditingLocked(isTextLocked, isAdmin) {
-        // Text editing controls are locked based on the flag
-        processDescriptionInput.disabled = isTextLocked;
-        userPromptInput.disabled = isTextLocked;
-        improveBtn.disabled = isTextLocked;
-        applyImprovementsBtn.disabled = isTextLocked;
-        saveVersionBtn.disabled = isTextLocked;
-        sendReviewBtn.disabled = isTextLocked;
+    function updateInterfaceForStatus(status, userRole) {
+        const isAdmin = userRole === 'admin';
+        let isTextLocked = true;
 
-        const leftColumn = document.querySelector('.left-column');
-        if (isTextLocked) {
-            leftColumn.style.opacity = '0.6';
+        // --- Determine Editing Lock State ---
+        if (isAdmin) {
+            // Admins can edit anything unless it's completed or archived
+            isTextLocked = (status === 'completed' || status === 'archived');
         } else {
-            leftColumn.style.opacity = '1';
+            // Users can only edit drafts or revisions
+            isTextLocked = !['draft', 'needs_revision'].includes(status);
         }
 
-        // For admins, diagram controls should always be interactive.
-        // For users, they are locked when text editing is locked.
+        // --- Lock/Unlock UI Elements ---
+        const inputsToLock = [processDescriptionInput, userPromptInput, improveBtn, applyImprovementsBtn, saveVersionBtn];
+        inputsToLock.forEach(el => el.disabled = isTextLocked);
+
+        const leftColumn = document.querySelector('.left-column');
+        leftColumn.style.opacity = isTextLocked ? '0.7' : '1';
+        // Allow comments anytime except when archived
+        const isCommentingLocked = (status === 'archived');
+        commentInput.disabled = isCommentingLocked;
+        addCommentBtn.disabled = isCommentingLocked;
+
+
+        // --- Update Action Button Visibility ---
+        // Hide all buttons by default, then show the correct ones
+        [sendReviewBtn, sendRevisionBtn, completeBtn, archiveBtn].forEach(btn => btn.style.display = 'none');
+
         if (isAdmin) {
-            leftColumn.style.pointerEvents = 'auto';
+            // Admin Actions
+            if (status === 'pending_review') {
+                sendRevisionBtn.style.display = 'inline-block';
+                completeBtn.style.display = 'inline-block';
+            }
+            if (status === 'completed') {
+                archiveBtn.style.display = 'inline-block';
+            }
         } else {
-            leftColumn.style.pointerEvents = isTextLocked ? 'none' : 'auto';
+            // User Actions
+            if (status === 'draft' || status === 'needs_revision') {
+                sendReviewBtn.style.display = 'inline-block';
+            }
         }
     }
 
@@ -1033,7 +1094,7 @@ ${brokenCode}
         const password = editDepartmentPasswordInput.value;
 
         if (!name.trim()) {
-            alert('Название департамента не может быть пустым.');
+            showNotification('Название департамента не может быть пустым.', 'error');
             return;
         }
 
@@ -1049,12 +1110,12 @@ ${brokenCode}
                 body: JSON.stringify(body)
             });
 
-            alert('Департамент успешно обновлен.');
+            showNotification('Департамент успешно обновлен.', 'success');
             closeEditDepartmentModal();
             await loadAdminPanel(); // Refresh the department list
         } catch (error) {
             console.error('Failed to save department:', error);
-            alert(`Произошла ошибка при сохранении департамента: ${error.message}`);
+            showNotification(`Произошла ошибка при сохранении департамента: ${error.message}`, 'error');
         }
     }
 
@@ -1062,6 +1123,34 @@ ${brokenCode}
     saveDepartmentBtn.addEventListener('click', handleSaveDepartment);
 
 
+    // --- Initial Load Logic ---
+    async function checkSession() {
+        try {
+            const response = await fetchWithAuth('/api/auth/session');
+            const data = await response.json();
+
+            if (data.user) {
+                department = data.user; // Restore session
+                logoutBtn.style.display = 'block';
+                if (department.role === 'admin') {
+                    loginContainer.style.display = 'none';
+                    adminPanel.style.display = 'block';
+                    mainContainer.style.display = 'none';
+                    loadAdminPanel();
+                } else {
+                    departmentLogin.style.display = 'none';
+                    chatLogin.style.display = 'block';
+                    loadChats(department.id);
+                }
+            }
+            // If no user, do nothing, the login page is shown by default
+        } catch (error) {
+            // This will fail if the server is down or there's no session, which is fine.
+            // The user will just see the login page.
+            console.log('No active session found.');
+        }
+    }
+
     // Initial setup
-    // updateStepCounter(); // This will be called after login
+    checkSession();
 });

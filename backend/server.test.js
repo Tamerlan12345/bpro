@@ -153,7 +153,9 @@ describe('GET /api/admin/chats/pending', () => {
 
         expect(response.status).toBe(200);
         expect(response.body).toHaveLength(2);
-        expect(response.body[0].chats.name).toBe('Chat 1 (Dept A)');
+        // Test the new, correct API response structure
+        expect(response.body[0].chats.name).toBe('Chat 1');
+        expect(response.body[0].departments.name).toBe('Dept A');
         expect(response.body[1].status).toBe('needs_revision');
 
         // Verify that the '.or' method was called correctly
