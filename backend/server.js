@@ -1,5 +1,7 @@
 
-require('dotenv').config();
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 const path = require('path');
 const express = require('express');
@@ -19,7 +21,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
 // Validate environment variables
 if (!supabaseUrl || !supabaseKey || !process.env.SESSION_SECRET) {
-  console.error("Error: SUPABASE_URL, SUPABASE_SERVICE_KEY, and SESSION_SECRET must be set in the .env file.");
+  console.error("Error: SUPABASE_URL, SUPABASE_SERVICE_KEY, and SESSION_SECRET must be set as environment variables.");
   process.exit(1);
 }
 
