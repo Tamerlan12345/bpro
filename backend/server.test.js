@@ -1,3 +1,8 @@
+// Set dummy environment variables before importing the server
+process.env.SUPABASE_URL = 'http://dummy.url';
+process.env.SUPABASE_SERVICE_KEY = 'dummy-key';
+process.env.SESSION_SECRET = 'dummy-secret';
+
 const request = require('supertest');
 const { when } = require('jest-when');
 const bcrypt = require('bcryptjs');
