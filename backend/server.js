@@ -1,5 +1,6 @@
 
-require('dotenv').config({ path: __dirname + '/.env' });
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const express = require('express');
 const fetch = require('node-fetch');
@@ -8,7 +9,6 @@ const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
-const path = require('path');
 
 const app = express();
 
