@@ -10,9 +10,10 @@ const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
-const FileStore = require('session-file-store')(session);
+const PGStore = require('connect-pg-simple')(session);
 
 const app = express();
+app.set('trust proxy', 1); // Trust the first proxy
 
 const PORT = process.env.PORT || 3000;
 
@@ -20,28 +21,35 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
 // Validate environment variables
-if (!supabaseUrl || !supabaseKey || !process.env.SESSION_SECRET) {
-  console.error("Error: SUPABASE_URL, SUPABASE_SERVICE_KEY, and SESSION_SECRET must be set as environment variables.");
+if (!supabaseUrl || !supabaseKey || !process.env.SESSION_SECRET || !process.env.DATABASE_URL) {
+  console.error("Error: SUPABASE_URL, SUPABASE_SERVICE_KEY, SESSION_SECRET, and DATABASE_URL must be set as environment variables.");
   process.exit(1);
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// CORS configuration must allow credentials
-// The `origin` is set to `true` to reflect the request's origin (e.g., the URL in the browser).
-// This is a flexible setting for deployments where the frontend URL isn't fixed.
-app.use(cors({
-    origin: true,
-    credentials: true
-}));
+// CORS configuration must be specific and allow credentials
+const corsOptions = {
+    origin: process.env.FRONTEND_URL || 'http://127.0.0.1:5500',
+    credentials: true,
+};
+app.use(cors(corsOptions));
 
 app.use(express.json()); 
 
-// Session middleware
+// Session middleware with PostgreSQL store
+const pgPool = new (require('pg').Pool)({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
+
 app.use(session({
-    store: new FileStore({
-        logFn: function() {}, // Suppress verbose logging
-        path: path.join(__dirname, 'sessions')
+    store: new PGStore({
+        pool: pgPool,
+        tableName: 'user_sessions',
+        createTableIfMissing: true,
     }),
     // The secret is stored in an environment variable for security.
     secret: process.env.SESSION_SECRET,
