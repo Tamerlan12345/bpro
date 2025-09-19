@@ -27,17 +27,9 @@ if (!supabaseUrl || !supabaseKey || !process.env.SESSION_SECRET) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// CORS configuration must allow credentials
-// The `origin` is set to `true` to reflect the request's origin (e.g., the URL in the browser).
-// This is a flexible setting for deployments where the frontend URL isn't fixed.
-app.use(cors({
-    origin: true,
-    credentials: true
-}));
-
 app.use(express.json()); 
 
-// Session middleware
+// Session middleware must be configured before CORS to ensure cookies are handled correctly.
 app.use(session({
     store: new FileStore({
         path: path.join(__dirname, 'sessions')
@@ -52,6 +44,13 @@ app.use(session({
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Use 'none' for cross-site cookies in prod
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
+}));
+
+// CORS configuration must allow credentials.
+// The `origin` is set to `true` to reflect the request's origin.
+app.use(cors({
+    origin: true,
+    credentials: true
 }));
 
 app.use(express.static('public'));
