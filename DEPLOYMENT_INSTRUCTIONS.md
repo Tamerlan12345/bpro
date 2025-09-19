@@ -12,12 +12,10 @@ In your service's dashboard on **Render.com**, go to the **"Environment"** secti
 
 Please verify that you have added variables with these **exact** names. A small typo (like a missing underscore) will cause the error.
 
-*   `FRONTEND_URL`: The public URL of your deployed application (e.g., `https://your-app-name.onrender.com`). This is crucial for security (CORS).
-*   `SUPABASE_URL`: The URL of your Supabase project.
-*   `SUPABASE_SERVICE_KEY`: Your secret Supabase service role key.
-*   `GOOGLE_API_KEY`: Your API key for Google Gemini.
-*   `SESSION_SECRET`: A long, random string for securing sessions. You can generate one by running the following command in your terminal: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-*   `DATABASE_URL`: The connection string for your Supabase database. Find this in your Supabase dashboard under `Settings` > `Database` > `Connection string`. This is required for persistent session storage.
+*   `SUPABASE_URL`
+*   `SUPABASE_SERVICE_KEY`
+*   `SESSION_SECRET`
+*   `GOOGLE_API_KEY`
 
 ---
 
