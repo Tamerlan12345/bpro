@@ -40,7 +40,6 @@ app.use(express.json());
 // Session middleware
 app.use(session({
     store: new FileStore({
-        logFn: function() {}, // Suppress verbose logging
         path: path.join(__dirname, 'sessions')
     }),
     // The secret is stored in an environment variable for security.
