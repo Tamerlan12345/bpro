@@ -31,22 +31,22 @@ jest.mock('@supabase/supabase-js', () => ({
 // Import the app *after* mocks are set up
 const { app, server } = require('./server');
 
+// Close the server after all tests to prevent Jest from hanging
+afterAll((done) => {
+    server.close(done);
+});
+
+// Clear all mocks before each test to ensure isolation
+beforeEach(() => {
+    jest.clearAllMocks();
+    // Restore default chaining behavior for mocks
+    mockSupabase.from.mockReturnThis();
+    mockSupabase.select.mockReturnThis();
+    mockSupabase.insert.mockReturnThis();
+    mockSupabase.eq.mockReturnThis();
+});
+
 describe('API Security and Authorization', () => {
-    // Close the server after all tests to prevent Jest from hanging
-    afterAll((done) => {
-        server.close(done);
-    });
-
-    // Clear all mocks before each test to ensure isolation
-    beforeEach(() => {
-        jest.clearAllMocks();
-        // Restore default chaining behavior for mocks
-        mockSupabase.from.mockReturnThis();
-        mockSupabase.select.mockReturnThis();
-        mockSupabase.insert.mockReturnThis();
-        mockSupabase.eq.mockReturnThis();
-    });
-
     describe('Admin-only routes', () => {
         const adminRoute = '/api/departments';
         const payload = { name: 'New Test Dept', password: 'password123' };
@@ -126,9 +126,9 @@ describe('GET /api/admin/chats/pending', () => {
         // Mock the admin login process
         when(bcrypt.compare).calledWith('adminpass', adminDept.hashed_password).mockResolvedValue(true);
 
-        // Ensure the mock for 'eq' is specific to the login call
+        // Mock the database call for finding the department
         const singleMock = jest.fn().mockResolvedValue({ data: adminDept, error: null });
-        when(mockSupabase.eq).calledWith('name', 'admin').mockReturnValue({ single: singleMock });
+        mockSupabase.eq.mockReturnValue({ single: singleMock });
 
         // Log in as admin
         await agent
