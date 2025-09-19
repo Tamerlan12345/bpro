@@ -26,8 +26,10 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // CORS configuration must allow credentials
+// The `origin` is set to `true` to reflect the request's origin (e.g., the URL in the browser).
+// This is a flexible setting for deployments where the frontend URL isn't fixed.
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://127.0.0.1:5500',
+    origin: true,
     credentials: true
 }));
 
@@ -39,7 +41,10 @@ app.use(session({
         logFn: function() {}, // Suppress verbose logging
         path: path.join(__dirname, 'sessions')
     }),
-    secret: process.env.SESSION_SECRET || 'a-very-weak-secret-for-dev',
+    // WARNING: This secret is hardcoded and insecure for production.
+    // For a real application, use a long, random string set via an
+    // environment variable (e.g., process.env.SESSION_SECRET).
+    secret: 'a-very-weak-secret-for-dev-that-should-be-changed',
     resave: false,
     saveUninitialized: false, // Only save sessions when data is added
     cookie: {
