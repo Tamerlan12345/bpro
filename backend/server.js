@@ -152,7 +152,7 @@ app.get('/api/admin/chats/pending', isAuthenticated, isAdmin, async (req, res) =
         chat_id: chat.id,
         status: chat.chat_statuses.status,
         chats: {
-            name: `${chat.name} (${chat.departments.name})` // Показываем чат и его департамент
+            name: `${chat.name} (${chat.departments ? chat.departments.name : 'No Department'})` // Показываем чат и его департамент
         }
     }));
 
