@@ -1,7 +1,7 @@
 
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config();
 
+const path = require('path');
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
@@ -15,11 +15,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
 // Validate Supabase environment variables
 if (!supabaseUrl || !supabaseKey) {
-  console.error("Error: SUPABASE_URL and SUPABASE_ANON_KEY must be set in the .env file.");
+  console.error("Error: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in the .env file.");
   process.exit(1);
 }
 
