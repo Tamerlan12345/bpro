@@ -1,8 +1,31 @@
--- Create departments table
-CREATE TABLE departments (
+-- Drop existing tables in reverse order of dependency to avoid foreign key constraints
+DROP TABLE IF EXISTS chat_statuses CASCADE;
+DROP TABLE IF EXISTS comments CASCADE;
+DROP TABLE IF EXISTS process_versions CASCADE;
+DROP TABLE IF EXISTS chats CASCADE;
+DROP TABLE IF EXISTS departments CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- Drop existing types and functions if they exist
+DROP TYPE IF EXISTS author_role CASCADE;
+DROP TYPE IF EXISTS chat_status CASCADE;
+DROP FUNCTION IF EXISTS create_chat_with_status(UUID, TEXT, TEXT) CASCADE;
+
+
+-- Create users table
+CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
     hashed_password TEXT NOT NULL
+);
+
+-- Create departments table
+CREATE TABLE departments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    hashed_password TEXT NOT NULL,
+    UNIQUE(user_id, name)
 );
 
 -- Create chats table
@@ -24,7 +47,6 @@ CREATE TABLE process_versions (
 
 -- Create ENUM types
 CREATE TYPE author_role AS ENUM ('user', 'admin');
--- The new, more descriptive status for chat workflows
 CREATE TYPE chat_status AS ENUM ('draft', 'pending_review', 'needs_revision', 'completed', 'archived');
 
 -- Create comments table

@@ -76,39 +76,41 @@ const isAdmin = (req, res, next) => {
 };
 
 
-// Department authentication
-app.post('/api/auth/department', async (req, res) => {
+// --- User Authentication ---
+
+// New User Login Endpoint
+app.post('/api/auth/login', async (req, res) => {
     const { name, password } = req.body;
 
-    const { data: department, error } = await supabase
-        .from('departments')
+    const { data: user, error } = await supabase
+        .from('users')
         .select('id, name, hashed_password')
         .eq('name', name)
         .single();
 
-    if (error || !department) {
-        return res.status(401).json({ error: 'Invalid department or password' });
+    if (error || !user) {
+        return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    const passwordMatches = await bcrypt.compare(password, department.hashed_password);
+    const passwordMatches = await bcrypt.compare(password, user.hashed_password);
 
     if (!passwordMatches) {
-        return res.status(401).json({ error: 'Invalid department or password' });
+        return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    const role = department.name === 'admin' ? 'admin' : 'user';
+    const role = user.name === 'admin' ? 'admin' : 'user';
 
     // Store user information in the session
     req.session.user = {
-        id: department.id,
-        name: department.name,
+        id: user.id,
+        name: user.name,
         role: role,
     };
 
     // Return user info, including the role
     res.json({
-        id: department.id,
-        name: department.name,
+        id: user.id,
+        name: user.name,
         role: role
     });
 });
@@ -203,28 +205,53 @@ app.get('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     res.json(data);
 });
 
+// Admin: Get all users (for assigning departments)
+app.get('/api/users', isAuthenticated, isAdmin, async (req, res) => {
+    const { data, error } = await supabase
+        .from('users')
+        .select('id, name');
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
+    res.json(data);
+});
+
+
 // Admin: Create a new department
 app.post('/api/departments', isAuthenticated, isAdmin, async (req, res) => {
-    const { name, password } = req.body;
+    const { name, password, user_id } = req.body;
+    if (!name || !password || !user_id) {
+        return res.status(400).json({ error: 'Name, password, and user_id are required.' });
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const { data, error } = await supabase
         .from('departments')
-        .insert([{ name, hashed_password: hashedPassword }])
+        .insert([{ name, hashed_password: hashedPassword, user_id: user_id }])
         .select();
 
     if (error) {
+        // Check for unique constraint violation on (user_id, name)
+        if (error.code === '23505') { // Unique violation
+            return res.status(409).json({ error: 'This department name already exists for the selected user.' });
+        }
         return res.status(500).json({ error: error.message });
     }
     res.status(201).json(data);
 });
 
-// Admin: Get all departments
-app.get('/api/departments', isAuthenticated, isAdmin, async (req, res) => {
-    const { data, error } = await supabase
-        .from('departments')
-        .select('id, name');
+// Get departments: for admin gets all, for user gets their own
+app.get('/api/departments', isAuthenticated, async (req, res) => {
+    const { user } = req.session;
+    let query = supabase.from('departments').select('id, name, user_id');
+
+    if (user.role !== 'admin') {
+        query = query.eq('user_id', user.id);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         return res.status(500).json({ error: error.message });
@@ -314,12 +341,29 @@ app.post('/api/auth/chat', isAuthenticated, async (req, res) => {
 // Get all chats for a department
 app.get('/api/chats', isAuthenticated, async (req, res) => {
     const { department_id } = req.query;
+    const { user } = req.session;
 
-    // Security check: ensure the logged-in user can only see their own department's chats, unless they are an admin
-    if (req.session.user.role !== 'admin' && req.session.user.id.toString() !== department_id) {
-        return res.status(403).json({ error: 'Forbidden: You can only view your own department\'s chats.' });
+    if (!department_id) {
+        return res.status(400).json({ error: 'department_id query parameter is required.' });
     }
 
+    // Security check:
+    // 1. Admins can see chats for any department.
+    // 2. Regular users can only see chats from departments they own.
+    if (user.role !== 'admin') {
+        const { data: department, error: deptError } = await supabase
+            .from('departments')
+            .select('id')
+            .eq('id', department_id)
+            .eq('user_id', user.id)
+            .single();
+
+        if (deptError || !department) {
+            return res.status(403).json({ error: 'Forbidden: You do not have access to this department\'s chats.' });
+        }
+    }
+
+    // If the check passes, fetch the chats.
     const { data, error } = await supabase
         .from('chats')
         .select('id, name, chat_statuses(status)')
@@ -545,8 +589,45 @@ app.post('/api/generate', isAuthenticated, async (req, res) => {
 });
 
 
-const server = app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+const BCRYPT_SALT_ROUNDS = 10;
+
+// Function to seed the database with initial users if they don't exist
+async function ensureUsersExist() {
+    try {
+        // Check for admin user
+        let { data: adminUser, error: adminError } = await supabase
+            .from('users').select('id').eq('name', 'admin').single();
+
+        if (adminError && adminError.code === 'PGRST116') { // Not found
+            console.log('Admin user not found, creating it...');
+            const hashedPassword = await bcrypt.hash('adminpassword', BCRYPT_SALT_ROUNDS);
+            const { error: insertAdminError } = await supabase.from('users').insert({ name: 'admin', hashed_password: hashedPassword });
+            if (insertAdminError) throw insertAdminError;
+            console.log('Admin user created.');
+        } else if (adminError) throw adminError;
+
+        // Check for regular user
+        let { data: regularUser, error: userError } = await supabase
+            .from('users').select('id').eq('name', 'user').single();
+
+        if (userError && userError.code === 'PGRST116') { // Not found
+            console.log('Regular user not found, creating it...');
+            const hashedPassword = await bcrypt.hash('userpassword', BCRYPT_SALT_ROUNDS);
+            const { error: insertUserError } = await supabase.from('users').insert({ name: 'user', hashed_password: hashedPassword });
+            if (insertUserError) throw insertUserError;
+            console.log('Regular user created.');
+        } else if (userError) throw userError;
+
+    } catch (error) {
+        console.error('Fatal error during initial user setup:', error);
+        process.exit(1); // Exit if we can't set up users
+    }
+}
+
+const server = app.listen(PORT, async () => {
+    console.log(`Server is running on port ${PORT}`);
+    // Ensure the initial users exist in the database on server startup
+    await ensureUsersExist();
 });
 
 module.exports = { app, server };

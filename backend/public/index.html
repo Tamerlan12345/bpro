@@ -16,22 +16,34 @@
         </header>
         <main>
             <div id="login-container" class="login-container">
-                <div id="department-login" class="login-form">
-                    <h2>Вход для департамента</h2>
-            <p>Введите название и пароль вашего подразделения.</p>
-            <input type="text" id="department-name" placeholder="Название департамента">
-            <input type="password" id="department-password" placeholder="Пароль департамента">
-            <button id="department-login-btn" class="button-primary">Войти</button>
-            <p id="department-error" class="error-message"></p>
-        </div>
-        <div id="chat-login" class="login-form" style="display: none;">
-            <h2>Выбор чата</h2>
-            <p>Выберите чат, кликнув на него, а затем введите пароль.</p>
-            <div id="chat-selection-container"></div>
-            <input type="password" id="chat-password" placeholder="Пароль выбранного чата">
-            <button id="chat-login-btn" class="button-primary">Войти в чат</button>
-            <p id="chat-error" class="error-message"></p>
-        </div>
+    <!-- Step 1: User Login -->
+    <div id="user-login" class="login-form">
+        <h2>Вход для пользователя</h2>
+        <p>Введите имя пользователя и пароль.</p>
+        <input type="text" id="user-name" placeholder="Имя пользователя" value="user">
+        <input type="password" id="user-password" placeholder="Пароль" value="userpassword">
+        <button id="user-login-btn" class="button-primary">Войти</button>
+        <p id="user-error" class="error-message"></p>
+    </div>
+
+    <!-- Step 2: Department Selection (for non-admins) -->
+    <div id="department-selection" class="login-form" style="display: none;">
+        <h2>Выбор департамента</h2>
+        <p>Выберите департамент для работы.</p>
+        <div id="department-selection-container"></div>
+        <!-- This button is now handled by clicking the department card -->
+        <p id="department-selection-error" class="error-message"></p>
+    </div>
+
+    <!-- Step 3: Chat Selection -->
+    <div id="chat-login" class="login-form" style="display: none;">
+        <h2>Выбор чата</h2>
+        <p>Выберите чат, кликнув на него, а затем введите пароль.</p>
+        <div id="chat-selection-container"></div>
+        <input type="password" id="chat-password" placeholder="Пароль выбранного чата">
+        <button id="chat-login-btn" class="button-primary">Войти в чат</button>
+        <p id="chat-error" class="error-message"></p>
+    </div>
     </div>
 
     <div id="admin-panel" style="display: none;">
@@ -40,8 +52,18 @@
         <div class="admin-section">
             <h3>Создать новый департамент</h3>
             <div id="create-department-form">
-                <input type="text" id="new-department-name" placeholder="Название департамента">
-                <input type="password" id="new-department-password" placeholder="Пароль">
+                <div class="form-group">
+                    <label for="user-for-new-department">Назначить пользователю:</label>
+                    <select id="user-for-new-department"></select>
+                </div>
+                <div class="form-group">
+                    <label for="new-department-name">Название департамента:</label>
+                    <input type="text" id="new-department-name" placeholder="Название департамента">
+                </div>
+                <div class="form-group">
+                    <label for="new-department-password">Пароль:</label>
+                    <input type="password" id="new-department-password" placeholder="Пароль">
+                </div>
                 <button id="create-department-btn">Создать</button>
             </div>
         </div>
