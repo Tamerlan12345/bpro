@@ -42,7 +42,9 @@ const pgPool = new (require('pg').Pool)({
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
-    }
+    },
+    // Force IPv4, as Render's environment may not support IPv6
+    family: 4,
 });
 
 app.use(session({
