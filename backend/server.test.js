@@ -160,3 +160,12 @@ describe('GET /api/admin/chats/pending', () => {
         expect(orMock).toHaveBeenCalledWith('status.eq.draft,status.eq.needs_revision', { referencedTable: 'chat_statuses' });
     });
 });
+
+describe('/api/generate endpoint', () => {
+    it('should return 401 Unauthorized if user is not authenticated', async () => {
+        const response = await request(app)
+            .post('/api/generate')
+            .send({ prompt: 'test prompt' });
+        expect(response.status).toBe(401);
+    });
+});
