@@ -4,9 +4,9 @@
   "private": true,
   "license": "MIT",
   "description": "Proxy server for Google Gemini API",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node index.js",
     "test": "jest"
   },
   "jest": {
@@ -25,6 +25,7 @@
     "jest-when": "^3.7.0",
     "node-fetch": "2.7.0",
     "pg": "^8.11.3",
+    "pg-connection-string": "^2.6.2",
     "session-file-store": "^1.5.0",
     "supertest": "^7.1.4"
   }
