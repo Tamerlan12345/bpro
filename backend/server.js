@@ -7,6 +7,8 @@ const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
 const { Pool } = require('pg');
+const { parse } = require('pg-connection-string');
+const dns = require('dns').promises;
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
@@ -421,8 +423,16 @@ const startServer = async () => {
         }
 
         console.log('Initializing database connection...');
+        const dbUrl = process.env.DATABASE_URL;
+        const config = parse(dbUrl);
+
+        console.log(`Looking up IPv4 address for host: ${config.host}`);
+        const { address } = await dns.lookup(config.host, { family: 4 });
+        console.log(`Resolved ${config.host} to ${address}`);
+
         pool = new Pool({
-            connectionString: process.env.DATABASE_URL,
+            ...config,
+            host: address,
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
         });
 
