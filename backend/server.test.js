@@ -1,5 +1,5 @@
 // Set dummy environment variables before importing the server
-process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+process.env.DATABASE_URL = 'postgresql://test:test@dummy-host:5432/test';
 process.env.SESSION_SECRET = 'dummy-secret';
 process.env.FRONTEND_URL = 'http://localhost:8080';
 
@@ -10,27 +10,49 @@ const bcrypt = require('bcryptjs');
 // Mock external dependencies
 jest.mock('bcryptjs');
 
+// Mock DNS lookup
+jest.mock('dns', () => ({
+    promises: {
+        lookup: jest.fn().mockResolvedValue({ address: '127.0.0.1', family: 4 }),
+    },
+}));
+
 // Mock the 'pg' module
 const mockQuery = jest.fn();
+const mockConnect = jest.fn().mockResolvedValue({
+    release: jest.fn(),
+});
 jest.mock('pg', () => {
     const mockPool = {
         query: mockQuery,
+        connect: mockConnect,
     };
     return { Pool: jest.fn(() => mockPool) };
 });
 
-// Import the app *after* mocks are set up
-const { app, server } = require('./server');
+// Import the startServer function from the server module
+const { app, startServer } = require('./server');
+let server; // To be assigned in beforeAll
 
-// Close the server after all tests to prevent Jest from hanging
-afterAll((done) => {
-    server.close(done);
+// --- Test Suite Setup ---
+
+beforeAll(async () => {
+    // Start the server and get the instance
+    const serverInstance = await startServer();
+    server = serverInstance.server;
 });
 
-// Clear all mocks before each test to ensure isolation
+afterAll((done) => {
+    if (server) {
+        server.close(done);
+    } else {
+        done();
+    }
+});
+
+// Clear mocks before each test
 beforeEach(() => {
     jest.clearAllMocks();
-    mockQuery.mockClear();
 });
 
 describe('API Security and Authorization', () => {
@@ -48,17 +70,14 @@ describe('API Security and Authorization', () => {
             const agent = request.agent(app);
             const regularUser = { id: 'a-user-uuid', name: 'user', hashed_password: 'user_hash', role: 'user' };
 
-            // Mock the login process for a non-admin user
             when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
             mockQuery.mockResolvedValueOnce({ rows: [regularUser] });
 
-            // Log in as the non-admin user using the new endpoint
             await agent
                 .post('/api/auth/login')
                 .send({ name: 'user', password: 'password' })
                 .expect(200);
 
-            // Attempt to access the admin route
             const response = await agent.post(adminRoute).send(payload);
             expect(response.status).toBe(403);
             expect(response.body.error).toContain('Forbidden');
@@ -69,23 +88,17 @@ describe('API Security and Authorization', () => {
             const adminUser = { id: 'admin-uuid', name: 'admin', hashed_password: 'admin_hash', role: 'admin' };
             const newDept = { id: 99, ...payload };
 
-            // Mock the admin login process
             when(bcrypt.compare).calledWith('adminpass', adminUser.hashed_password).mockResolvedValue(true);
             mockQuery.mockResolvedValueOnce({ rows: [adminUser] });
 
-
-            // Log in as admin
             await agent
                 .post('/api/auth/login')
                 .send({ name: 'admin', password: 'adminpass' })
                 .expect(200);
 
-            // Mock the department creation database call
             when(bcrypt.hash).mockResolvedValue('new_hashed_password');
             mockQuery.mockResolvedValueOnce({ rows: [newDept] });
 
-
-            // Access the admin route
             const response = await agent.post(adminRoute).send(payload);
             expect(response.status).toBe(201);
             expect(response.body.name).toBe(newDept.name);
@@ -100,12 +113,9 @@ describe('GET /api/admin/chats/pending', () => {
         agent = request.agent(app);
         const adminUser = { id: 'admin-uuid', name: 'admin', hashed_password: 'admin_hash', role: 'admin' };
 
-        // Mock the admin login process
         when(bcrypt.compare).calledWith('adminpass', adminUser.hashed_password).mockResolvedValue(true);
         mockQuery.mockResolvedValueOnce({ rows: [adminUser] });
 
-
-        // Log in as admin
         await agent
             .post('/api/auth/login')
             .send({ name: 'admin', password: 'adminpass' })
@@ -117,15 +127,12 @@ describe('GET /api/admin/chats/pending', () => {
             { chat_id: 101, name: 'Chat 1', status: 'draft', department_name: 'Dept A' },
             { chat_id: 102, name: 'Chat 2', status: 'needs_revision', department_name: 'Dept B' }
         ];
-
-        // Mock the specific DB call for pending chats
         mockQuery.mockResolvedValueOnce({ rows: mockPendingChats });
 
         const response = await agent.get('/api/admin/chats/pending');
 
         expect(response.status).toBe(200);
         expect(response.body).toHaveLength(2);
-        // Test the transformed API response structure
         expect(response.body[0].chats.name).toBe('Chat 1');
         expect(response.body[0].departments.name).toBe('Dept A');
         expect(response.body[1].status).toBe('needs_revision');
