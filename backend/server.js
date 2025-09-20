@@ -14,6 +14,7 @@ const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 
 const app = express();
+app.set('trust proxy', 1); // Trust the first proxy
 const PORT = process.env.PORT || 3000;
 
 let pool;
