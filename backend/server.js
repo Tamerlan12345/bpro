@@ -20,16 +20,23 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
 // Validate environment variables
-if (!supabaseUrl || !supabaseKey || !process.env.SESSION_SECRET) {
-  console.error("Error: SUPABASE_URL, SUPABASE_SERVICE_KEY, and SESSION_SECRET must be set as environment variables.");
+if (!supabaseUrl || !supabaseKey || !process.env.SESSION_SECRET || !process.env.FRONTEND_URL) {
+  console.error("Error: SUPABASE_URL, SUPABASE_SERVICE_KEY, SESSION_SECRET, and FRONTEND_URL must be set as environment variables.");
   process.exit(1);
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-app.use(express.json()); 
+app.use(express.json());
 
-// Session middleware must be configured before CORS to ensure cookies are handled correctly.
+// CORS configuration must be placed before session middleware and routes.
+// It must explicitly trust the frontend origin to allow cookies to be sent.
+app.use(cors({
+    origin: process.env.FRONTEND_URL, // Use the specific frontend URL
+    credentials: true
+}));
+
+// Session middleware must be configured after CORS to ensure cookies are handled correctly.
 app.use(session({
     store: new FileStore({
         path: path.join(__dirname, 'sessions')
@@ -44,13 +51,6 @@ app.use(session({
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Use 'none' for cross-site cookies in prod
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
-}));
-
-// CORS configuration must allow credentials.
-// The `origin` is set to `true` to reflect the request's origin.
-app.use(cors({
-    origin: true,
-    credentials: true
 }));
 
 app.use(express.static('public'));
