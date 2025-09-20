@@ -1,4 +1,3 @@
-
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
@@ -7,7 +6,7 @@ const path = require('path');
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
+const { Pool } = require('pg'); // Changed from supabase
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
@@ -16,16 +15,19 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+// Changed from supabase to standard postgres env vars
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
+
 
 // Validate environment variables
-if (!supabaseUrl || !supabaseKey || !process.env.SESSION_SECRET || !process.env.FRONTEND_URL) {
-  console.error("Error: SUPABASE_URL, SUPABASE_SERVICE_KEY, SESSION_SECRET, and FRONTEND_URL must be set as environment variables.");
+if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET || !process.env.FRONTEND_URL) {
+  console.error("Error: DATABASE_URL, SESSION_SECRET, and FRONTEND_URL must be set as environment variables.");
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 app.use(express.json());
 
@@ -80,49 +82,58 @@ const isAdmin = (req, res, next) => {
 // New User Login Endpoint
 app.post('/api/auth/login', async (req, res) => {
     const { name, password } = req.body;
+    console.log(`Login attempt for user: ${name}`); // Added logging
 
-    const { data: user, error } = await supabase
-        .from('users')
-        .select('id, name, hashed_password')
-        .eq('name', name)
-        .single();
+    try {
+        const result = await pool.query('SELECT id, name, hashed_password FROM users WHERE name = $1', [name]);
+        const user = result.rows[0];
 
-    if (error || !user) {
-        return res.status(401).json({ error: 'Invalid username or password' });
+        if (!user) {
+            console.log(`Login failed for user: ${name}. User not found.`); // Added logging
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+
+        const passwordMatches = await bcrypt.compare(password, user.hashed_password);
+
+        if (!passwordMatches) {
+            console.log(`Login failed for user: ${name}. Invalid password.`); // Added logging
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+
+        const role = user.name === 'admin' ? 'admin' : 'user';
+        console.log(`Login successful for user: ${name}, role: ${role}`); // Added logging
+
+        // Store user information in the session
+        req.session.user = {
+            id: user.id,
+            name: user.name,
+            role: role,
+        };
+
+        // Return user info, including the role
+        res.json({
+            id: user.id,
+            name: user.name,
+            role: role
+        });
+    } catch (error) {
+        console.error('Error during login:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-    const passwordMatches = await bcrypt.compare(password, user.hashed_password);
-
-    if (!passwordMatches) {
-        return res.status(401).json({ error: 'Invalid username or password' });
-    }
-
-    const role = user.name === 'admin' ? 'admin' : 'user';
-
-    // Store user information in the session
-    req.session.user = {
-        id: user.id,
-        name: user.name,
-        role: role,
-    };
-
-    // Return user info, including the role
-    res.json({
-        id: user.id,
-        name: user.name,
-        role: role
-    });
 });
 
 // Logout
 app.post('/api/auth/logout', (req, res) => {
+    const userName = req.session.user ? req.session.user.name : 'Unknown user';
     req.session.destroy(err => {
         if (err) {
             // Handle error case
+            console.error(`Logout error for user: ${userName}`, err);
             return res.status(500).json({ error: 'Could not log out, please try again.' });
         }
         // Ensure the cookie is cleared
         res.clearCookie('connect.sid'); // Default name for express-session cookie
+        console.log(`User ${userName} logged out successfully.`);
         res.status(200).json({ message: 'Logged out successfully' });
     });
 });
@@ -138,81 +149,84 @@ app.get('/api/auth/session', (req, res) => {
 
 // Admin: Get chats in review
 app.get('/api/admin/chats/in_review', isAuthenticated, isAdmin, async (req, res) => {
-    const { data, error } = await supabase
-        .from('chats')
-        .select('id, name, chat_statuses!inner(status), departments(name)')
-        .eq('chat_statuses.status', 'pending_review');
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    try {
+        const query = `
+            SELECT c.id AS chat_id, c.name, cs.status, d.name AS department_name
+            FROM chats c
+            JOIN chat_statuses cs ON c.id = cs.chat_id
+            LEFT JOIN departments d ON c.department_id = d.id
+            WHERE cs.status = 'pending_review'
+        `;
+        const { rows } = await pool.query(query);
+        const transformedData = rows.map(chat => ({
+            chat_id: chat.chat_id,
+            status: chat.status,
+            chats: {
+                name: chat.name
+            },
+            departments: {
+                name: chat.department_name || 'No Department'
+            }
+        }));
+        res.json(transformedData);
+    } catch (error) {
+        console.error('Error fetching chats in review:', error);
+        res.status(500).json({ error: error.message });
     }
-
-    // Transform data to be consistent with other admin endpoints
-    const transformedData = data.map(chat => ({
-        chat_id: chat.id,
-        status: chat.chat_statuses.status,
-        chats: {
-            name: chat.name
-        },
-        departments: {
-            name: chat.departments ? chat.departments.name : 'No Department'
-        }
-    }));
-
-    res.json(transformedData);
 });
 
 // Admin: Get pending chats (draft or needs_revision)
 app.get('/api/admin/chats/pending', isAuthenticated, isAdmin, async (req, res) => {
-    // Убираем зависимость от department_id для общего обзора администратора
-    const { data, error } = await supabase
-        .from('chats')
-        .select('id, name, chat_statuses!inner(status), departments(name)') // Добавляем название департамента для контекста
-        .or('status.eq.draft,status.eq.needs_revision', { referencedTable: 'chat_statuses' });
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    try {
+        const query = `
+            SELECT c.id AS chat_id, c.name, cs.status, d.name AS department_name
+            FROM chats c
+            JOIN chat_statuses cs ON c.id = cs.chat_id
+            LEFT JOIN departments d ON c.department_id = d.id
+            WHERE cs.status = 'draft' OR cs.status = 'needs_revision'
+        `;
+        const { rows } = await pool.query(query);
+        const transformedData = rows.map(chat => ({
+            chat_id: chat.chat_id,
+            status: chat.status,
+            chats: {
+                name: chat.name
+            },
+            departments: {
+                name: chat.department_name || 'No Department'
+            }
+        }));
+        res.json(transformedData);
+    } catch (error) {
+        console.error('Error fetching pending chats:', error);
+        res.status(500).json({ error: error.message });
     }
-
-    // Transform data to be consistent with other admin endpoints
-    const transformedData = data.map(chat => ({
-        chat_id: chat.id,
-        status: chat.chat_statuses.status,
-        chats: {
-            name: chat.name
-        },
-        departments: {
-            name: chat.departments ? chat.departments.name : 'No Department'
-        }
-    }));
-
-    res.json(transformedData);
 });
 
 // Get chat status
 app.get('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     const { id } = req.params;
-    const { data, error } = await supabase
-        .from('chat_statuses')
-        .select('status')
-        .eq('chat_id', id)
-        .single();
-
-    if (error || !data) {
-        return res.status(404).json({ error: 'Status not found' });
+    try {
+        const { rows } = await pool.query('SELECT status FROM chat_statuses WHERE chat_id = $1', [id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Status not found' });
+        }
+        res.json(rows[0]);
+    } catch (error) {
+        console.error('Error fetching chat status:', error);
+        res.status(500).json({ error: error.message });
     }
-    res.json(data);
 });
 
 // Admin: Get all users (for assigning departments)
 app.get('/api/users', isAuthenticated, isAdmin, async (req, res) => {
-    const { data, error } = await supabase
-        .from('users')
-        .select('id, name');
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    try {
+        const { rows } = await pool.query('SELECT id, name FROM users');
+        res.json(rows);
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ error: error.message });
     }
-    res.json(data);
 });
 
 
@@ -223,39 +237,41 @@ app.post('/api/departments', isAuthenticated, isAdmin, async (req, res) => {
         return res.status(400).json({ error: 'Name, password, and user_id are required.' });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    const { data, error } = await supabase
-        .from('departments')
-        .insert([{ name, hashed_password: hashedPassword, user_id: user_id }])
-        .select();
-
-    if (error) {
-        // Check for unique constraint violation on (user_id, name)
+    try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        const { rows } = await pool.query(
+            'INSERT INTO departments (name, hashed_password, user_id) VALUES ($1, $2, $3) RETURNING *',
+            [name, hashedPassword, user_id]
+        );
+        res.status(201).json(rows[0]);
+    } catch (error) {
         if (error.code === '23505') { // Unique violation
             return res.status(409).json({ error: 'This department name already exists for the selected user.' });
         }
-        return res.status(500).json({ error: error.message });
+        console.error('Error creating department:', error);
+        res.status(500).json({ error: error.message });
     }
-    res.status(201).json(data);
 });
 
 // Get departments: for admin gets all, for user gets their own
 app.get('/api/departments', isAuthenticated, async (req, res) => {
     const { user } = req.session;
-    let query = supabase.from('departments').select('id, name, user_id');
-
-    if (user.role !== 'admin') {
-        query = query.eq('user_id', user.id);
+    try {
+        let query;
+        const params = [];
+        if (user.role === 'admin') {
+            query = 'SELECT id, name, user_id FROM departments';
+        } else {
+            query = 'SELECT id, name, user_id FROM departments WHERE user_id = $1';
+            params.push(user.id);
+        }
+        const { rows } = await pool.query(query, params);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error fetching departments:', error);
+        res.status(500).json({ error: error.message });
     }
-
-    const { data, error } = await query;
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
-    }
-    res.json(data);
 });
 
 // Admin: Update a department
@@ -267,74 +283,90 @@ app.put('/api/departments/:id', isAuthenticated, isAdmin, async (req, res) => {
         return res.status(400).json({ error: 'Department name is required' });
     }
 
-    const updateData = { name };
+    try {
+        const updates = [];
+        const params = [id];
+        let paramIndex = 2;
 
-    if (password) {
-        const salt = await bcrypt.genSalt(10);
-        updateData.hashed_password = await bcrypt.hash(password, salt);
-    }
+        if (name) {
+            updates.push(`name = $${paramIndex++}`);
+            params.push(name);
+        }
 
-    const { data, error } = await supabase
-        .from('departments')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
+        if (password) {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(password, salt);
+            updates.push(`hashed_password = $${paramIndex++}`);
+            params.push(hashedPassword);
+        }
 
-    if (error) {
+        const query = `UPDATE departments SET ${updates.join(', ')} WHERE id = $1 RETURNING *`;
+        const { rows } = await pool.query(query, params);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Department not found' });
+        }
+        res.json(rows[0]);
+    } catch (error) {
         console.error('Error updating department:', error);
         return res.status(500).json({ error: error.message });
     }
-
-    res.json(data);
 });
 
 // Admin: Get completed chats
 app.get('/api/admin/chats/completed', isAuthenticated, isAdmin, async (req, res) => {
-    const { data, error } = await supabase
-        .from('chats')
-        .select('id, name, chat_statuses!inner(status), departments(name)')
-        .in('chat_statuses.status', ['completed', 'archived']);
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    try {
+        const query = `
+            SELECT c.id AS chat_id, c.name, cs.status, d.name AS department_name
+            FROM chats c
+            JOIN chat_statuses cs ON c.id = cs.chat_id
+            LEFT JOIN departments d ON c.department_id = d.id
+            WHERE cs.status IN ('completed', 'archived')
+        `;
+        const { rows } = await pool.query(query);
+        const transformedData = rows.map(chat => ({
+            chat_id: chat.chat_id,
+            status: chat.status,
+            chats: {
+                name: chat.name
+            },
+            departments: {
+                name: chat.department_name || 'No Department'
+            }
+        }));
+        res.json(transformedData);
+    } catch (error) {
+        console.error('Error fetching completed chats:', error);
+        res.status(500).json({ error: error.message });
     }
-
-    // Transform data to be consistent with other admin endpoints
-    const transformedData = data.map(chat => ({
-        chat_id: chat.id,
-        status: chat.chat_statuses.status,
-        chats: {
-            name: chat.name
-        },
-        departments: {
-            name: chat.departments ? chat.departments.name : 'No Department'
-        }
-    }));
-    res.json(transformedData);
 });
+
 
 // Chat authentication - This is for a specific chat password, separate from department login
 app.post('/api/auth/chat', isAuthenticated, async (req, res) => {
     const { department_id, name, password } = req.body;
-    const { data: chat, error } = await supabase
-        .from('chats')
-        .select('id, name, hashed_password')
-        .eq('department_id', department_id)
-        .eq('name', name)
-        .single();
+    try {
+        const { rows } = await pool.query(
+            'SELECT id, name, hashed_password FROM chats WHERE department_id = $1 AND name = $2',
+            [department_id, name]
+        );
+        const chat = rows[0];
 
-    if (error || !chat) {
-        return res.status(401).json({ error: 'Invalid chat or password' });
+        if (!chat) {
+            return res.status(401).json({ error: 'Invalid chat or password' });
+        }
+
+        const passwordMatches = await bcrypt.compare(password, chat.hashed_password);
+
+        if (!passwordMatches) {
+            return res.status(401).json({ error: 'Invalid chat or password' });
+        }
+
+        res.json({ id: chat.id, name: chat.name });
+    } catch (error) {
+        console.error('Error during chat authentication:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-    const passwordMatches = await bcrypt.compare(password, chat.hashed_password);
-
-    if (!passwordMatches) {
-        return res.status(401).json({ error: 'Invalid chat or password' });
-    }
-
-    res.json({ id: chat.id, name: chat.name });
 });
 
 // Get all chats for a department
@@ -346,53 +378,51 @@ app.get('/api/chats', isAuthenticated, async (req, res) => {
         return res.status(400).json({ error: 'department_id query parameter is required.' });
     }
 
-    // Security check:
-    // 1. Admins can see chats for any department.
-    // 2. Regular users can only see chats from departments they own.
-    if (user.role !== 'admin') {
-        const { data: department, error: deptError } = await supabase
-            .from('departments')
-            .select('id')
-            .eq('id', department_id)
-            .eq('user_id', user.id)
-            .single();
-
-        if (deptError || !department) {
-            return res.status(403).json({ error: 'Forbidden: You do not have access to this department\'s chats.' });
+    try {
+        // Security check:
+        if (user.role !== 'admin') {
+            const { rows } = await pool.query(
+                'SELECT id FROM departments WHERE id = $1 AND user_id = $2',
+                [department_id, user.id]
+            );
+            if (rows.length === 0) {
+                return res.status(403).json({ error: 'Forbidden: You do not have access to this department\'s chats.' });
+            }
         }
-    }
 
-    // If the check passes, fetch the chats.
-    const { data, error } = await supabase
-        .from('chats')
-        .select('id, name, chat_statuses(status)')
-        .eq('department_id', department_id);
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
+        // If the check passes, fetch the chats.
+        const query = `
+            SELECT c.id, c.name, cs.status
+            FROM chats c
+            LEFT JOIN chat_statuses cs ON c.id = cs.chat_id
+            WHERE c.department_id = $1
+        `;
+        const { rows } = await pool.query(query, [department_id]);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error fetching chats for department:', error);
+        res.status(500).json({ error: error.message });
     }
-    res.json(data);
 });
 
 // Create a new chat (must be admin to create a chat for a department)
 app.post('/api/chats', isAuthenticated, isAdmin, async (req, res) => {
     const { department_id, name, password } = req.body;
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Call the RPC function to create the chat and its status in one transaction
-    const { data: chatData, error } = await supabase.rpc('create_chat_with_status', {
-        department_id_arg: department_id,
-        name_arg: name,
-        hashed_password_arg: hashedPassword
-    }).single();
+        // Call the RPC function to create the chat and its status in one transaction
+        const { rows } = await pool.query(
+            "SELECT * FROM create_chat_with_status($1, $2, $3)",
+            [department_id, name, hashedPassword]
+        );
 
-    if (error) {
+        res.status(201).json(rows[0]);
+    } catch (error) {
         console.error('Error creating chat with RPC:', error);
         return res.status(500).json({ error: error.message });
     }
-
-    res.status(201).json(chatData);
 });
 
 // Middleware to check if a user has permission to edit a chat
@@ -400,95 +430,93 @@ const checkChatPermission = async (req, res, next) => {
     const { id: chatId } = req.params;
     const userRole = req.session.user.role;
 
-    const { data: statusData, error } = await supabase
-        .from('chat_statuses')
-        .select('status')
-        .eq('chat_id', chatId)
-        .single();
+    try {
+        const { rows } = await pool.query('SELECT status FROM chat_statuses WHERE chat_id = $1', [chatId]);
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Chat not found' });
+        }
+        const { status } = rows[0];
 
-    if (error || !statusData) {
-        return res.status(404).json({ error: 'Chat not found' });
+        let canEdit = false;
+        if (userRole === 'user') {
+            canEdit = (status === 'draft' || status === 'needs_revision');
+        } else if (userRole === 'admin') {
+            canEdit = (status !== 'completed' && status !== 'archived');
+        }
+
+        if (!canEdit) {
+            return res.status(403).json({ error: 'You do not have permission to edit this chat in its current state.' });
+        }
+
+        next();
+    } catch (error) {
+        console.error('Error checking chat permission:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-    const { status } = statusData;
-
-    let canEdit = false;
-    if (userRole === 'user') {
-        // Users can edit drafts or chats needing revision
-        canEdit = (status === 'draft' || status === 'needs_revision');
-    } else if (userRole === 'admin') {
-        // Admins can edit any chat unless it is completed or archived
-        canEdit = (status !== 'completed' && status !== 'archived');
-    }
-
-    if (!canEdit) {
-        return res.status(403).json({ error: 'You do not have permission to edit this chat in its current state.' });
-    }
-
-    next();
 };
 
 // Get all versions for a chat
 app.get('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
     const { id } = req.params;
-    const { data, error } = await supabase
-        .from('process_versions')
-        .select('*')
-        .eq('chat_id', id)
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    try {
+        const { rows } = await pool.query(
+            'SELECT * FROM process_versions WHERE chat_id = $1 ORDER BY created_at DESC',
+            [id]
+        );
+        res.json(rows);
+    } catch (error) {
+        console.error('Error fetching process versions:', error);
+        res.status(500).json({ error: error.message });
     }
-    res.json(data);
 });
 
 // Create a new version for a chat
 app.post('/api/chats/:id/versions', isAuthenticated, checkChatPermission, async (req, res) => {
     const { id } = req.params;
     const { process_text, mermaid_code } = req.body;
-    const { data, error } = await supabase
-        .from('process_versions')
-        .insert([{ chat_id: id, process_text, mermaid_code }])
-        .select();
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    try {
+        const { rows } = await pool.query(
+            'INSERT INTO process_versions (chat_id, process_text, mermaid_code) VALUES ($1, $2, $3) RETURNING *',
+            [id, process_text, mermaid_code]
+        );
+        res.status(201).json(rows[0]);
+    } catch (error) {
+        console.error('Error creating process version:', error);
+        res.status(500).json({ error: error.message });
     }
-    res.status(201).json(data);
 });
 
 // Get all comments for a chat
 app.get('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     const { id } = req.params;
-    const { data, error } = await supabase
-        .from('comments')
-        .select('*')
-        .eq('chat_id', id)
-        .order('created_at', { ascending: true });
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    try {
+        const { rows } = await pool.query(
+            'SELECT * FROM comments WHERE chat_id = $1 ORDER BY created_at ASC',
+            [id]
+        );
+        res.json(rows);
+    } catch (error) {
+        console.error('Error fetching comments:', error);
+        res.status(500).json({ error: error.message });
     }
-    res.json(data);
 });
 
 // Create a new comment for a chat
 app.post('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const { text } = req.body;
-    // The author's role is now determined by the session, not the request body
     const author_role = req.session.user.role;
 
-    const { data, error } = await supabase
-        .from('comments')
-        .insert([{ chat_id: id, author_role, text }])
-        .select();
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    try {
+        const { rows } = await pool.query(
+            'INSERT INTO comments (chat_id, author_role, text) VALUES ($1, $2, $3) RETURNING *',
+            [id, author_role, text]
+        );
+        res.status(201).json(rows[0]);
+    } catch (error) {
+        console.error('Error creating comment:', error);
+        res.status(500).json({ error: error.message });
     }
-    res.status(201).json(data);
 });
 
 const checkStatusChangePermission = async (req, res, next) => {
@@ -500,55 +528,52 @@ const checkStatusChangePermission = async (req, res, next) => {
         return res.status(400).json({ error: 'New status is required.' });
     }
 
-    const { data: statusData, error } = await supabase
-        .from('chat_statuses')
-        .select('status')
-        .eq('chat_id', chatId)
-        .single();
-
-    if (error || !statusData) {
-        return res.status(404).json({ error: 'Chat not found' });
-    }
-    const { status: currentStatus } = statusData;
-
-    let canChange = false;
-    if (userRole === 'user') {
-        // User can submit a draft or revision for review
-        if ((currentStatus === 'draft' || currentStatus === 'needs_revision') && newStatus === 'pending_review') {
-            canChange = true;
+    try {
+        const { rows } = await pool.query('SELECT status FROM chat_statuses WHERE chat_id = $1', [chatId]);
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Chat not found' });
         }
-    } else if (userRole === 'admin') {
-        // Admin can approve or reject a submission
-        if (currentStatus === 'pending_review' && (newStatus === 'needs_revision' || newStatus === 'completed')) {
-            canChange = true;
-        }
-        // Admin can only archive a completed chat
-        if (currentStatus === 'completed' && newStatus === 'archived') {
-            canChange = true;
-        }
-    }
+        const { status: currentStatus } = rows[0];
 
-    if (!canChange) {
-        return res.status(403).json({ error: `User role '${userRole}' cannot change status from '${currentStatus}' to '${newStatus}'` });
-    }
+        let canChange = false;
+        if (userRole === 'user') {
+            if ((currentStatus === 'draft' || currentStatus === 'needs_revision') && newStatus === 'pending_review') {
+                canChange = true;
+            }
+        } else if (userRole === 'admin') {
+            if (currentStatus === 'pending_review' && (newStatus === 'needs_revision' || newStatus === 'completed')) {
+                canChange = true;
+            }
+            if (currentStatus === 'completed' && newStatus === 'archived') {
+                canChange = true;
+            }
+        }
 
-    next();
+        if (!canChange) {
+            return res.status(403).json({ error: `User role '${userRole}' cannot change status from '${currentStatus}' to '${newStatus}'` });
+        }
+
+        next();
+    } catch (error) {
+        console.error('Error checking status change permission:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 };
 
 // Update chat status
 app.put('/api/chats/:id/status', isAuthenticated, checkStatusChangePermission, async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-    const { data, error } = await supabase
-        .from('chat_statuses')
-        .update({ status: status })
-        .eq('chat_id', id)
-        .select();
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    try {
+        const { rows } = await pool.query(
+            'UPDATE chat_statuses SET status = $1 WHERE chat_id = $2 RETURNING *',
+            [status, id]
+        );
+        res.json(rows[0]);
+    } catch (error) {
+        console.error('Error updating chat status:', error);
+        res.status(500).json({ error: error.message });
     }
-    res.json(data);
 });
 
 app.post('/api/generate', isAuthenticated, async (req, res) => {
@@ -594,28 +619,24 @@ const BCRYPT_SALT_ROUNDS = 10;
 async function ensureUsersExist() {
     try {
         // Check for admin user
-        let { data: adminUser, error: adminError } = await supabase
-            .from('users').select('id').eq('name', 'admin').single();
+        let { rows: adminRows } = await pool.query("SELECT id FROM users WHERE name = 'admin'");
 
-        if (adminError && adminError.code === 'PGRST116') { // Not found
+        if (adminRows.length === 0) {
             console.log('Admin user not found, creating it...');
             const hashedPassword = await bcrypt.hash('adminpassword', BCRYPT_SALT_ROUNDS);
-            const { error: insertAdminError } = await supabase.from('users').insert({ name: 'admin', hashed_password: hashedPassword });
-            if (insertAdminError) throw insertAdminError;
+            await pool.query("INSERT INTO users (name, hashed_password) VALUES ('admin', $1)", [hashedPassword]);
             console.log('Admin user created.');
-        } else if (adminError) throw adminError;
+        }
 
         // Check for regular user
-        let { data: regularUser, error: userError } = await supabase
-            .from('users').select('id').eq('name', 'user').single();
+        let { rows: userRows } = await pool.query("SELECT id FROM users WHERE name = 'user'");
 
-        if (userError && userError.code === 'PGRST116') { // Not found
+        if (userRows.length === 0) {
             console.log('Regular user not found, creating it...');
             const hashedPassword = await bcrypt.hash('userpassword', BCRYPT_SALT_ROUNDS);
-            const { error: insertUserError } = await supabase.from('users').insert({ name: 'user', hashed_password: hashedPassword });
-            if (insertUserError) throw insertUserError;
+            await pool.query("INSERT INTO users (name, hashed_password) VALUES ('user', $1)", [hashedPassword]);
             console.log('Regular user created.');
-        } else if (userError) throw userError;
+        }
 
     } catch (error) {
         console.error('Fatal error during initial user setup:', error);
@@ -626,7 +647,9 @@ async function ensureUsersExist() {
 const server = app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
     // Ensure the initial users exist in the database on server startup
-    await ensureUsersExist();
+    if (process.env.NODE_ENV !== 'test') {
+        await ensureUsersExist();
+    }
 });
 
 module.exports = { app, server };
