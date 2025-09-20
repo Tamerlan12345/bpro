@@ -1,2 +1,8 @@
-[dotenv@17.2.2] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.2] injecting env (5) from .env -- tip: 📡 version env with Radar: https://dotenvx.com/radar
+Initializing database connection...
+Database connection successful.
 Server is running on port 3000
+Admin user not found, creating it...
+Admin user created.
+Regular user not found, creating it...
+Regular user created.
