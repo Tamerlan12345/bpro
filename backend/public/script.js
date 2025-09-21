@@ -575,10 +575,18 @@ ${brokenCode}
 
     async function loadAdminPanel() {
         try {
-            // Load users for the dropdown
+            // Load users for the dropdown, but only show 'user' and select it.
             const usersResponse = await fetchWithAuth('/api/users');
             const users = await usersResponse.json();
-            userForNewDepartmentSelect.innerHTML = users.map(user => `<option value="${user.id}">${user.name}</option>`).join('');
+            const regularUser = users.find(user => user.name === 'user');
+
+            if (regularUser) {
+                userForNewDepartmentSelect.innerHTML = `<option value="${regularUser.id}" selected>${regularUser.name}</option>`;
+            } else {
+                // Fallback if 'user' is not found, although it should always exist based on server.js
+                userForNewDepartmentSelect.innerHTML = '<option value="">Пользователь "user" не найден</option>';
+                console.error('Default user "user" not found in the database.');
+            }
 
             // Load departments list
             await loadAdminDepartments();
