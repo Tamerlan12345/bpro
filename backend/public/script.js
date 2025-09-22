@@ -194,29 +194,69 @@ document.addEventListener('DOMContentLoaded', () => {
         return data.candidates[0].content.parts[0].text;
     }
 
-    async function getMermaidCode(processDescription) {
-        const prompt = `Твоя задача — ПРЕОБРАЗОВАТЬ текстовое описание бизнес-процесса в код Mermaid.js для диаграммы 'flowchart TD'. Ты должен СТРОГО следовать этим правилам:
+    async function generateProcessArtifacts(processDescription) {
+        const prompt = `Ты — элитный бизнес-аналитик. Твоя задача — взять сырое описание процесса от пользователя и превратить его в два артефакта:
+1.  Структурированное описание шагов бизнес-процесса в формате Markdown.
+2.  Код для диаграммы flowchart TD на языке Mermaid.js.
 
-1.  **СИНТАКСИС И НАПРАВЛЕНИЕ:** Всегда используй 'flowchart TD'.
+Ты должен СТРОГО следовать этим правилам:
 
-2.  **АНАЛИЗ СЕМАНТИКИ ШАГА ДЛЯ ВЫБОРА ФИГУРЫ:**
-    *   **ПРЯМОУГОЛЬНИК (Стандартное действие):** \`id["Текст"]\`. Используй для большинства шагов, описывающих активное действие (например, "Отправить письмо", "Позвонить клиенту", "Создать отчет").
-    *   **РОМБ (Решение или Условие):** \`id{Текст}\`. Используй ТОЛЬКО для шагов, где принимается решение. Ищи ключевые слова: "если", "проверить", "да/нет", "условие", "выбор", "валидация". Пример: \`B{Заявка корректна?}\`.
-    *   **ЦИЛИНДР (Данные или Хранилище):** \`id[(Текст)]\`. Используй для шагов, обозначающих хранение, запись или извлечение данных. Ищи ключевые слова: "база данных", "БД", "система", "записать в", "сохранить", "получить из". Пример: \`C[(Сохранить данные в CRM)]\`.
-    *   **ДОКУМЕНТ:** \`id>Текст]\`. Используй для шагов, связанных с документами. Ищи ключевые слова: "документ", "отчет", "счет", "форма", "заявка". Пример: \`D>Сформировать счет]\`.
+### ПРАВИЛА ДЛЯ ТЕКСТОВОГО ОПИСАНИЯ:
+Используй следующий шаблон Markdown, додумывая недостающие детали на основе контекста:
 
-3.  **СТИЛИЗАЦИЯ:** Обязательно применяй стили к фигурам ПОСЛЕ их определения.
-    *   \`style id fill:#E6E6FA,stroke:#333,stroke-width:2px\` для РОМБОВ.
-    *   \`style id fill:#D3D3D3,stroke:#333,stroke-width:2px\` для ЦИЛИНДРОВ.
-    *   \`style id fill:#FAFAC8,stroke:#333,stroke-width:2px\` для ДОКУМЕНТОВ.
+\`\`\`markdown
+### 4. Начальное событие (Триггер):
+[Что запускает процесс]
 
-4.  **ФОРМАТ ОТВЕТА:**
-    *   Твой ответ должен содержать **ТОЛЬКО** код Mermaid.js.
-    *   **ЗАПРЕЩЕНО** включать в ответ любые объяснения, комментарии или markdown-обертки типа \`\`\`mermaid.
+### 5. Пошаговое описание процесса:
+* **Шаг [Номер]. [Название шага]**
+    * **Действие:** [Описание действия]
+    * **Исполнитель:** [Роль, если можно определить из контекста]
+    * **Условия/Переход:** [Описание логики перехода или ветвления]
 
-ИСХОДНЫЙ ПРОЦЕСС:
+### 6. Завершающее событие и результаты:
+[Чем заканчивается процесс и какие у него исходы]
+\`\`\`
+
+ПРАВИЛА ДЛЯ MERMAID-КОДА:
+СИНТАКСИС: Всегда используй 'flowchart TD'.
+
+ФИГУРЫ:
+
+ПРЯМОУГОЛЬНИК id["Текст"]: Для стандартных действий.
+
+РОМБ id{Текст}: ТОЛЬКО для решений и условий (если, проверить, да/нет).
+
+ЦИЛИНДР id[(Текст)]: Для баз данных, CRM, хранилищ.
+
+ДОКУМЕНТ id>Текст]: Для отчетов, счетов, заявок.
+
+СТИЛИЗАЦИЯ: Обязательно добавляй стили для ромбов, цилиндров и документов.
+
+ФОРМАТ ОТВЕТА:
+Твой ответ должен быть JSON-объектом и ТОЛЬКО им. Никаких объяснений. Структура должна быть следующей:
+{
+"standardDescription": "...", // Здесь Markdown-текст
+"mermaidCode": "..." // Здесь Mermaid-код
+}
+
+ИСХОДНЫЙ ПРОЦЕСС ОТ ПОЛЬЗОВАТЕЛЯ:
 "${processDescription}"`;
-        return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
+        return callGeminiAPI(prompt).then(response => {
+            // AI responses can sometimes include markdown wrappers. Find the JSON block.
+            const jsonMatch = response.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                console.error("Invalid response from AI, no JSON object found. Raw response:", response);
+                throw new Error("Не удалось получить корректный JSON-объект от AI.");
+            }
+            try {
+                // Parse the extracted JSON string.
+                return JSON.parse(jsonMatch[0]);
+            } catch (error) {
+                console.error("Failed to parse JSON from AI response. Raw JSON string:", jsonMatch[0], "Error:", error);
+                throw new Error("Ошибка парсинга JSON ответа от AI.");
+            }
+        });
     }
 
     async function getFixedMermaidCode(brokenCode, errorMessage) {
@@ -480,11 +520,19 @@ ${brokenCode}
             return;
         }
         try {
-            const mermaid_code = await getMermaidCode(process_text);
+            const result = await generateProcessArtifacts(process_text);
+            const { standardDescription, mermaidCode } = result;
+
+            if (!standardDescription || !mermaidCode) {
+                throw new Error("Полученный от AI JSON не содержит обязательных полей standardDescription или mermaidCode.");
+            }
+
+            processDescriptionInput.value = standardDescription; // Update the text area
+
             await fetchWithAuth(`/api/chats/${chatId}/versions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ process_text, mermaid_code })
+                body: JSON.stringify({ process_text: standardDescription, mermaid_code: mermaidCode })
             });
             showNotification("Версия успешно сохранена.", "success");
             await loadChatData();
