@@ -42,6 +42,7 @@ CREATE TABLE process_versions (
     chat_id UUID REFERENCES chats(id) ON DELETE CASCADE,
     process_text TEXT,
     mermaid_code TEXT,
+    audio_source TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 

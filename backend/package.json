@@ -26,7 +26,9 @@
     "node-fetch": "2.7.0",
     "pg": "^8.11.3",
     "pg-connection-string": "^2.6.2",
+    "rev_ai": "^0.5.1",
     "session-file-store": "^1.5.0",
-    "supertest": "^7.1.4"
+    "supertest": "^7.1.4",
+    "ws": "^8.18.3"
   }
 }

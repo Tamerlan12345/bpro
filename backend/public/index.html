@@ -127,6 +127,13 @@
             <div class="left-column">
                 <div class="input-block">
                     <label for="process-description">1. Опишите ваш бизнес-процесс</label>
+
+                    <div class="audio-recorder-block">
+                        <button id="start-record-btn" class="button-secondary">🎙️ Начать запись</button>
+                        <button id="stop-record-btn" class="button-secondary" style="display: none;">⏹️ Остановить запись</button>
+                        <span id="recording-indicator" style="display: none;">🔴 Идет запись...</span>
+                    </div>
+
                     <div class="textarea-wrapper">
                         <textarea id="process-description" rows="12" placeholder="Опишите ваш процесс по шагам, каждый шаг с новой строки. Пример:&#10;1. Клиент оставляет заявку на сайте&#10;2. Менеджер связывается с клиентом для уточнения деталей&#10;3. ..."></textarea>
                         <div id="step-counter" class="step-counter">0 шагов</div>

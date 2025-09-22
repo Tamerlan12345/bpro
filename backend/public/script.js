@@ -3,6 +3,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL = '/api/generate';
 
     // --- State Variables ---
+    let mediaRecorder;
+    let socket;
+    let audioChunks = [];
     let suggestions = [];
     let currentDiagramScale = 1;
     let sessionUser = null; // Holds the logged-in user's session data
@@ -35,6 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatNameHeader = document.getElementById('chat-name-header');
     const processDescriptionInput = document.getElementById('process-description');
     const improveBtn = document.getElementById('improve-btn');
+    const startRecordBtn = document.getElementById('start-record-btn');
+    const stopRecordBtn = document.getElementById('stop-record-btn');
+    const recordingIndicator = document.getElementById('recording-indicator');
     const versionHistoryContainer = document.getElementById('version-history-container');
     const commentsContainer = document.getElementById('comments-container');
     const commentInput = document.getElementById('comment-input');
@@ -779,12 +785,71 @@ ${brokenCode}
         }
     }
 
+    // --- Audio Recording Logic ---
+    const handleStartRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            socket = new WebSocket('ws://localhost:3000'); // Укажите ваш WebSocket URL
+
+            socket.onopen = () => {
+                console.log("WebSocket connection established");
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.start(1000); // Отправка данных каждую секунду
+
+                mediaRecorder.ondataavailable = event => {
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    stream.getTracks().forEach(track => track.stop());
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.close();
+                    }
+                };
+
+                startRecordBtn.style.display = 'none';
+                stopRecordBtn.style.display = 'block';
+                recordingIndicator.style.display = 'inline';
+            };
+
+            socket.onmessage = event => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'final') {
+                     processDescriptionInput.value += data.text + ' ';
+                     updateStepCounter();
+                }
+            };
+
+            socket.onerror = (error) => {
+                console.error('WebSocket Error:', error);
+                showNotification('Ошибка WebSocket соединения.', 'error');
+            };
+
+        } catch (err) {
+            console.error('Error starting recording:', err);
+            showNotification('Не удалось получить доступ к микрофону.', 'error');
+        }
+    };
+
+    const handleStopRecording = () => {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+        }
+        startRecordBtn.style.display = 'block';
+        stopRecordBtn.style.display = 'none';
+        recordingIndicator.style.display = 'none';
+    };
+
     // --- Other Handlers ---
     // (Improvement suggestions, diagram rendering, etc. - largely unchanged)
     function updateStepCounter() { const lines = processDescriptionInput.value.split('\n').filter(line => line.trim() !== ''); stepCounter.textContent = `${lines.length} шагов`; improveBtn.disabled = lines.length === 0; }
     // ... (rest of the unchanged code for brevity)
 
     // --- Initial Event Listeners ---
+    startRecordBtn.addEventListener('click', handleStartRecording);
+    stopRecordBtn.addEventListener('click', handleStopRecording);
     userLoginBtn.addEventListener('click', handleUserLogin);
     logoutBtn.addEventListener('click', handleLogout);
     departmentSelectionContainer.addEventListener('click', handleDepartmentCardSelection);
