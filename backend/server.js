@@ -479,7 +479,7 @@ const startServer = async () => {
         client.release();
 
         const server = app.listen(PORT, async () => {
-            console.log(`Server is running on port ${PORT}`);
+            console.log(`Server v2 is running on port ${PORT}`);
             if (process.env.NODE_ENV !== 'test') {
                 await ensureUsersExist();
             }
