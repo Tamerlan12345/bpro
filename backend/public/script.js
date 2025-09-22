@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let audioChunks = [];
     let suggestions = [];
     let currentDiagramScale = 1;
+    let timerInterval;
+    let secondsRecorded = 0;
     let sessionUser = null; // Holds the logged-in user's session data
     let selectedDepartment = null; // Holds the department a user selects to work in
     let chatId = null;
@@ -41,6 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const startRecordBtn = document.getElementById('start-record-btn');
     const stopRecordBtn = document.getElementById('stop-record-btn');
     const recordingIndicator = document.getElementById('recording-indicator');
+    const recordingTimer = document.getElementById('recording-timer');
+    const partialTranscriptDisplay = document.getElementById('partial-transcript-display');
     const versionHistoryContainer = document.getElementById('version-history-container');
     const commentsContainer = document.getElementById('comments-container');
     const commentInput = document.getElementById('comment-input');
@@ -814,13 +818,25 @@ ${brokenCode}
                 startRecordBtn.style.display = 'none';
                 stopRecordBtn.style.display = 'block';
                 recordingIndicator.style.display = 'inline';
+
+                secondsRecorded = 0;
+                recordingTimer.textContent = '00:00';
+                timerInterval = setInterval(() => {
+                    secondsRecorded++;
+                    const minutes = Math.floor(secondsRecorded / 60).toString().padStart(2, '0');
+                    const seconds = (secondsRecorded % 60).toString().padStart(2, '0');
+                    recordingTimer.textContent = `${minutes}:${seconds}`;
+                }, 1000);
             };
 
             socket.onmessage = event => {
                 const data = JSON.parse(event.data);
-                if (data.type === 'final') {
-                     processDescriptionInput.value += data.text + ' ';
-                     updateStepCounter();
+                if (data.type === 'partial') {
+                    partialTranscriptDisplay.textContent = data.text;
+                } else if (data.type === 'final') {
+                    partialTranscriptDisplay.textContent = '';
+                    processDescriptionInput.value += data.text + ' ';
+                    updateStepCounter();
                 }
             };
 
@@ -839,6 +855,7 @@ ${brokenCode}
         if (mediaRecorder && mediaRecorder.state === 'recording') {
             mediaRecorder.stop();
         }
+        clearInterval(timerInterval);
         startRecordBtn.style.display = 'block';
         stopRecordBtn.style.display = 'none';
         recordingIndicator.style.display = 'none';
