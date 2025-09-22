@@ -789,7 +789,8 @@ ${brokenCode}
     const handleStartRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const wsUrl = `ws://${window.location.host}`;
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}`;
             socket = new WebSocket(wsUrl);
 
             socket.onopen = () => {
