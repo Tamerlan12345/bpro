@@ -795,6 +795,20 @@ button.button-secondary:hover {
     font-style: italic;
     border: 1px solid var(--border-color);
 }
+
+.audio-recorder-block {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.audio-playback {
+    display: none;
+    width: 100%;
+    margin-top: 10px;
+}
 .legend h4 {
     margin-top: 0;
     margin-bottom: 10px;

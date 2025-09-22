@@ -14,12 +14,19 @@ const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const WebSocket = require('ws');
 const revai = require('revai-node-sdk');
+const multer = require('multer');
+const { Readable } = require('stream');
 
 const app = express();
 app.set('trust proxy', 1); // Trust the first proxy
 const PORT = process.env.PORT || 3000;
 
 let pool;
+
+// --- Multer Setup for audio upload ---
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
 
 // --- Middleware ---
 app.use(express.json());
@@ -41,41 +48,44 @@ app.use(session({
 }));
 app.use(express.static('public'));
 
-// --- WebSocket Server for Rev.ai ---
-const wss = new WebSocket.Server({ noServer: true });
+// --- Transcription Endpoint ---
+app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No audio file uploaded.' });
+    }
+    if (!process.env.REV_AI_API_KEY) {
+        return res.status(500).json({ error: 'Transcription service is not configured.' });
+    }
 
-wss.on('connection', ws => {
-    const audioConfig = new revai.AudioConfig(
-        "audio/x-raw",
-        "interleaved",
-        44100,
-        "S16LE",
-        1
-    );
-    const revaiClient = new revai.RevAiStreamingClient({ token: process.env.REV_AI_API_KEY }, audioConfig);
+    try {
+        const revaiClient = new revai.RevAiApiClient({ token: process.env.REV_AI_API_KEY });
+        const audioStream = Readable.from(req.file.buffer);
 
-    revaiClient.on('close', (code, reason) => console.log(`Rev.ai connection closed: ${code} - ${reason}`));
-    revaiClient.on('httpResponse', code => console.log(`Rev.ai streaming HTTP response: ${code}`));
-    revaiClient.on('connectFailed', error => console.error('Rev.ai connection failed:', error));
-    revaiClient.on('connect', connectionMessage => console.log('Connected to Rev.ai:', connectionMessage));
+        // Submit the job
+        const job = await revaiClient.submitJob(audioStream, {
+            metadata: `Transcription for user ${req.session.user.id}`,
+            delete_after_seconds: 3600, // Delete job after 1 hour
+            language: 'ru' // Set language to Russian
+        });
 
-    const stream = revaiClient.start();
+        console.log(`Submitted Rev.ai job: ${job.id}`);
 
-    stream.on('data', data => {
-        // Отправляем транскрипцию обратно клиенту
-        if ((data.type === 'final' || data.type === 'partial') && data.elements) {
-            ws.send(JSON.stringify({ type: data.type, text: data.elements.map(e => e.value).join('') }));
-        }
-    });
+        // Wait for the job to be transcribed
+        const transcript = await revaiClient.getTranscriptObject(job.id);
 
-    ws.on('message', message => {
-        stream.write(message);
-    });
+        // Combine the transcript into a single string
+        const fullTranscript = transcript.monologues
+            .map(m => m.elements.map(e => e.value).join(''))
+            .join(' ');
 
-    ws.on('close', () => {
-        stream.end();
-    });
+        res.json({ transcript: fullTranscript });
+
+    } catch (error) {
+        console.error('Rev.ai transcription error:', error);
+        res.status(500).json({ error: 'Failed to transcribe audio.' });
+    }
 });
+
 
 // --- Authorization Middleware ---
 const isAuthenticated = (req, res, next) => {
@@ -483,12 +493,6 @@ const startServer = async () => {
             if (process.env.NODE_ENV !== 'test') {
                 await ensureUsersExist();
             }
-        });
-
-        server.on('upgrade', (request, socket, head) => {
-            wss.handleUpgrade(request, socket, head, ws => {
-                wss.emit('connection', ws, request);
-            });
         });
 
         return { app, server, pool };
