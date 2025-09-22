@@ -13,7 +13,7 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const WebSocket = require('ws');
-const { RevAiStreamingClient, AudioEncoding } = require('rev_ai');
+const revai = require('revai-node-sdk');
 
 const app = express();
 app.set('trust proxy', 1); // Trust the first proxy
@@ -45,16 +45,14 @@ app.use(express.static('public'));
 const wss = new WebSocket.Server({ noServer: true });
 
 wss.on('connection', ws => {
-    const revaiClient = new RevAiStreamingClient({
-        accessToken: process.env.REV_AI_API_KEY,
-        config: {
-            contentType: "audio/x-raw",
-            layout: "interleaved",
-            rate: 44100,
-            format: "S16LE",
-            channels: 1,
-        },
-    });
+    const audioConfig = new revai.AudioConfig(
+        "audio/x-raw",
+        "interleaved",
+        44100,
+        "S16LE",
+        1
+    );
+    const revaiClient = new revai.RevAiStreamingClient({ token: process.env.REV_AI_API_KEY }, audioConfig);
 
     revaiClient.on('close', (code, reason) => console.log(`Rev.ai connection closed: ${code} - ${reason}`));
     revaiClient.on('httpResponse', code => console.log(`Rev.ai streaming HTTP response: ${code}`));
