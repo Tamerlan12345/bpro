@@ -789,7 +789,8 @@ ${brokenCode}
     const handleStartRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            socket = new WebSocket('ws://localhost:3000'); // Укажите ваш WebSocket URL
+            const wsUrl = `ws://${window.location.host}`;
+            socket = new WebSocket(wsUrl);
 
             socket.onopen = () => {
                 console.log("WebSocket connection established");
