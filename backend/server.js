@@ -12,6 +12,8 @@ const dns = require('dns').promises;
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
+const WebSocket = require('ws');
+const { RevAiStreamingClient, AudioEncoding } = require('rev_ai');
 
 const app = express();
 app.set('trust proxy', 1); // Trust the first proxy
@@ -38,6 +40,44 @@ app.use(session({
     }
 }));
 app.use(express.static('public'));
+
+// --- WebSocket Server for Rev.ai ---
+const wss = new WebSocket.Server({ noServer: true });
+
+wss.on('connection', ws => {
+    const revaiClient = new RevAiStreamingClient({
+        accessToken: process.env.REV_AI_API_KEY,
+        config: {
+            contentType: "audio/x-raw",
+            layout: "interleaved",
+            rate: 44100,
+            format: "S16LE",
+            channels: 1,
+        },
+    });
+
+    revaiClient.on('close', (code, reason) => console.log(`Rev.ai connection closed: ${code} - ${reason}`));
+    revaiClient.on('httpResponse', code => console.log(`Rev.ai streaming HTTP response: ${code}`));
+    revaiClient.on('connectFailed', error => console.error('Rev.ai connection failed:', error));
+    revaiClient.on('connect', connectionMessage => console.log('Connected to Rev.ai:', connectionMessage));
+
+    const stream = revaiClient.start();
+
+    stream.on('data', data => {
+        // Отправляем транскрипцию обратно клиенту
+        if (data.type === 'final' && data.elements) {
+            ws.send(JSON.stringify({ type: data.type, text: data.elements.map(e => e.value).join('') }));
+        }
+    });
+
+    ws.on('message', message => {
+        stream.write(message);
+    });
+
+    ws.on('close', () => {
+        stream.end();
+    });
+});
 
 // --- Authorization Middleware ---
 const isAuthenticated = (req, res, next) => {
@@ -445,6 +485,12 @@ const startServer = async () => {
             if (process.env.NODE_ENV !== 'test') {
                 await ensureUsersExist();
             }
+        });
+
+        server.on('upgrade', (request, socket, head) => {
+            wss.handleUpgrade(request, socket, head, ws => {
+                wss.emit('connection', ws, request);
+            });
         });
 
         return { app, server, pool };
