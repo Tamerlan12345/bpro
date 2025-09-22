@@ -63,7 +63,7 @@ wss.on('connection', ws => {
 
     stream.on('data', data => {
         // Отправляем транскрипцию обратно клиенту
-        if (data.type === 'final' && data.elements) {
+        if ((data.type === 'final' || data.type === 'partial') && data.elements) {
             ws.send(JSON.stringify({ type: data.type, text: data.elements.map(e => e.value).join('') }));
         }
     });

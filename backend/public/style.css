@@ -777,6 +777,24 @@ button.button-secondary:hover {
     background-color: #f8f9fa;
     border-radius: var(--border-radius);
 }
+
+/* --- Recording Feedback --- */
+.recording-timer {
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-left: 8px;
+}
+
+.partial-transcript {
+    margin-top: 15px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: var(--border-radius);
+    min-height: 50px;
+    color: var(--text-muted-color);
+    font-style: italic;
+    border: 1px solid var(--border-color);
+}
 .legend h4 {
     margin-top: 0;
     margin-bottom: 10px;
