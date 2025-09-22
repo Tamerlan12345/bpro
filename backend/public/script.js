@@ -4,8 +4,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- State Variables ---
     let mediaRecorder;
-    let socket;
     let audioChunks = [];
+    let audioBlob = null; // To store the final audio blob
+    let rerecordCount = 0; // To count re-record attempts
     let suggestions = [];
     let currentDiagramScale = 1;
     let timerInterval;
@@ -42,6 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const improveBtn = document.getElementById('improve-btn');
     const startRecordBtn = document.getElementById('start-record-btn');
     const stopRecordBtn = document.getElementById('stop-record-btn');
+    const listenBtn = document.getElementById('listen-btn');
+    const transcribeBtn = document.getElementById('transcribe-btn');
+    const rerecordBtn = document.getElementById('rerecord-btn');
+    const audioPlayback = document.getElementById('audio-playback');
     const recordingIndicator = document.getElementById('recording-indicator');
     const recordingTimer = document.getElementById('recording-timer');
     const partialTranscriptDisplay = document.getElementById('partial-transcript-display');
@@ -545,6 +550,7 @@ ${brokenCode}
                 body: JSON.stringify({ process_text: standardDescription, mermaid_code: mermaidCode })
             });
             showNotification("Версия успешно сохранена.", "success");
+
             await loadChatData();
         } catch (error) {
             showNotification(`Ошибка сохранения: ${error.message}`, "error");
@@ -790,64 +796,67 @@ ${brokenCode}
     }
 
     // --- Audio Recording Logic ---
+    function resetAudioState() {
+        audioBlob = null;
+        audioChunks = [];
+        rerecordCount = 0;
+        processDescriptionInput.readOnly = false;
+
+        startRecordBtn.style.display = 'block';
+        stopRecordBtn.style.display = 'none';
+        listenBtn.style.display = 'none';
+        transcribeBtn.style.display = 'none';
+        rerecordBtn.style.display = 'none';
+        audioPlayback.style.display = 'none';
+        recordingIndicator.style.display = 'none';
+        partialTranscriptDisplay.textContent = '';
+    }
+
     const handleStartRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${window.location.host}`;
-            socket = new WebSocket(wsUrl);
+            audioChunks = [];
+            mediaRecorder = new MediaRecorder(stream);
 
-            socket.onopen = () => {
-                console.log("WebSocket connection established");
-                mediaRecorder = new MediaRecorder(stream);
-                mediaRecorder.start(1000); // Отправка данных каждую секунду
-
-                mediaRecorder.ondataavailable = event => {
-                    if (socket.readyState === WebSocket.OPEN) {
-                        socket.send(event.data);
-                    }
-                };
-
-                mediaRecorder.onstop = () => {
-                    stream.getTracks().forEach(track => track.stop());
-                    if (socket.readyState === WebSocket.OPEN) {
-                        socket.close();
-                    }
-                };
-
-                startRecordBtn.style.display = 'none';
-                stopRecordBtn.style.display = 'block';
-                recordingIndicator.style.display = 'inline';
-
-                secondsRecorded = 0;
-                recordingTimer.textContent = '00:00';
-                timerInterval = setInterval(() => {
-                    secondsRecorded++;
-                    const minutes = Math.floor(secondsRecorded / 60).toString().padStart(2, '0');
-                    const seconds = (secondsRecorded % 60).toString().padStart(2, '0');
-                    recordingTimer.textContent = `${minutes}:${seconds}`;
-                }, 1000);
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
             };
 
-            socket.onmessage = event => {
-                const data = JSON.parse(event.data);
-                if (data.type === 'partial') {
-                    partialTranscriptDisplay.textContent = data.text;
-                } else if (data.type === 'final') {
-                    partialTranscriptDisplay.textContent = '';
-                    processDescriptionInput.value += data.text + ' ';
-                    updateStepCounter();
+            mediaRecorder.onstop = () => {
+                stream.getTracks().forEach(track => track.stop());
+                audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                audioPlayback.src = audioUrl;
+
+                stopRecordBtn.style.display = 'none';
+                listenBtn.style.display = 'inline-block';
+                transcribeBtn.style.display = 'inline-block';
+                rerecordBtn.style.display = 'inline-block';
+                audioPlayback.style.display = 'block';
+
+                if (rerecordCount >= 1) {
+                    rerecordBtn.disabled = true;
                 }
             };
 
-            socket.onerror = (error) => {
-                console.error('WebSocket Error:', error);
-                showNotification('Ошибка WebSocket соединения.', 'error');
-            };
+            mediaRecorder.start();
+            startRecordBtn.style.display = 'none';
+            stopRecordBtn.style.display = 'block';
+            recordingIndicator.style.display = 'inline';
+
+            secondsRecorded = 0;
+            recordingTimer.textContent = '00:00';
+            timerInterval = setInterval(() => {
+                secondsRecorded++;
+                const minutes = Math.floor(secondsRecorded / 60).toString().padStart(2, '0');
+                const seconds = (secondsRecorded % 60).toString().padStart(2, '0');
+                recordingTimer.textContent = `${minutes}:${seconds}`;
+            }, 1000);
 
         } catch (err) {
             console.error('Error starting recording:', err);
             showNotification('Не удалось получить доступ к микрофону.', 'error');
+            resetAudioState();
         }
     };
 
@@ -856,19 +865,80 @@ ${brokenCode}
             mediaRecorder.stop();
         }
         clearInterval(timerInterval);
-        startRecordBtn.style.display = 'block';
-        stopRecordBtn.style.display = 'none';
         recordingIndicator.style.display = 'none';
     };
 
+    const handleRerecord = () => {
+        rerecordCount++;
+        audioBlob = null;
+        audioChunks = [];
+
+        listenBtn.style.display = 'none';
+        transcribeBtn.style.display = 'none';
+        rerecordBtn.style.display = 'none';
+        audioPlayback.style.display = 'none';
+        partialTranscriptDisplay.textContent = '';
+
+        handleStartRecording();
+    };
+
+    const handleTranscribe = async () => {
+        if (!audioBlob) {
+            showNotification('Нет записанного аудио для транскрибации.', 'error');
+            return;
+        }
+
+        setButtonLoading(transcribeBtn, true, 'Транскрибация...');
+        listenBtn.disabled = true;
+        rerecordBtn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.webm');
+
+        try {
+            const response = await fetchWithAuth('/api/transcribe', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                processDescriptionInput.value += (processDescriptionInput.value ? '\n' : '') + data.transcript;
+                updateStepCounter();
+                showNotification('Транскрибация успешно завершена.', 'success');
+                // Блокируем кнопки после успешной транскрибации
+                transcribeBtn.style.display = 'none';
+                listenBtn.style.display = 'none';
+                rerecordBtn.style.display = 'none';
+                processDescriptionInput.readOnly = true;
+                // Можно оставить плеер для прослушивания
+            } else {
+                throw new Error(data.error || 'Неизвестная ошибка сервера');
+            }
+        } catch (error) {
+            console.error('Transcription error:', error);
+            showNotification(`Ошибка транскрибации: ${error.message}`, 'error');
+        } finally {
+            setButtonLoading(transcribeBtn, false, 'Перевести в текст');
+            listenBtn.disabled = false;
+            // Не разблокируем кнопку перезаписи, если лимит исчерпан
+            if (rerecordCount < 1) {
+                 rerecordBtn.disabled = false;
+            }
+        }
+    };
+
+
     // --- Other Handlers ---
-    // (Improvement suggestions, diagram rendering, etc. - largely unchanged)
     function updateStepCounter() { const lines = processDescriptionInput.value.split('\n').filter(line => line.trim() !== ''); stepCounter.textContent = `${lines.length} шагов`; improveBtn.disabled = lines.length === 0; }
     // ... (rest of the unchanged code for brevity)
 
     // --- Initial Event Listeners ---
     startRecordBtn.addEventListener('click', handleStartRecording);
     stopRecordBtn.addEventListener('click', handleStopRecording);
+    listenBtn.addEventListener('click', () => audioPlayback.play());
+    rerecordBtn.addEventListener('click', handleRerecord);
+    transcribeBtn.addEventListener('click', handleTranscribe);
     userLoginBtn.addEventListener('click', handleUserLogin);
     logoutBtn.addEventListener('click', handleLogout);
     departmentSelectionContainer.addEventListener('click', handleDepartmentCardSelection);

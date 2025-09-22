@@ -131,7 +131,11 @@
                     <div class="audio-recorder-block">
                         <button id="start-record-btn" class="button-secondary">🎙️ Начать запись</button>
                         <button id="stop-record-btn" class="button-secondary" style="display: none;">⏹️ Остановить запись</button>
+                        <button id="listen-btn" class="button-secondary" style="display: none;">🎧 Прослушать</button>
+                        <button id="transcribe-btn" class="button-primary" style="display: none;">✍️ Перевести в текст</button>
+                        <button id="rerecord-btn" class="button-secondary" style="display: none;">🔄 Перезаписать</button>
                         <span id="recording-indicator" style="display: none;">🔴 Идет запись... <span id="recording-timer">00:00</span></span>
+                        <audio id="audio-playback" controls class="audio-playback"></audio>
                     </div>
 
                     <div class="textarea-wrapper">
