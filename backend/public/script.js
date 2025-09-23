@@ -613,12 +613,21 @@ ${brokenCode}
             renderVersions(chatVersions);
             renderComments(comments);
 
+            // Handle loading of finalized transcript into its display area (Field 1)
             if (transcriptionData && transcriptionData.status === 'finalized') {
-                processDescriptionInput.value = transcriptionData.final_text;
-                // Maybe show a button to open the modal in read-only mode
-            } else if (chatVersions.length > 0) {
+                transcriptionDisplay.textContent = transcriptionData.final_text;
+            }
+
+            // Handle loading for the editable process description (Field 2)
+            if (chatVersions.length > 0) {
+                // If saved versions exist, load the latest one into Field 2
                 await displayVersion(chatVersions[0]);
+            } else if (transcriptionData && transcriptionData.status === 'finalized') {
+                // Otherwise, if no versions exist but a transcript does, use it as the initial value for Field 2
+                processDescriptionInput.value = transcriptionData.final_text;
+                updateStepCounter();
             } else {
+                // Otherwise, ensure Field 2 is empty
                 await displayVersion(null);
             }
 
