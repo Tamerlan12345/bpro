@@ -615,7 +615,6 @@ ${brokenCode}
 
             if (transcriptionData && transcriptionData.status === 'finalized') {
                 processDescriptionInput.value = transcriptionData.final_text;
-                processDescriptionInput.readOnly = true;
                 // Maybe show a button to open the modal in read-only mode
             } else if (chatVersions.length > 0) {
                 await displayVersion(chatVersions[0]);
