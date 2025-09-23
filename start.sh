@@ -4,7 +4,7 @@
 cd backend
 
 # Установить зависимости
-npm install
+yarn install
 
 # Запустить приложение
-npm start
+yarn start
