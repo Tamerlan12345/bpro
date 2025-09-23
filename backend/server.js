@@ -70,10 +70,8 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
         const client = new BatchClient({ apiKey: process.env.SPEECHMATICS_API_KEY });
 
         // Create a File-like object from the buffer
-        const file = {
-            name: req.file.originalname,
-            buffer: req.file.buffer,
-        };
+        const file = new Blob([req.file.buffer], { type: req.file.mimetype });
+        file.name = req.file.originalname;
 
         const response = await client.transcribe(
             file,
