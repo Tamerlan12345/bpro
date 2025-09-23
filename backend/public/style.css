@@ -147,7 +147,8 @@ textarea#process-description, #user-prompt {
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-textarea#process-description {
+textarea#process-description,
+textarea#transcription-output {
     min-height: 220px;
 }
 
