@@ -121,6 +121,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const finalizedTextDisplay = transcriptionReviewModal.querySelector('.finalized-text-display');
     const closeTranscriptionModalBtn = transcriptionReviewModal.querySelector('.close-btn');
 
+    // Mermaid Editor Modal Elements
+    const mermaidEditorModal = document.getElementById('mermaid-editor-modal');
+    const editDiagramBtn = document.getElementById('edit-diagram-btn');
+    const mermaidEditorTextarea = document.getElementById('mermaid-editor-textarea');
+    const mermaidEditorPreview = document.getElementById('mermaid-editor-preview');
+    const saveMermaidChangesBtn = document.getElementById('save-mermaid-changes-btn');
+    const cancelMermaidEditBtn = document.getElementById('cancel-mermaid-edit-btn');
+    const closeMermaidEditorBtn = mermaidEditorModal.querySelector('.close-btn');
+
     // Notification container
     const notificationContainer = document.getElementById('notification-container');
 
@@ -157,19 +166,75 @@ document.addEventListener('DOMContentLoaded', () => {
 
     mermaid.initialize({ startOnLoad: false, theme: 'base', fontFamily: 'inherit', flowchart: { nodeSpacing: 50, rankSpacing: 60, curve: 'linear' }, themeVariables: { primaryColor: '#FFFFFF', primaryTextColor: '#212529', primaryBorderColor: '#333333', lineColor: '#333333' } });
 
-    async function renderDiagram(mermaidCode) {
-        diagramContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
-        const id = `mermaid-graph-${Date.now()}`;
-        diagramContainer.innerHTML = `<div id="${id}">${mermaidCode}</div>`;
-        await mermaid.run({ nodes: [document.getElementById(id)] });
-        const svg = diagramContainer.querySelector('svg');
-        if (svg) {
-            svg.style.maxWidth = '100%';
-            currentDiagramScale = 1;
-            zoomDiagram(1);
-            diagramToolbar.style.display = 'flex';
-            renderDiagramBtn.style.display = 'none';
-            regenerateDiagramBtn.disabled = false;
+    async function renderDiagram(mermaidCode, container = diagramContainer) {
+        container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+        try {
+            const { svg } = await mermaid.render(`mermaid-graph-${Date.now()}`, mermaidCode);
+            container.innerHTML = svg;
+
+            if (container === diagramContainer) {
+                const svgElement = container.querySelector('svg');
+                if (svgElement) {
+                    svgElement.style.maxWidth = '100%';
+                    currentDiagramScale = 1;
+                    zoomDiagram(1);
+                    diagramToolbar.style.display = 'flex';
+                    renderDiagramBtn.style.display = 'none';
+                    regenerateDiagramBtn.disabled = false;
+                    // Also update visibility of admin edit button
+                     if(sessionUser && sessionUser.role === 'admin') {
+                        editDiagramBtn.style.display = 'inline-block';
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Mermaid render error:", error);
+            container.innerHTML = `<div class="error-text">Ошибка рендеринга схемы: ${error.message}</div>`;
+        }
+    }
+
+    let mermaidRenderTimeout;
+    function handleMermaidEditorInput() {
+        clearTimeout(mermaidRenderTimeout);
+        mermaidRenderTimeout = setTimeout(() => {
+            const code = mermaidEditorTextarea.value;
+            renderDiagram(code, mermaidEditorPreview);
+        }, 300); // Debounce for 300ms
+    }
+
+    function openMermaidEditor() {
+        const latestVersion = chatVersions[0];
+        if (!latestVersion || !latestVersion.mermaid_code) {
+            showNotification("Нет схемы для редактирования.", "error");
+            return;
+        }
+        mermaidEditorTextarea.value = latestVersion.mermaid_code;
+        mermaidEditorModal.style.display = 'block';
+        renderDiagram(latestVersion.mermaid_code, mermaidEditorPreview);
+    }
+
+    function closeMermaidEditor() {
+        mermaidEditorModal.style.display = 'none';
+    }
+
+    async function handleSaveMermaidChanges() {
+        const mermaid_code = mermaidEditorTextarea.value;
+        const process_text = processDescriptionInput.value; // Keep the existing text description
+
+        setButtonLoading(saveMermaidChangesBtn, true, 'Сохранение...');
+        try {
+            await fetchWithAuth(`/api/chats/${chatId}/versions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ process_text, mermaid_code })
+            });
+            showNotification("Изменения в схеме успешно сохранены.", "success");
+            await loadChatData();
+            closeMermaidEditor();
+        } catch (error) {
+            showNotification(`Ошибка сохранения схемы: ${error.message}`, "error");
+        } finally {
+            setButtonLoading(saveMermaidChangesBtn, false);
         }
     }
 
@@ -363,6 +428,7 @@ ${brokenCode}
         const password = userPasswordInput.value;
         if (!name || !password) return;
 
+        setButtonLoading(userLoginBtn, true, 'Вход...');
         try {
             const response = await fetchWithAuth('/api/auth/login', {
                 method: 'POST',
@@ -385,6 +451,8 @@ ${brokenCode}
             }
         } catch (error) {
             userError.textContent = `Ошибка входа: ${error.message}`;
+        } finally {
+            setButtonLoading(userLoginBtn, false);
         }
     }
 
@@ -466,6 +534,7 @@ ${brokenCode}
             return;
         }
 
+        setButtonLoading(chatLoginBtn, true, 'Вход...');
         try {
             const response = await fetchWithAuth('/api/auth/chat', {
                 method: 'POST',
@@ -482,6 +551,8 @@ ${brokenCode}
             showMainApp(chat.name);
         } catch (error) {
             chatError.textContent = `Ошибка входа в чат: ${error.message}`;
+        } finally {
+            setButtonLoading(chatLoginBtn, false);
         }
     }
 
@@ -594,12 +665,13 @@ ${brokenCode}
             </div>`).join('') || '<p>Нет комментариев.</p>';
     }
 
-    async function handleSaveVersion() {
+    async function handleSaveVersion(button = saveVersionBtn) {
         const process_text = processDescriptionInput.value;
         if (!process_text.trim()) {
             showNotification("Нельзя сохранить пустую версию.", "error");
             return;
         }
+        setButtonLoading(button, true, 'Сохранение с ИИ...');
         try {
             const result = await generateProcessArtifacts(process_text);
             const { standardDescription, mermaidCode } = result;
@@ -620,26 +692,57 @@ ${brokenCode}
             await loadChatData();
         } catch (error) {
             showNotification(`Ошибка сохранения: ${error.message}`, "error");
+        } finally {
+            setButtonLoading(button, false);
         }
     }
 
-    async function handleUpdateStatus(status) {
+    async function handleRenderDiagram(button) {
+        const process_text = processDescriptionInput.value;
+        if (!process_text.trim()) {
+            showNotification("Описание процесса пустое.", "error");
+            return;
+        }
+        setButtonLoading(button, true, 'Создание схемы...');
         try {
-            await handleSaveVersion();
+            const mermaidCode = await generateDiagramFromText(process_text);
+            if (mermaidCode) {
+                placeholderContent.style.display = 'none';
+                diagramContainer.style.display = 'flex';
+                await renderDiagram(mermaidCode);
+            }
+        } catch (error) {
+            showNotification(`Ошибка создания схемы: ${error.message}`, "error");
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
+
+    async function handleUpdateStatus(status, button) {
+        if (!button) return;
+        setButtonLoading(button, true, 'Обновление...');
+        try {
+            // We save the version before updating the status
+            await handleSaveRawVersion();
+
             await fetchWithAuth(`/api/chats/${chatId}/status`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status })
             });
             showNotification(`Статус чата обновлен на: ${status}`, 'success');
+            await loadChatData(); // Reload to reflect new status and UI state
         } catch (error) {
             showNotification(`Ошибка обновления статуса: ${error.message}`, 'error');
+        } finally {
+            setButtonLoading(button, false);
         }
     }
 
     async function handleAddComment() {
         const text = commentInput.value;
         if (!text.trim()) return;
+        setButtonLoading(addCommentBtn, true, 'Отправка...');
         try {
             await fetchWithAuth(`/api/chats/${chatId}/comments`, {
                 method: 'POST',
@@ -652,6 +755,8 @@ ${brokenCode}
             renderComments(comments);
         } catch (error) {
             showNotification(`Failed to add comment: ${error.message}`, 'error');
+        } finally {
+            setButtonLoading(addCommentBtn, false);
         }
     }
 
@@ -674,6 +779,7 @@ ${brokenCode}
         [sendReviewBtn, sendRevisionBtn, completeBtn, archiveBtn].forEach(btn => btn.style.display = 'none');
 
         if (isAdmin) {
+            editDiagramBtn.style.display = diagramToolbar.style.display === 'flex' ? 'inline-block' : 'none';
             if (status === 'pending_review') {
                 sendRevisionBtn.style.display = 'inline-block';
                 completeBtn.style.display = 'inline-block';
@@ -682,6 +788,7 @@ ${brokenCode}
                 archiveBtn.style.display = 'inline-block';
             }
         } else {
+            editDiagramBtn.style.display = 'none';
             if (status === 'draft' || status === 'needs_revision') {
                 sendReviewBtn.style.display = 'inline-block';
             }
@@ -1099,6 +1206,44 @@ ${brokenCode}
     }
     // ... (rest of the unchanged code for brevity)
 
+    function openEditDepartmentModal(id, name) {
+        editDepartmentIdInput.value = id;
+        editDepartmentNameInput.value = name;
+        editDepartmentPasswordInput.value = '';
+        editDepartmentModal.style.display = 'block';
+    }
+
+    function closeEditDepartmentModal() {
+        editDepartmentModal.style.display = 'none';
+    }
+
+    async function handleSaveDepartment() {
+        const id = editDepartmentIdInput.value;
+        const name = editDepartmentNameInput.value;
+        const password = editDepartmentPasswordInput.value; // Can be empty
+
+        if (!id || !name) {
+            showNotification('Имя департамента не может быть пустым.', 'error');
+            return;
+        }
+
+        setButtonLoading(saveDepartmentBtn, true, 'Сохранение...');
+        try {
+            await fetchWithAuth(`/api/departments/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, password })
+            });
+            showNotification('Департамент успешно обновлен.', 'success');
+            closeEditDepartmentModal();
+            await loadAdminDepartments(); // Refresh the list
+        } catch (error) {
+            showNotification(`Ошибка обновления: ${error.message}`, 'error');
+        } finally {
+            setButtonLoading(saveDepartmentBtn, false);
+        }
+    }
+
     // --- Initial Event Listeners ---
     closeTranscriptionModalBtn.addEventListener('click', closeTranscriptionModal);
     saveTranscriptionProgressBtn.addEventListener('click', () => handleSaveTranscription(false));
@@ -1131,6 +1276,21 @@ ${brokenCode}
     versionHistoryContainer.addEventListener('click', async (e) => { if (e.target.tagName === 'BUTTON') { const versionId = e.target.parentElement.dataset.versionId; const selectedVersion = chatVersions.find(v => v.id == versionId); if (selectedVersion) await displayVersion(selectedVersion); } });
     downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
     downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
+
+    // Modal listeners
+    closeModalBtn.addEventListener('click', closeEditDepartmentModal);
+    saveDepartmentBtn.addEventListener('click', handleSaveDepartment);
+
+    // Diagram listeners
+    renderDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
+    regenerateDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
+
+    // Mermaid Editor listeners
+    editDiagramBtn.addEventListener('click', openMermaidEditor);
+    closeMermaidEditorBtn.addEventListener('click', closeMermaidEditor);
+    cancelMermaidEditBtn.addEventListener('click', closeMermaidEditor);
+    saveMermaidChangesBtn.addEventListener('click', handleSaveMermaidChanges);
+    mermaidEditorTextarea.addEventListener('input', handleMermaidEditorInput);
 
 
     // --- Initial Load ---

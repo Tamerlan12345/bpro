@@ -170,6 +170,7 @@
                     </div>
                     <div id="diagram-toolbar" class="diagram-toolbar" style="display: none;">
                         <button id="regenerate-diagram-btn" title="Перегенерировать схему">Перегенерировать</button>
+                        <button id="edit-diagram-btn" title="Редактировать схему" style="display: none;">✏️ Редактировать</button>
                         <button id="zoom-in-btn" title="Приблизить">+</button>
                         <button id="zoom-out-btn" title="Отдалить">-</button>
                         <button id="download-png-btn" title="Скачать PNG">PNG</button>
@@ -261,6 +262,23 @@
             <div id="transcription-finalized-view" style="display: none;">
                 <h4>Текст финализирован</h4>
                 <div class="finalized-text-display"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mermaid Editor Modal -->
+    <div id="mermaid-editor-modal" class="modal" style="display: none;">
+        <div class="modal-content large">
+            <span class="close-btn">&times;</span>
+            <h2>Редактор схемы Mermaid</h2>
+            <p>Вносите изменения в код схемы. Диаграмма будет обновляться в реальном времени.</p>
+            <div class="mermaid-editor-content">
+                <textarea id="mermaid-editor-textarea" spellcheck="false"></textarea>
+                <div id="mermaid-editor-preview"></div>
+            </div>
+            <div class="mermaid-editor-buttons">
+                <button id="cancel-mermaid-edit-btn" class="button-secondary">Отмена</button>
+                <button id="save-mermaid-changes-btn" class="button-primary">Сохранить изменения</button>
             </div>
         </div>
     </div>
