@@ -71,16 +71,24 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
         const revaiClient = new revai.RevAiApiClient({ token: process.env.REV_AI_API_KEY });
         const audioStream = Readable.from(req.file.buffer);
 
-        // Submit the job
-        const job = await revaiClient.submitJob(audioStream, {
+        // Pass filename and content type for better processing
+        const jobOptions = {
             metadata: `Transcription for user ${req.session.user.id}`,
-            delete_after_seconds: 3600, // Delete job after 1 hour
-            language: 'ru' // Set language to Russian
-        });
+            delete_after_seconds: 3600,
+            language: 'ru',
+            media_info: {
+                filename: req.file.originalname,
+                mimetype: req.file.mimetype,
+            },
+        };
+
+        // Submit the job
+        const job = await revaiClient.submitJob(audioStream, jobOptions);
 
         console.log(`Submitted Rev.ai job: ${job.id}`);
 
         // Wait for the job to be transcribed
+        // Note: For production, you'd likely use a webhook instead of polling.
         const transcript = await revaiClient.getTranscriptObject(job.id);
 
         // Combine the transcript into a single string
@@ -91,7 +99,11 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
         res.json({ transcript: fullTranscript });
 
     } catch (error) {
+        // Log more detailed error information
         console.error('Rev.ai transcription error:', error);
+        if (error.response) {
+            console.error('Error response from Rev.ai:', JSON.stringify(error.response.data, null, 2));
+        }
         res.status(500).json({ error: 'Failed to transcribe audio.' });
     }
 });
