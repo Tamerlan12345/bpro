@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const audioPlayback = document.getElementById('audio-playback');
     const recordingIndicator = document.getElementById('recording-indicator');
     const recordingTimer = document.getElementById('recording-timer');
-    const transcriptionOutput = document.getElementById('transcription-output');
+    const transcriptionDisplay = document.getElementById('transcription-display');
     const transcriptionTimer = document.getElementById('transcription-timer');
     const partialTranscriptDisplay = document.getElementById('partial-transcript-display');
     const versionHistoryContainer = document.getElementById('version-history-container');
@@ -864,6 +864,9 @@ ${brokenCode}
             showNotification('Транскрибация успешно сохранена!', 'success');
             updateTranscriptionModalUI(data);
             if (isFinalizing) {
+                transcriptionDisplay.textContent = text;
+                processDescriptionInput.value = text;
+                updateStepCounter();
                 closeTranscriptionModal();
             }
         } catch (error) {
@@ -1088,7 +1091,7 @@ ${brokenCode}
         audioChunks = [];
         rerecordCount = 0;
         processDescriptionInput.readOnly = false;
-        transcriptionOutput.value = ''; // Clear the new textarea as well
+        transcriptionDisplay.textContent = ''; // Clear the display area
 
         startRecordBtn.style.display = 'block';
         stopRecordBtn.style.display = 'none';
@@ -1201,7 +1204,7 @@ ${brokenCode}
 
             if (response.ok) {
                 showNotification('Транскрибация успешно завершена.', 'success');
-                transcriptionOutput.value = data.transcript; // Put text in the new field
+                transcriptionDisplay.textContent = data.transcript;
                 processDescriptionInput.value = data.transcript;
                 updateStepCounter();
                 // Keep audio controls available

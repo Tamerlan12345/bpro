@@ -127,7 +127,7 @@
         <main class="main-content">
             <div class="left-column">
                 <div class="input-block">
-                    <label for="transcription-output">1. Опишите или запишите ваш бизнес-процесс</label>
+                    <label for="transcription-display">1. Опишите или запишите ваш бизнес-процесс</label>
 
                     <div class="audio-recorder-block">
                         <button id="start-record-btn" class="button-secondary">🎙️ Начать запись</button>
@@ -140,9 +140,7 @@
                         <audio id="audio-playback" controls class="audio-playback"></audio>
                     </div>
 
-                    <div class="textarea-wrapper">
-                        <textarea id="transcription-output" rows="12" placeholder="Здесь появится текст после обработки аудио..."></textarea>
-                    </div>
+                    <div id="transcription-display" class="transcription-display-area"></div>
                     <div id="partial-transcript-display" class="partial-transcript"></div>
                 </div>
 
