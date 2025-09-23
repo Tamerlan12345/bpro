@@ -255,6 +255,16 @@
             <h2>Редактор схемы Mermaid</h2>
             <p>Вносите изменения в код схемы. Диаграмма будет обновляться в реальном времени.</p>
             <div class="mermaid-editor-content">
+                <div id="mermaid-syntax-legend" class="mermaid-legend">
+                    <h4>Подсказки по синтаксису</h4>
+                    <ul>
+                        <li><strong>Прямоугольник:</strong><br><code>A["Текст"]</code></li>
+                        <li><strong>Ромб (Решение):</strong><br><code>B{"Текст"}</code></li>
+                        <li><strong>База данных:</strong><br><code>C[("Текст")]</code></li>
+                        <li><strong>Стрелка:</strong><br><code>A --> B</code></li>
+                        <li><strong>Стрелка с текстом:</strong><br><code>A -- Текст --> B</code></li>
+                    </ul>
+                </div>
                 <textarea id="mermaid-editor-textarea" spellcheck="false"></textarea>
                 <div id="mermaid-editor-preview"></div>
             </div>

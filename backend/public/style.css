@@ -633,10 +633,46 @@ button.button-secondary:hover {
 
 .mermaid-editor-content {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 200px 1fr 1fr; /* 3 columns: Legend, Code, Preview */
     gap: 20px;
     height: 60vh;
     margin: 20px 0;
+}
+
+.mermaid-legend {
+    background-color: #f8f9fa;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 15px;
+    font-size: 14px;
+    overflow-y: auto;
+}
+
+.mermaid-legend h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.mermaid-legend ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.mermaid-legend li {
+    margin-bottom: 15px;
+}
+
+.mermaid-legend code {
+    background-color: #e9ecef;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: 'Courier New', Courier, monospace;
+    display: inline-block;
+    margin-top: 5px;
 }
 
 #mermaid-editor-textarea {
