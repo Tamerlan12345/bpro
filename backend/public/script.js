@@ -71,7 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomOutBtn = document.getElementById('zoom-out-btn');
     const downloadPngBtn = document.getElementById('download-png-btn');
     const downloadSvgBtn = document.getElementById('download-svg-btn');
-    const downloadVsdxBtn = document.getElementById('download-vsdx-btn');
     const resultsBlock = document.querySelector('.results-block');
     const actionButtons = document.getElementById('action-buttons');
     const saveVersionBtn = document.getElementById('save-version-btn');
@@ -1281,6 +1280,8 @@ ${brokenCode}
     // Diagram listeners
     renderDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
     regenerateDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
+    zoomInBtn.addEventListener('click', () => zoomDiagram(1.1));
+    zoomOutBtn.addEventListener('click', () => zoomDiagram(0.9));
 
     // Mermaid Editor listeners
     editDiagramBtn.addEventListener('click', openMermaidEditor);
