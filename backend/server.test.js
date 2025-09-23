@@ -8,7 +8,11 @@ const { when } = require('jest-when');
 const bcrypt = require('bcryptjs');
 
 // Mock external dependencies
-jest.mock('bcryptjs');
+jest.mock('bcryptjs', () => ({
+    compare: jest.fn(),
+    hash: jest.fn(),
+    genSalt: jest.fn(),
+}));
 
 // Mock DNS lookup
 jest.mock('dns', () => ({
