@@ -403,6 +403,51 @@ app.post('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     }
 });
 
+// Get transcription data for a chat
+app.get('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { rows } = await pool.query('SELECT * FROM transcription_data WHERE chat_id = $1', [id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Transcription data not found for this chat.' });
+        }
+        res.json(rows[0]);
+    } catch (error) {
+        console.error(`Error fetching transcription data for chat ${id}:`, error);
+        res.status(500).json({ error: 'Failed to retrieve transcription data.' });
+    }
+});
+
+// Create or update transcription data for a chat
+app.post('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { transcribed_text, final_text, status } = req.body;
+
+    // Basic validation
+    if (!transcribed_text && !final_text && !status) {
+        return res.status(400).json({ error: 'At least one field (transcribed_text, final_text, status) is required.' });
+    }
+
+    try {
+        const query = `
+            INSERT INTO transcription_data (chat_id, transcribed_text, final_text, status, updated_at)
+            VALUES ($1, $2, $3, $4, NOW())
+            ON CONFLICT (chat_id)
+            DO UPDATE SET
+                transcribed_text = COALESCE($2, transcription_data.transcribed_text),
+                final_text = COALESCE($3, transcription_data.final_text),
+                status = COALESCE($4, transcription_data.status),
+                updated_at = NOW()
+            RETURNING *;
+        `;
+        const { rows } = await pool.query(query, [id, transcribed_text, final_text, status]);
+        res.status(201).json(rows[0]);
+    } catch (error) {
+        console.error(`Error creating/updating transcription data for chat ${id}:`, error);
+        res.status(500).json({ error: 'Failed to save transcription data.' });
+    }
+});
+
 // Update chat status
 app.put('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     const { id } = req.params;
