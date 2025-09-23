@@ -48,6 +48,16 @@ app.use(session({
 }));
 app.use(express.static('public'));
 
+// --- Authorization Middleware ---
+const isAuthenticated = (req, res, next) => {
+    if (req.session.user) return next();
+    res.status(401).json({ error: 'Unauthorized: You must be logged in.' });
+};
+const isAdmin = (req, res, next) => {
+    if (req.session.user && req.session.user.role === 'admin') return next();
+    res.status(403).json({ error: 'Forbidden: Administrator access required.' });
+};
+
 // --- Transcription Endpoint ---
 app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req, res) => {
     if (!req.file) {
@@ -85,17 +95,6 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
         res.status(500).json({ error: 'Failed to transcribe audio.' });
     }
 });
-
-
-// --- Authorization Middleware ---
-const isAuthenticated = (req, res, next) => {
-    if (req.session.user) return next();
-    res.status(401).json({ error: 'Unauthorized: You must be logged in.' });
-};
-const isAdmin = (req, res, next) => {
-    if (req.session.user && req.session.user.role === 'admin') return next();
-    res.status(403).json({ error: 'Forbidden: Administrator access required.' });
-};
 
 // --- Route Definitions ---
 // (These handlers are defined now, but will only be called after the server starts and `pool` is initialized)
