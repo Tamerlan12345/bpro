@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsBlock = document.querySelector('.results-block');
     const actionButtons = document.getElementById('action-buttons');
     const saveVersionBtn = document.getElementById('save-version-btn');
+    const saveRawVersionBtn = document.getElementById('save-raw-version-btn');
     const sendReviewBtn = document.getElementById('send-review-btn');
     const sendRevisionBtn = document.getElementById('send-revision-btn');
     const completeBtn = document.getElementById('complete-btn');
@@ -110,6 +111,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveDepartmentBtn = document.getElementById('save-department-btn');
     const closeModalBtn = editDepartmentModal.querySelector('.close-btn');
 
+    // Transcription Review Modal Elements
+    const transcriptionReviewModal = document.getElementById('transcription-review-modal');
+    const transcriptionTextArea = document.getElementById('transcription-text-area');
+    const saveTranscriptionProgressBtn = document.getElementById('save-transcription-progress-btn');
+    const finalizeTranscriptionBtn = document.getElementById('finalize-transcription-btn');
+    const transcriptionModalButtons = document.getElementById('transcription-modal-buttons');
+    const transcriptionFinalizedView = document.getElementById('transcription-finalized-view');
+    const finalizedTextDisplay = transcriptionReviewModal.querySelector('.finalized-text-display');
+    const closeTranscriptionModalBtn = transcriptionReviewModal.querySelector('.close-btn');
+
     // Notification container
     const notificationContainer = document.getElementById('notification-container');
 
@@ -133,7 +144,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return response;
     }
 
-    function setButtonLoading(button, isLoading, loadingText) {
+    function setButtonLoading(button, isLoading, loadingText = 'Загрузка...') {
+        if (!button) return;
         if (!button.dataset.originalText) {
             button.dataset.originalText = button.innerHTML;
         }
@@ -143,9 +155,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Mermaid & Diagram Functions ---
 
-    mermaid.initialize({ startOnLoad: false, theme: 'base', fontFamily: 'inherit', flowchart: { nodeSpacing: 50, rankSpacing: 60 }, themeVariables: { primaryColor: '#FFFFFF', primaryTextColor: '#212529', primaryBorderColor: '#333333', lineColor: '#333333' } });
+    mermaid.initialize({ startOnLoad: false, theme: 'base', fontFamily: 'inherit', flowchart: { nodeSpacing: 50, rankSpacing: 60, curve: 'linear' }, themeVariables: { primaryColor: '#FFFFFF', primaryTextColor: '#212529', primaryBorderColor: '#333333', lineColor: '#333333' } });
 
     async function renderDiagram(mermaidCode) {
+        diagramContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
         const id = `mermaid-graph-${Date.now()}`;
         diagramContainer.innerHTML = `<div id="${id}">${mermaidCode}</div>`;
         await mermaid.run({ nodes: [document.getElementById(id)] });
@@ -234,17 +247,16 @@ document.addEventListener('DOMContentLoaded', () => {
 \`\`\`
 
 ПРАВИЛА ДЛЯ MERMAID-КОДА:
-СИНТАКСИС: Всегда используй 'flowchart TD'.
+СИНТАКСИС: Всегда используй 'flowchart TD'. Связи должны быть прямыми ('-->').
 
 ФИГУРЫ:
 
 ПРЯМОУГОЛЬНИК id["Текст"]: Для стандартных действий.
-
 РОМБ id{Текст}: ТОЛЬКО для решений и условий (если, проверить, да/нет).
-
 ЦИЛИНДР id[(Текст)]: Для баз данных, CRM, хранилищ.
-
 ДОКУМЕНТ id>Текст]: Для отчетов, счетов, заявок.
+
+КЛЮЧЕВОЕ ПРАВИЛО: Весь текст внутри фигур (прямоугольников, ромбов, и т.д.) ДОЛЖЕН быть заключен в двойные кавычки (""). Это обязательно. Например: A["Текст с любыми символами"].
 
 СТИЛИЗАЦИЯ: Обязательно добавляй стили для ромбов, цилиндров и документов.
 
@@ -285,7 +297,39 @@ ${brokenCode}
 СООБЩЕНИЕ ОБ ОШИБКЕ:
 "${errorMessage}"
 
-Проанализируй ошибку и верни ИСПРАВЛЕННЫЙ код. Ответ должен содержать ТОЛЬКО код Mermaid.js, без объяснений и markdown.`;
+Проанализируй ошибку и верни ИСПРАВЛЕННЫЙ код. Убедись, что:
+1.  Синтаксис 'flowchart TD' правильный.
+2.  Весь текст внутри фигур заключен в двойные кавычки (например, \`A["Текст"]\`). Это очень частая ошибка.
+3.  Связи между элементами определены правильно (например, \`A --> B\`).
+4.  Нет лишних символов или опечаток.
+
+Ответ должен содержать ТОЛЬКО ИСПРАВЛЕННЫЙ код Mermaid.js, без объяснений и markdown.`;
+        return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
+    }
+
+    async function generateDiagramFromText(processDescription) {
+        const prompt = `Ты — элитный бизнес-аналитик. Твоя задача — взять описание процесса от пользователя и превратить его в код для диаграммы flowchart TD на языке Mermaid.js.
+
+Ты должен СТРОГО следовать этим правилам:
+
+СИНТАКСИС: Всегда используй 'flowchart TD'.
+
+ФИГУРЫ:
+
+ПРЯМОУГОЛЬНИК id["Текст"]: Для стандартных действий.
+РОМБ id{Текст}: ТОЛЬКО для решений и условий (если, проверить, да/нет).
+ЦИЛИНДР id[(Текст)]: Для баз данных, CRM, хранилищ.
+ДОКУМЕНТ id>Текст]: Для отчетов, счетов, заявок.
+
+ВАЖНО: Весь текст внутри фигур ДОЛЖЕН быть заключен в двойные кавычки (""). Например, A["Это пример"].
+
+СТИЛИЗАЦИЯ: Обязательно добавляй стили для ромбов, цилиндров и документов.
+
+ФОРМАТ ОТВЕТА:
+Твой ответ должен содержать ТОЛЬКО код Mermaid.js, без объяснений и markdown.
+
+ИСХОДНЫЙ ПРОЦЕСС ОТ ПОЛЬЗОВАТЕЛЯ:
+"${processDescription}"`;
         return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
     }
 
@@ -461,22 +505,30 @@ ${brokenCode}
 
     async function loadChatData() {
         try {
-            const [versionsResponse, commentsResponse, statusResponse] = await Promise.all([
+            const [versionsResponse, commentsResponse, statusResponse, transcriptionResponse] = await Promise.all([
                 fetchWithAuth(`/api/chats/${chatId}/versions`),
                 fetchWithAuth(`/api/chats/${chatId}/comments`),
-                fetchWithAuth(`/api/chats/${chatId}/status`)
+                fetchWithAuth(`/api/chats/${chatId}/status`),
+                fetchWithAuth(`/api/chats/${chatId}/transcription`).catch(err => null) // Allow it to fail if no transcription exists
             ]);
             chatVersions = await versionsResponse.json();
             const comments = await commentsResponse.json();
             const { status } = await statusResponse.json();
+            const transcriptionData = transcriptionResponse ? await transcriptionResponse.json() : null;
 
             renderVersions(chatVersions);
             renderComments(comments);
-            if (chatVersions.length > 0) {
+
+            if (transcriptionData && transcriptionData.status === 'finalized') {
+                processDescriptionInput.value = transcriptionData.final_text;
+                processDescriptionInput.readOnly = true;
+                // Maybe show a button to open the modal in read-only mode
+            } else if (chatVersions.length > 0) {
                 await displayVersion(chatVersions[0]);
             } else {
                 await displayVersion(null);
             }
+
             updateInterfaceForStatus(status, sessionUser.role);
         } catch (error) {
             showNotification(`Failed to load chat data: ${error.message}. Your session may have expired.`, 'error');
@@ -635,6 +687,63 @@ ${brokenCode}
         return `<span class="status-indicator" style="background-color: ${statusInfo.color};"></span> ${statusInfo.text}`;
     }
 
+    // --- Transcription Modal Logic ---
+    function openTranscriptionModal() {
+        transcriptionReviewModal.style.display = 'block';
+    }
+
+    function closeTranscriptionModal() {
+        transcriptionReviewModal.style.display = 'none';
+    }
+
+    function updateTranscriptionModalUI(data) {
+        if (!data) {
+            return;
+        }
+
+        openTranscriptionModal();
+        transcriptionTextArea.value = data.final_text || data.transcribed_text || '';
+
+        if (data.status === 'finalized') {
+            transcriptionTextArea.style.display = 'none';
+            transcriptionModalButtons.style.display = 'none';
+            transcriptionFinalizedView.style.display = 'block';
+            finalizedTextDisplay.textContent = data.final_text;
+            // Also disable the main text area
+            processDescriptionInput.value = data.final_text;
+            processDescriptionInput.readOnly = true;
+        } else {
+            transcriptionTextArea.style.display = 'block';
+            transcriptionModalButtons.style.display = 'block';
+            transcriptionFinalizedView.style.display = 'none';
+        }
+    }
+
+    async function handleSaveTranscription(isFinalizing = false) {
+        const text = transcriptionTextArea.value;
+        const status = isFinalizing ? 'finalized' : 'pending_review';
+        const button = isFinalizing ? finalizeTranscriptionBtn : saveTranscriptionProgressBtn;
+
+        setButtonLoading(button, true, 'Сохранение...');
+        try {
+            const response = await fetchWithAuth(`/api/chats/${chatId}/transcription`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ final_text: text, status: status })
+            });
+            const data = await response.json();
+            showNotification('Транскрибация успешно сохранена!', 'success');
+            updateTranscriptionModalUI(data);
+            if (isFinalizing) {
+                closeTranscriptionModal();
+            }
+        } catch (error) {
+            showNotification(`Ошибка сохранения транскрибации: ${error.message}`, 'error');
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
+
     // --- Admin Panel Logic ---
 
     async function loadAdminPanel() {
@@ -741,6 +850,7 @@ ${brokenCode}
             showNotification('Все поля должны быть заполнены!', 'error');
             return;
         }
+        setButtonLoading(createDepartmentBtn, true, 'Создание...');
         try {
             await fetchWithAuth('/api/departments', {
                 method: 'POST',
@@ -753,6 +863,8 @@ ${brokenCode}
             await loadAdminDepartments();
         } catch (error) {
             showNotification(`Не удалось создать департамент: ${error.message}`, 'error');
+        } finally {
+            setButtonLoading(createDepartmentBtn, false);
         }
     }
 
@@ -766,7 +878,7 @@ ${brokenCode}
         const name = newChatNameInput.value;
         const password = newChatPasswordInput.value;
         if (!name || !password) return;
-
+        setButtonLoading(createChatBtn, true, 'Создание...');
         try {
             await fetchWithAuth('/api/chats', {
                 method: 'POST',
@@ -779,6 +891,31 @@ ${brokenCode}
             await loadChatListForAdminDepartment(deptId, selectedDeptCard.dataset.deptName);
         } catch (error) {
             showNotification(`Не удалось создать чат: ${error.message}`, 'error');
+        } finally {
+            setButtonLoading(createChatBtn, false);
+        }
+    }
+
+    async function handleSaveRawVersion(button = saveRawVersionBtn) {
+        const process_text = processDescriptionInput.value;
+        if (!process_text.trim()) {
+            showNotification("Нельзя сохранить пустую версию.", "error");
+            return;
+        }
+        setButtonLoading(button, true, 'Сохранение...');
+        try {
+            const mermaidCode = await generateDiagramFromText(process_text);
+            await fetchWithAuth(`/api/chats/${chatId}/versions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ process_text: process_text, mermaid_code: mermaidCode })
+            });
+            showNotification("Версия успешно сохранена (без изменений от ИИ).", "success");
+            await loadChatData();
+        } catch (error) {
+            showNotification(`Ошибка сохранения: ${error.message}`, "error");
+        } finally {
+            setButtonLoading(button, false);
         }
     }
 
@@ -903,15 +1040,12 @@ ${brokenCode}
             const data = await response.json();
 
             if (response.ok) {
-                processDescriptionInput.value += (processDescriptionInput.value ? '\n' : '') + data.transcript;
-                updateStepCounter();
-                showNotification('Транскрибация успешно завершена.', 'success');
+                showNotification('Транскрибация успешно завершена. Теперь вы можете ее отредактировать.', 'success');
+                await initiateTranscriptionReview(data.transcript);
                 // Блокируем кнопки после успешной транскрибации
                 transcribeBtn.style.display = 'none';
                 listenBtn.style.display = 'none';
                 rerecordBtn.style.display = 'none';
-                processDescriptionInput.readOnly = true;
-                // Можно оставить плеер для прослушивания
             } else {
                 throw new Error(data.error || 'Неизвестная ошибка сервера');
             }
@@ -921,19 +1055,41 @@ ${brokenCode}
         } finally {
             setButtonLoading(transcribeBtn, false, 'Перевести в текст');
             listenBtn.disabled = false;
-            // Не разблокируем кнопку перезаписи, если лимит исчерпан
             if (rerecordCount < 1) {
                  rerecordBtn.disabled = false;
             }
         }
     };
 
+    async function initiateTranscriptionReview(rawText) {
+        try {
+            const response = await fetchWithAuth(`/api/chats/${chatId}/transcription`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transcribed_text: rawText, final_text: rawText, status: 'pending_review' })
+            });
+            const data = await response.json();
+            updateTranscriptionModalUI(data);
+        } catch (error) {
+            showNotification(`Не удалось сохранить первоначальную транскрибацию: ${error.message}`, 'error');
+        }
+    }
+
 
     // --- Other Handlers ---
-    function updateStepCounter() { const lines = processDescriptionInput.value.split('\n').filter(line => line.trim() !== ''); stepCounter.textContent = `${lines.length} шагов`; improveBtn.disabled = lines.length === 0; }
+    function updateStepCounter() {
+        if (!processDescriptionInput) return;
+        const lines = processDescriptionInput.value.split('\n').filter(line => line.trim() !== '');
+        stepCounter.textContent = `${lines.length} шагов`;
+        improveBtn.disabled = lines.length === 0;
+    }
     // ... (rest of the unchanged code for brevity)
 
     // --- Initial Event Listeners ---
+    closeTranscriptionModalBtn.addEventListener('click', closeTranscriptionModal);
+    saveTranscriptionProgressBtn.addEventListener('click', () => handleSaveTranscription(false));
+    finalizeTranscriptionBtn.addEventListener('click', () => handleSaveTranscription(true));
+    processDescriptionInput.addEventListener('input', updateStepCounter);
     startRecordBtn.addEventListener('click', handleStartRecording);
     stopRecordBtn.addEventListener('click', handleStopRecording);
     listenBtn.addEventListener('click', () => audioPlayback.play());
@@ -951,12 +1107,13 @@ ${brokenCode}
     completedList.addEventListener('click', handleAdminChatSelection);
     backToAdminBtn.addEventListener('click', () => { mainContainer.style.display = 'none'; authWrapper.style.display = 'flex'; adminPanel.style.display = 'block'; backToAdminBtn.style.display = 'none'; });
     // ... add other listeners for main app functionality
-    saveVersionBtn.addEventListener('click', handleSaveVersion);
+    saveVersionBtn.addEventListener('click', (e) => handleSaveVersion(e.target));
+    saveRawVersionBtn.addEventListener('click', (e) => handleSaveRawVersion(e.target));
     addCommentBtn.addEventListener('click', handleAddComment);
-    sendReviewBtn.addEventListener('click', () => handleUpdateStatus('pending_review'));
-    sendRevisionBtn.addEventListener('click', () => handleUpdateStatus('needs_revision'));
-    completeBtn.addEventListener('click', () => handleUpdateStatus('completed'));
-    archiveBtn.addEventListener('click', () => handleUpdateStatus('archived'));
+    sendReviewBtn.addEventListener('click', (e) => handleUpdateStatus('pending_review', e.target));
+    sendRevisionBtn.addEventListener('click', (e) => handleUpdateStatus('needs_revision', e.target));
+    completeBtn.addEventListener('click', (e) => handleUpdateStatus('completed', e.target));
+    archiveBtn.addEventListener('click', (e) => handleUpdateStatus('archived', e.target));
     versionHistoryContainer.addEventListener('click', async (e) => { if (e.target.tagName === 'BUTTON') { const versionId = e.target.parentElement.dataset.versionId; const selectedVersion = chatVersions.find(v => v.id == versionId); if (selectedVersion) await displayVersion(selectedVersion); } });
     downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
     downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));

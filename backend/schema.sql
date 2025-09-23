@@ -1,4 +1,5 @@
 -- Drop existing tables in reverse order of dependency to avoid foreign key constraints
+DROP TABLE IF EXISTS transcription_data CASCADE;
 DROP TABLE IF EXISTS chat_statuses CASCADE;
 DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS process_versions CASCADE;
@@ -7,6 +8,7 @@ DROP TABLE IF EXISTS departments CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
 -- Drop existing types and functions if they exist
+DROP TYPE IF EXISTS transcription_status CASCADE;
 DROP TYPE IF EXISTS author_role CASCADE;
 DROP TYPE IF EXISTS chat_status CASCADE;
 DROP FUNCTION IF EXISTS create_chat_with_status(UUID, TEXT, TEXT) CASCADE;
@@ -49,6 +51,7 @@ CREATE TABLE process_versions (
 -- Create ENUM types
 CREATE TYPE author_role AS ENUM ('user', 'admin');
 CREATE TYPE chat_status AS ENUM ('draft', 'pending_review', 'needs_revision', 'completed', 'archived');
+CREATE TYPE transcription_status AS ENUM ('pending_review', 'finalized');
 
 -- Create comments table
 CREATE TABLE comments (
@@ -63,6 +66,17 @@ CREATE TABLE comments (
 CREATE TABLE chat_statuses (
     chat_id UUID PRIMARY KEY REFERENCES chats(id) ON DELETE CASCADE,
     status chat_status DEFAULT 'draft'
+);
+
+-- Create transcription_data table
+CREATE TABLE transcription_data (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_id UUID UNIQUE REFERENCES chats(id) ON DELETE CASCADE, -- Assuming one transcription per chat
+    transcribed_text TEXT,
+    final_text TEXT,
+    status transcription_status DEFAULT 'pending_review',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- RPC function to create a chat and its status atomically
