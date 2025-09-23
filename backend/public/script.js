@@ -1203,6 +1203,8 @@ ${brokenCode}
             if (response.ok) {
                 showNotification('Транскрибация успешно завершена.', 'success');
                 transcriptionOutput.value = data.transcript; // Put text in the new field
+                processDescriptionInput.value = data.transcript;
+                updateStepCounter();
                 // Keep audio controls available
                 processBtn.style.display = 'none'; // Hide process button after use
             } else {
