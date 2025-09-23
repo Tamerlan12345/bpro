@@ -13,9 +13,8 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const WebSocket = require('ws');
-const revai = require('revai-node-sdk');
+const { BatchClient } = require('@speechmatics/batch-client');
 const multer = require('multer');
-const { Readable } = require('stream');
 
 const app = express();
 app.set('trust proxy', 1); // Trust the first proxy
@@ -63,47 +62,34 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
     if (!req.file) {
         return res.status(400).json({ error: 'No audio file uploaded.' });
     }
-    if (!process.env.REV_AI_API_KEY) {
+    if (!process.env.SPEECHMATICS_API_KEY) {
         return res.status(500).json({ error: 'Transcription service is not configured.' });
     }
 
     try {
-        const revaiClient = new revai.RevAiApiClient({ token: process.env.REV_AI_API_KEY });
-        const audioStream = Readable.from(req.file.buffer);
+        const client = new BatchClient({ apiKey: process.env.SPEECHMATICS_API_KEY });
 
-        // Pass filename and content type for better processing
-        const jobOptions = {
-            metadata: `Transcription for user ${req.session.user.id}`,
-            delete_after_seconds: 3600,
-            language: 'ru',
-            media_info: {
-                filename: req.file.originalname,
-                mimetype: req.file.mimetype,
-            },
+        // Create a File-like object from the buffer
+        const file = {
+            name: req.file.originalname,
+            buffer: req.file.buffer,
         };
 
-        // Submit the job
-        const job = await revaiClient.submitJob(audioStream, jobOptions);
+        const response = await client.transcribe(
+            file,
+            {
+                transcription_config: {
+                    language: 'ru',
+                },
+            },
+            'json-v2',
+        );
 
-        console.log(`Submitted Rev.ai job: ${job.id}`);
-
-        // Wait for the job to be transcribed
-        // Note: For production, you'd likely use a webhook instead of polling.
-        const transcript = await revaiClient.getTranscriptObject(job.id);
-
-        // Combine the transcript into a single string
-        const fullTranscript = transcript.monologues
-            .map(m => m.elements.map(e => e.value).join(''))
-            .join(' ');
-
+        const fullTranscript = response.results.map((r) => r.alternatives?.[0].content).join(' ');
         res.json({ transcript: fullTranscript });
 
     } catch (error) {
-        // Log more detailed error information
-        console.error('Rev.ai transcription error:', error);
-        if (error.response) {
-            console.error('Error response from Rev.ai:', JSON.stringify(error.response.data, null, 2));
-        }
+        console.error('Speechmatics transcription error:', error);
         res.status(500).json({ error: 'Failed to transcribe audio.' });
     }
 });
