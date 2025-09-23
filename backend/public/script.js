@@ -674,7 +674,7 @@ ${brokenCode}
     }
 
     async function handleSaveVersion(button = saveVersionBtn) {
-        const process_text = processDescriptionInput.value;
+        const process_text = transcriptionOutput.value;
         if (!process_text.trim()) {
             showNotification("Нельзя сохранить пустую версию.", "error");
             return;
@@ -1047,7 +1047,7 @@ ${brokenCode}
     }
 
     async function handleSaveRawVersion(button = saveRawVersionBtn) {
-        const process_text = processDescriptionInput.value;
+        const process_text = transcriptionOutput.value;
         if (!process_text.trim()) {
             showNotification("Нельзя сохранить пустую версию.", "error");
             return;
@@ -1202,8 +1202,6 @@ ${brokenCode}
             if (response.ok) {
                 showNotification('Транскрибация успешно завершена.', 'success');
                 transcriptionOutput.value = data.transcript; // Put text in the new field
-                processDescriptionInput.value = data.transcript;
-                updateStepCounter();
                 // Keep audio controls available
                 processBtn.style.display = 'none'; // Hide process button after use
             } else {
