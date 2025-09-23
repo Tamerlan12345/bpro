@@ -103,14 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const pendingTab = document.getElementById('pending-tab');
     const completedTab = document.getElementById('completed-tab');
 
-    // Edit Department Modal Elements
-    const editDepartmentModal = document.getElementById('edit-department-modal');
-    const editDepartmentIdInput = document.getElementById('edit-department-id');
-    const editDepartmentNameInput = document.getElementById('edit-department-name');
-    const editDepartmentPasswordInput = document.getElementById('edit-department-password');
-    const saveDepartmentBtn = document.getElementById('save-department-btn');
-    const closeModalBtn = editDepartmentModal.querySelector('.close-btn');
-
     // Transcription Review Modal Elements
     const transcriptionReviewModal = document.getElementById('transcription-review-modal');
     const transcriptionTextArea = document.getElementById('transcription-text-area');
@@ -166,12 +158,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     mermaid.initialize({ startOnLoad: false, theme: 'base', fontFamily: 'inherit', flowchart: { nodeSpacing: 50, rankSpacing: 60, curve: 'linear' }, themeVariables: { primaryColor: '#FFFFFF', primaryTextColor: '#212529', primaryBorderColor: '#333333', lineColor: '#333333' } });
 
-    async function renderDiagram(mermaidCode, container = diagramContainer) {
+    async function renderDiagram(mermaidCode, container = diagramContainer, isRetry = false) {
         container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
         try {
+            // The mermaid.render function is the modern, preferred way.
             const { svg } = await mermaid.render(`mermaid-graph-${Date.now()}`, mermaidCode);
             container.innerHTML = svg;
 
+            // Post-render logic only for the main diagram container
             if (container === diagramContainer) {
                 const svgElement = container.querySelector('svg');
                 if (svgElement) {
@@ -181,15 +175,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     diagramToolbar.style.display = 'flex';
                     renderDiagramBtn.style.display = 'none';
                     regenerateDiagramBtn.disabled = false;
-                    // Also update visibility of admin edit button
-                     if(sessionUser && sessionUser.role === 'admin') {
+                    if (sessionUser && sessionUser.role === 'admin') {
                         editDiagramBtn.style.display = 'inline-block';
                     }
                 }
             }
         } catch (error) {
             console.error("Mermaid render error:", error);
-            container.innerHTML = `<div class="error-text">Ошибка рендеринга схемы: ${error.message}</div>`;
+            // If it's the first attempt, try to fix the code
+            if (!isRetry) {
+                console.log("Attempting to self-correct the diagram code...");
+                try {
+                    const fixedCode = await getFixedMermaidCode(mermaidCode, error.message);
+                    showNotification("AI исправило ошибку в схеме. Повторный рендеринг...", "success");
+                    await renderDiagram(fixedCode, container, true); // Retry with the fixed code
+                } catch (fixError) {
+                    console.error("Failed to get fixed mermaid code:", fixError);
+                    container.innerHTML = `<div class="error-text">Не удалось исправить и отобразить схему: ${fixError.message}</div>`;
+                }
+            } else {
+                // If it fails even after a retry, show the final error.
+                container.innerHTML = `<div class="error-text">Ошибка рендеринга даже после исправления: ${error.message}</div>`;
+            }
         }
     }
 
@@ -910,7 +917,6 @@ ${brokenCode}
             departmentList.innerHTML = departments.map(dept => `
                 <div class="department-card" data-dept-id="${dept.id}" data-dept-name="${dept.name}">
                     <span>${dept.name}</span>
-                    <button class="edit-dept-btn" data-dept-id="${dept.id}" data-dept-name="${dept.name}">✏️</button>
                 </div>`).join('');
         } catch (error) {
             departmentList.innerHTML = `<div class="error-text">Не удалось загрузить департаменты: ${error.message}</div>`;
@@ -934,11 +940,6 @@ ${brokenCode}
     }
 
     async function handleAdminDepartmentSelection(e) {
-        const editBtn = e.target.closest('.edit-dept-btn');
-        if (editBtn) {
-            openEditDepartmentModal(editBtn.dataset.deptId, editBtn.dataset.deptName);
-            return;
-        }
         const deptCard = e.target.closest('.department-card');
         if (!deptCard) return;
 
@@ -1276,10 +1277,6 @@ ${brokenCode}
     versionHistoryContainer.addEventListener('click', async (e) => { if (e.target.tagName === 'BUTTON') { const versionId = e.target.parentElement.dataset.versionId; const selectedVersion = chatVersions.find(v => v.id == versionId); if (selectedVersion) await displayVersion(selectedVersion); } });
     downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
     downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
-
-    // Modal listeners
-    closeModalBtn.addEventListener('click', closeEditDepartmentModal);
-    saveDepartmentBtn.addEventListener('click', handleSaveDepartment);
 
     // Diagram listeners
     renderDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
