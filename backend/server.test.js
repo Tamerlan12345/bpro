@@ -37,6 +37,11 @@ let server; // To be assigned in beforeAll
 // --- Test Suite Setup ---
 
 beforeAll(async () => {
+    // Mock the queries from ensureUsersExist
+    when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'admin'").mockResolvedValue({ rows: [{ id: 'admin-uuid' }] });
+    when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'user'").mockResolvedValue({ rows: [{ id: 'user-uuid' }] });
+    when(mockQuery).calledWith(expect.stringMatching(/INSERT INTO users/)).mockResolvedValue({ rows: [] });
+
     // Start the server and get the instance
     const serverInstance = await startServer();
     server = serverInstance.server;

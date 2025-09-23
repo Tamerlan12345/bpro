@@ -1,8 +1,8 @@
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-}
-
 const path = require('path');
+
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config({ path: path.join(__dirname, '.env') });
+}
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
@@ -46,7 +46,7 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000
     }
 }));
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Authorization Middleware ---
 const isAuthenticated = (req, res, next) => {

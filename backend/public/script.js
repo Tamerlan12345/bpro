@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDiagramScale = 1;
     let timerInterval;
     let secondsRecorded = 0;
+    let transcriptionTimerInterval;
     let sessionUser = null; // Holds the logged-in user's session data
     let selectedDepartment = null; // Holds the department a user selects to work in
     let chatId = null;
@@ -44,11 +45,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const startRecordBtn = document.getElementById('start-record-btn');
     const stopRecordBtn = document.getElementById('stop-record-btn');
     const listenBtn = document.getElementById('listen-btn');
-    const transcribeBtn = document.getElementById('transcribe-btn');
+    const processBtn = document.getElementById('process-btn');
     const rerecordBtn = document.getElementById('rerecord-btn');
     const audioPlayback = document.getElementById('audio-playback');
     const recordingIndicator = document.getElementById('recording-indicator');
     const recordingTimer = document.getElementById('recording-timer');
+    const transcriptionOutput = document.getElementById('transcription-output');
+    const transcriptionTimer = document.getElementById('transcription-timer');
     const partialTranscriptDisplay = document.getElementById('partial-transcript-display');
     const versionHistoryContainer = document.getElementById('version-history-container');
     const commentsContainer = document.getElementById('comments-container');
@@ -1086,11 +1089,12 @@ ${brokenCode}
         audioChunks = [];
         rerecordCount = 0;
         processDescriptionInput.readOnly = false;
+        transcriptionOutput.value = ''; // Clear the new textarea as well
 
         startRecordBtn.style.display = 'block';
         stopRecordBtn.style.display = 'none';
         listenBtn.style.display = 'none';
-        transcribeBtn.style.display = 'none';
+        processBtn.style.display = 'none'; // Use processBtn
         rerecordBtn.style.display = 'none';
         audioPlayback.style.display = 'none';
         recordingIndicator.style.display = 'none';
@@ -1115,7 +1119,7 @@ ${brokenCode}
 
                 stopRecordBtn.style.display = 'none';
                 listenBtn.style.display = 'inline-block';
-                transcribeBtn.style.display = 'inline-block';
+                processBtn.style.display = 'inline-block'; // Use processBtn
                 rerecordBtn.style.display = 'inline-block';
                 audioPlayback.style.display = 'block';
 
@@ -1159,7 +1163,7 @@ ${brokenCode}
         audioChunks = [];
 
         listenBtn.style.display = 'none';
-        transcribeBtn.style.display = 'none';
+        processBtn.style.display = 'none';
         rerecordBtn.style.display = 'none';
         audioPlayback.style.display = 'none';
         partialTranscriptDisplay.textContent = '';
@@ -1167,15 +1171,24 @@ ${brokenCode}
         handleStartRecording();
     };
 
-    const handleTranscribe = async () => {
+    const handleProcessAudio = async () => {
         if (!audioBlob) {
-            showNotification('Нет записанного аудио для транскрибации.', 'error');
+            showNotification('Нет записанного аудио для обработки.', 'error');
             return;
         }
 
-        setButtonLoading(transcribeBtn, true, 'Транскрибация...');
+        setButtonLoading(processBtn, true, 'Обработка...');
         listenBtn.disabled = true;
         rerecordBtn.disabled = true;
+
+        // Start animation timer
+        let secondsProcessing = 0;
+        transcriptionTimer.textContent = `(0s)`;
+        transcriptionTimer.style.display = 'inline';
+        transcriptionTimerInterval = setInterval(() => {
+            secondsProcessing++;
+            transcriptionTimer.textContent = `(${secondsProcessing}s)`;
+        }, 1000);
 
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
@@ -1188,12 +1201,10 @@ ${brokenCode}
             const data = await response.json();
 
             if (response.ok) {
-                showNotification('Транскрибация успешно завершена. Теперь вы можете ее отредактировать.', 'success');
-                await initiateTranscriptionReview(data.transcript);
-                // Блокируем кнопки после успешной транскрибации
-                transcribeBtn.style.display = 'none';
-                listenBtn.style.display = 'none';
-                rerecordBtn.style.display = 'none';
+                showNotification('Транскрибация успешно завершена.', 'success');
+                transcriptionOutput.value = data.transcript; // Put text in the new field
+                // Keep audio controls available
+                processBtn.style.display = 'none'; // Hide process button after use
             } else {
                 throw new Error(data.error || 'Неизвестная ошибка сервера');
             }
@@ -1201,11 +1212,14 @@ ${brokenCode}
             console.error('Transcription error:', error);
             showNotification(`Ошибка транскрибации: ${error.message}`, 'error');
         } finally {
-            setButtonLoading(transcribeBtn, false, 'Перевести в текст');
+            // Stop animation timer
+            clearInterval(transcriptionTimerInterval);
+            transcriptionTimer.style.display = 'none';
+
+            setButtonLoading(processBtn, false, 'Обработать');
             listenBtn.disabled = false;
-            if (rerecordCount < 1) {
-                 rerecordBtn.disabled = false;
-            }
+            // The user should be able to re-record even after a failed attempt
+            rerecordBtn.disabled = false;
         }
     };
 
@@ -1280,7 +1294,7 @@ ${brokenCode}
     stopRecordBtn.addEventListener('click', handleStopRecording);
     listenBtn.addEventListener('click', () => audioPlayback.play());
     rerecordBtn.addEventListener('click', handleRerecord);
-    transcribeBtn.addEventListener('click', handleTranscribe);
+    processBtn.addEventListener('click', handleProcessAudio);
     userLoginBtn.addEventListener('click', handleUserLogin);
     logoutBtn.addEventListener('click', handleLogout);
     departmentSelectionContainer.addEventListener('click', handleDepartmentCardSelection);
