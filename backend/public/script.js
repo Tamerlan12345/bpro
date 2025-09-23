@@ -499,7 +499,7 @@ ${brokenCode}
             const response = await fetchWithAuth(`/api/chats?department_id=${deptId}`);
             const allChats = await response.json();
             const activeChats = allChats.filter(chat => {
-                const status = chat.chat_statuses?.status || 'draft';
+                const status = chat.status || 'draft';
                 return status !== 'completed' && status !== 'archived';
             });
 
@@ -512,7 +512,7 @@ ${brokenCode}
                 <div class="chat-card" data-chat-id="${chat.id}" data-chat-name="${chat.name}">
                     <span class="chat-icon">💬</span>
                     <span class="chat-name">${chat.name}</span>
-                    <div class="chat-status">${getStatusIndicator(chat.chat_statuses?.status || 'draft')}</div>
+                    <div class="chat-status">${getStatusIndicator(chat.status || 'draft')}</div>
                 </div>
             `).join('');
 
@@ -903,6 +903,8 @@ ${brokenCode}
             renderAdminChatList(completedList, completedChats, 'Completed');
             renderAdminChatList(pendingList, pendingChats, 'Pending');
 
+            setupAdminTabs();
+
         } catch (error) {
             console.error("Failed to load admin panel data:", error);
             adminPanel.innerHTML = `<p class="error">Failed to load admin panel: ${error.message}</p>`;
@@ -936,6 +938,31 @@ ${brokenCode}
                     <span class="chat-status-admin">${getStatusIndicator(chat.status)}</span>
                 </a>
             </li>`).join('');
+    }
+
+    function setupAdminTabs() {
+        const tabs = document.querySelectorAll('.admin-tabs .tab-link');
+        const tabContents = document.querySelectorAll('.admin-section .tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Deactivate all tabs and hide all content
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.style.display = 'none');
+
+                // Activate the clicked tab
+                tab.classList.add('active');
+
+                // Show the corresponding content
+                if (tab.id === 'in-review-tab') {
+                    document.getElementById('in-review').style.display = 'block';
+                } else if (tab.id === 'pending-tab') {
+                    document.getElementById('pending').style.display = 'block';
+                } else if (tab.id === 'completed-tab') {
+                    document.getElementById('completed').style.display = 'block';
+                }
+            });
+        });
     }
 
     async function handleAdminDepartmentSelection(e) {
