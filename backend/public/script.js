@@ -421,6 +421,65 @@ ${brokenCode}
         return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
     }
 
+    async function generateImprovements(processDescription, userPrompt = '') {
+        const prompt = `Ты — элитный AI-бизнес-аналитик. Твоя задача — проанализировать описание бизнес-процесса, предоставленное пользователем, и предложить конкретные, действенные улучшения.
+
+# КОНТЕКСТ
+Пользователь описал свой текущий бизнес-процесс. Он хочет, чтобы ты предложил улучшения, которые сделают процесс более эффективным, надежным или автоматизированным.
+
+# ИСХОДНЫЙ БИЗНЕС-ПРОЦЕСС
+\`\`\`
+${processDescription}
+\`\`\`
+
+${userPrompt ? `# ДОПОЛНИТЕЛЬНЫЙ КОНТЕКСТ ОТ ПОЛЬЗОВАТЕЛЯ\n${userPrompt}\n` : ''}
+# ТВОЯ ЗАДАЧА
+Проанализируй процесс и сгенерируй от 3 до 5 предложений по его улучшению. Каждое предложение должно быть четким, лаконичным и сфокусированным на конкретном аспекте процесса.
+
+# ПРАВИЛА ФОРМИРОВАНИЯ ПРЕДЛОЖЕНИЙ
+1.  **Категория:** Каждое предложение должно относиться к одной из следующих категорий:
+    *   **Автоматизация:** Замена ручного шага автоматическим действием (например, "Автоматически отправлять email-уведомление клиенту").
+    *   **Оптимизация:** Упрощение или ускорение существующего шага (например, "Объединить проверку документов в один этап").
+    *   **Устранение избыточности:** Удаление ненужного или дублирующегося шага (например, "Убрать шаг ручного копирования данных, так как система делает это автоматически").
+    *   **Повышение надежности:** Добавление проверок или контроля для уменьшения ошибок (например, "Добавить шаг валидации введенных данных перед сохранением").
+2.  **Формулировка:** Каждое предложение должно быть сформулировано как конкретное действие.
+3.  **Краткость:** Заголовок (\`title\`) должен быть не длиннее 10 слов. Описание (\`description\`) — не длиннее 30 слов.
+
+# ФОРМАТ ОТВЕТА
+Твой ответ ДОЛЖЕН быть валидным JSON-массивом объектов и ничем иным. Не добавляй никаких пояснений или markdown-разметки.
+
+\`\`\`json
+[
+  {
+    "id": "suggestion-1",
+    "category": "Автоматизация",
+    "title": "Автоматизировать уведомление клиента",
+    "description": "После создания заказа система должна автоматически отправлять клиенту SMS-уведомление с номером заказа и предполагаемой датой доставки."
+  },
+  {
+    "id": "suggestion-2",
+    "category": "Оптимизация",
+    "title": "Внедрить параллельное согласование",
+    "description": "Вместо последовательного согласования документа тремя отделами, отправлять его на проверку всем одновременно для ускорения процесса."
+  }
+]
+\`\`\`
+`;
+        return callGeminiAPI(prompt).then(response => {
+            const jsonMatch = response.match(/\[[\s\S]*\]/);
+            if (!jsonMatch) {
+                console.error("Invalid response from AI, no JSON array found. Raw response:", response);
+                throw new Error("Не удалось получить корректный JSON-массив от AI.");
+            }
+            try {
+                return JSON.parse(jsonMatch[0]);
+            } catch (error) {
+                console.error("Failed to parse JSON from AI response. Raw JSON string:", jsonMatch[0], "Error:", error);
+                throw new Error("Ошибка парсинга JSON ответа от AI.");
+            }
+        });
+    }
+
     // --- Authentication and Navigation Flow ---
 
     async function handleLogout() {
@@ -596,6 +655,125 @@ ${brokenCode}
     }
 
     // --- Main Application Logic ---
+
+    function renderSuggestions(suggestionsData) {
+        if (!suggestionsData || suggestionsData.length === 0) {
+            suggestionsContainer.innerHTML = '<p class="placeholder-text">Не удалось сгенерировать предложения. Попробуйте переформулировать описание процесса.</p>';
+            suggestionsControls.style.display = 'none';
+            return;
+        }
+
+        suggestionsContainer.innerHTML = suggestionsData.map((suggestion, index) => `
+            <div class="suggestion-item">
+                <div class="suggestion-header">
+                    <input type="checkbox" id="suggestion-${index}" data-suggestion-id="${suggestion.id}">
+                    <label for="suggestion-${index}">${suggestion.title}</label>
+                </div>
+                <p class="suggestion-description">${suggestion.description}</p>
+                <span class="suggestion-category ${suggestion.category.toLowerCase()}">${suggestion.category}</span>
+            </div>
+        `).join('');
+
+        suggestionsControls.style.display = 'flex';
+        updateSelectionState();
+    }
+
+    function updateSelectionState() {
+        const checkboxes = suggestionsContainer.querySelectorAll('input[type="checkbox"]');
+        const selectedCheckboxes = suggestionsContainer.querySelectorAll('input[type="checkbox"]:checked');
+        const allSelected = checkboxes.length > 0 && selectedCheckboxes.length === checkboxes.length;
+
+        selectionCounter.textContent = `Выбрано: ${selectedCheckboxes.length} из ${checkboxes.length}`;
+        selectAllCheckbox.checked = allSelected;
+        applyImprovementsBtn.disabled = selectedCheckboxes.length === 0;
+    }
+
+    async function handleSuggestImprovements(button) {
+        const processText = processDescriptionInput.value;
+        if (!processText.trim()) {
+            showNotification("Описание процесса пустое. Нечего улучшать.", "error");
+            return;
+        }
+        const userPrompt = userPromptInput.value;
+
+        setButtonLoading(button, true, 'Анализ...');
+        suggestionsContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div><p>AI анализирует процесс...</p></div>';
+        suggestionsControls.style.display = 'none';
+        applyImprovementsBtn.disabled = true;
+
+        try {
+            suggestions = await generateImprovements(processText, userPrompt);
+            renderSuggestions(suggestions);
+        } catch (error) {
+            showNotification(`Не удалось получить предложения: ${error.message}`, "error");
+            suggestionsContainer.innerHTML = `<div class="error-text">Не удалось загрузить предложения. ${error.message}</div>`;
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
+
+    async function generateImprovedProcess(originalProcess, selectedImprovements) {
+        const improvementsText = selectedImprovements.map(imp => `- ${imp.title}: ${imp.description}`).join('\n');
+
+        const prompt = `Ты — элитный AI-бизнес-аналитик. Твоя задача — взять существующее описание бизнес-процесса и переписать его, интегрировав выбранные пользователем улучшения.
+
+# ИСХОДНЫЙ БИЗНЕС-ПРОЦЕСС
+\`\`\`
+${originalProcess}
+\`\`\`
+
+# ВЫБРАННЫЕ УЛУЧШЕНИЯ ДЛЯ ВНЕДРЕНИЯ
+\`\`\`
+${improvementsText}
+\`\`\`
+
+# ТВОЯ ЗАДАЧА
+Перепиши ИСХОДНЫЙ БИЗНЕС-ПРОЦЕСС, чтобы он включал в себя все ВЫБРАННЫЕ УЛУЧШЕНИЯ.
+- Сохраняй исходную структуру и нумерацию шагов, где это возможно.
+- Если улучшение подразумевает добавление нового шага, добавь его в логически верное место и пересчитай нумерацию.
+- Если улучшение изменяет существующий шаг, модифицируй его текст.
+- Если улучшение удаляет шаг, убери его и пересчитай нумерацию.
+- Текст должен быть четким, последовательным и профессиональным.
+
+# ФОРМАТ ОТВЕТА
+Верни ТОЛЬКО переписанный текст бизнес-процесса. Без заголовков, без объяснений, без markdown. Просто итоговый текст.`;
+
+        return callGeminiAPI(prompt).then(response => response.trim());
+    }
+
+    async function handleApplyImprovements(button) {
+        const selectedCheckboxes = suggestionsContainer.querySelectorAll('input[type="checkbox"]:checked');
+        if (selectedCheckboxes.length === 0) {
+            showNotification("Не выбрано ни одного улучшения.", "error");
+            return;
+        }
+
+        const selectedSuggestionIds = Array.from(selectedCheckboxes).map(cb => cb.dataset.suggestionId);
+        const selectedSuggestions = suggestions.filter(s => selectedSuggestionIds.includes(s.id));
+        const originalProcess = processDescriptionInput.value;
+
+        setButtonLoading(button, true, 'Внедрение...');
+        try {
+            const improvedProcess = await generateImprovedProcess(originalProcess, selectedSuggestions);
+            processDescriptionInput.value = improvedProcess;
+            updateStepCounter();
+            showNotification("Улучшения успешно внедрены!", "success");
+
+            // Clear suggestions
+            suggestions = [];
+            suggestionsContainer.innerHTML = '<p class="placeholder-text">Предложения от ИИ появятся здесь после анализа вашего процесса.</p>';
+            suggestionsControls.style.display = 'none';
+            applyImprovementsBtn.disabled = true;
+
+            // Optional: Re-render the diagram with the new text
+            await handleRenderDiagram(regenerateDiagramBtn);
+
+        } catch (error) {
+            showNotification(`Ошибка применения улучшений: ${error.message}`, "error");
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
 
     async function loadChatData() {
         try {
@@ -1299,6 +1477,19 @@ ${brokenCode}
     }
 
     // --- Initial Event Listeners ---
+    improveBtn.addEventListener('click', (e) => handleSuggestImprovements(e.target));
+    applyImprovementsBtn.addEventListener('click', (e) => handleApplyImprovements(e.target));
+    suggestionsContainer.addEventListener('change', (e) => {
+        if (e.target.type === 'checkbox') {
+            updateSelectionState();
+        }
+    });
+    selectAllCheckbox.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        const checkboxes = suggestionsContainer.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => checkbox.checked = isChecked);
+        updateSelectionState();
+    });
     closeTranscriptionModalBtn.addEventListener('click', closeTranscriptionModal);
     saveTranscriptionProgressBtn.addEventListener('click', () => handleSaveTranscription(false));
     finalizeTranscriptionBtn.addEventListener('click', () => handleSaveTranscription(true));
