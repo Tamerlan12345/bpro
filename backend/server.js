@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -17,6 +18,13 @@ const { BatchClient } = require('@speechmatics/batch-client');
 const multer = require('multer');
 
 const app = express();
+const sessionsDir = path.join(__dirname, 'sessions');
+
+// Create sessions directory if it doesn't exist
+if (!fs.existsSync(sessionsDir)) {
+    fs.mkdirSync(sessionsDir);
+    console.log(`Created sessions directory at: ${sessionsDir}`);
+}
 app.set('trust proxy', 1); // Trust the first proxy
 const PORT = process.env.PORT || 3000;
 
