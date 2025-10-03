@@ -1361,60 +1361,23 @@ ${brokenCode}
         updateSelectionCounter();
     }
 
-    async function getReworkedProcess(originalText, improvements) {
-        const improvementsText = improvements.map(s => `- Проблема: ${s.problem}\n  - Решение: ${s.suggestion}`).join('\n');
-
-        const prompt = `Ты — элитный бизнес-аналитик. Тебе дано описание бизнес-процесса и список предложений по его улучшению. Твоя задача — ПЕРЕРАБОТАТЬ исходное описание процесса, интегрировав в него эти улучшения.
-
-Исходное описание процесса:
-\`\`\`
-${originalText}
-\`\`\`
-
-Предложения по улучшению:
-${improvementsText}
-
-ТРЕБОВАНИЯ К ОТВЕТУ:
-1.  Верни ТОЛЬКО переработанный текст процесса в формате Markdown.
-2.  Не добавляй никаких комментариев, заголовков или объяснений.
-3.  Сохрани пошаговую структуру, если она была в оригинале, но измени шаги согласно предложениям.
-4.  Результат должен быть готовым, улучшенным описанием процесса.`;
-
-        const responseText = await callGeminiAPI(prompt);
-        // The response should be the raw text, but let's clean it up just in case
-        return responseText.replace(/```markdown/g, '').replace(/```/g, '').trim();
-    }
-
-    async function handleApplyImprovements() {
+    function handleApplyImprovements() {
         const selectedCheckboxes = suggestionsContainer.querySelectorAll('.suggestion-checkbox:checked');
-        if (selectedCheckboxes.length === 0) {
-            showNotification("Сначала выберите хотя бы одно улучшение.", "error");
-            return;
-        }
+        if (selectedCheckboxes.length === 0) return;
 
-        const selectedImprovements = Array.from(selectedCheckboxes).map(checkbox => {
+        let improvementsText = "\n\n### Предложения по улучшению:\n";
+        selectedCheckboxes.forEach(checkbox => {
             const index = checkbox.dataset.index;
-            return suggestions[index];
+            const suggestion = suggestions[index];
+            improvementsText += `* **Проблема:** ${suggestion.problem}\n  * **Решение:** ${suggestion.suggestion}\n`;
         });
 
-        // Find the part of the text *before* the previous suggestions, if any.
-        const originalProcessText = processDescriptionInput.value.split("### Предложения по улучшению:")[0].trim();
-
-        setButtonLoading(applyImprovementsBtn, true, 'Переработка...');
-
-        try {
-            const reworkedText = await getReworkedProcess(originalProcessText, selectedImprovements);
-            processDescriptionInput.value = reworkedText; // Replace with new text
-            updateStepCounter();
-            suggestionsContainer.innerHTML = '<p class="placeholder-text">Предложения от ИИ появятся здесь после анализа вашего процесса.</p>';
-            suggestionsControls.style.display = 'none';
-            selectAllCheckbox.checked = false;
-            showNotification("Процесс был успешно переработан и обновлен.", "success");
-        } catch (error) {
-            showNotification(`Ошибка при переработке процесса: ${error.message}`, 'error');
-        } finally {
-            setButtonLoading(applyImprovementsBtn, false);
-        }
+        processDescriptionInput.value += improvementsText;
+        updateStepCounter();
+        suggestionsContainer.innerHTML = '';
+        suggestionsControls.style.display = 'none';
+        selectAllCheckbox.checked = false;
+        showNotification("Улучшения добавлены в описание.", "success");
     }
 
     function openEditDepartmentModal(id, name) {
