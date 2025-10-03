@@ -426,9 +426,11 @@ ${brokenCode}
     async function handleLogout() {
         try {
             await fetchWithAuth('/api/auth/logout', { method: 'POST' });
-            window.location.reload();
         } catch (error) {
-            showNotification('Не удалось выйти из системы.', 'error');
+            console.error('Logout failed, but reloading anyway.', error);
+        } finally {
+            // Force a full reload to clear all state
+            window.location.href = window.location.pathname;
         }
     }
 
@@ -580,18 +582,37 @@ ${brokenCode}
             if (data.user) {
                 sessionUser = data.user;
                 logoutBtn.style.display = 'block';
+                authWrapper.style.display = 'flex'; // Keep the wrapper visible
                 if (sessionUser.role === 'admin') {
                     loginContainer.style.display = 'none';
                     adminPanel.style.display = 'block';
-                    loadAdminPanel();
+                    await loadAdminPanel();
                 } else {
+                    loginContainer.style.display = 'none';
                     userLogin.style.display = 'none';
                     departmentSelection.style.display = 'block';
-                    loadDepartmentsForSelection();
+                    await loadDepartmentsForSelection();
                 }
+            } else {
+                // Explicitly handle no session: show login form
+                authWrapper.style.display = 'flex';
+                mainContainer.style.display = 'none';
+                loginContainer.style.display = 'block';
+                userLogin.style.display = 'block';
+                departmentSelection.style.display = 'none';
+                chatLogin.style.display = 'none';
+                adminPanel.style.display = 'none';
             }
         } catch (error) {
-            console.log('No active session found.');
+            console.log('No active session found, showing login.');
+            // On network error or 401, ensure login is visible
+            authWrapper.style.display = 'flex';
+            mainContainer.style.display = 'none';
+            loginContainer.style.display = 'block';
+            userLogin.style.display = 'block';
+            departmentSelection.style.display = 'none';
+            chatLogin.style.display = 'none';
+            adminPanel.style.display = 'none';
         }
     }
 
@@ -1258,7 +1279,106 @@ ${brokenCode}
         stepCounter.textContent = `${lines.length} шагов`;
         improveBtn.disabled = lines.length === 0;
     }
-    // ... (rest of the unchanged code for brevity)
+
+    async function getSuggestionsForProcess(processText) {
+        const prompt = `Ты — элитный бизнес-аналитик. Проанализируй следующее описание бизнес-процесса и предложи 3-5 конкретных, действенных улучшений. Для каждого улучшения укажи, какую проблему оно решает.
+
+Описание процесса:
+"${processText}"
+
+Ответ должен быть в формате JSON-массива, где каждый объект содержит два ключа: "problem" и "suggestion".
+
+Пример:
+[
+  {
+    "problem": "Ручной ввод данных в CRM, что ведет к ошибкам.",
+    "suggestion": "Автоматизировать ввод данных в CRM с помощью интеграции по API."
+  }
+]`;
+        const responseText = await callGeminiAPI(prompt);
+        // Clean up the response to extract only the JSON part
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+            console.error("Invalid response from AI, no JSON array found. Raw response:", responseText);
+            throw new Error("Не удалось получить корректный JSON-массив от AI.");
+        }
+        try {
+            return JSON.parse(jsonMatch[0]);
+        } catch (error) {
+            console.error("Failed to parse JSON from AI response. Raw JSON string:", jsonMatch[0], "Error:", error);
+            throw new Error("Ошибка парсинга JSON ответа от AI.");
+        }
+    }
+
+    async function handleImproveProcess() {
+        const processText = processDescriptionInput.value;
+        if (!processText.trim()) {
+            showNotification("Описание процесса пустое.", "error");
+            return;
+        }
+
+        setButtonLoading(improveBtn, true, 'Анализ...');
+        suggestionsContainer.innerHTML = ''; // Clear previous suggestions
+        suggestionsControls.style.display = 'none';
+
+        try {
+            suggestions = await getSuggestionsForProcess(processText);
+            renderSuggestions(suggestions);
+            if (suggestions.length > 0) {
+                suggestionsControls.style.display = 'flex';
+            }
+        } catch (error) {
+            showNotification(`Ошибка при получении улучшений: ${error.message}`, 'error');
+        } finally {
+            setButtonLoading(improveBtn, false);
+        }
+    }
+
+    function renderSuggestions(suggestionsData) {
+        suggestionsContainer.innerHTML = suggestionsData.map((s, index) => `
+            <div class="suggestion-card">
+                <input type="checkbox" id="suggestion-${index}" class="suggestion-checkbox" data-index="${index}">
+                <label for="suggestion-${index}">
+                    <p><strong>Проблема:</strong> ${s.problem}</p>
+                    <p><strong>Решение:</strong> ${s.suggestion}</p>
+                </label>
+            </div>
+        `).join('');
+        updateSelectionCounter();
+    }
+
+    function updateSelectionCounter() {
+        const selectedCount = suggestionsContainer.querySelectorAll('.suggestion-checkbox:checked').length;
+        selectionCounter.textContent = `Выбрано: ${selectedCount}`;
+        applyImprovementsBtn.disabled = selectedCount === 0;
+    }
+
+    function handleSelectAllSuggestions() {
+        const checkboxes = suggestionsContainer.querySelectorAll('.suggestion-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+        });
+        updateSelectionCounter();
+    }
+
+    function handleApplyImprovements() {
+        const selectedCheckboxes = suggestionsContainer.querySelectorAll('.suggestion-checkbox:checked');
+        if (selectedCheckboxes.length === 0) return;
+
+        let improvementsText = "\n\n### Предложения по улучшению:\n";
+        selectedCheckboxes.forEach(checkbox => {
+            const index = checkbox.dataset.index;
+            const suggestion = suggestions[index];
+            improvementsText += `* **Проблема:** ${suggestion.problem}\n  * **Решение:** ${suggestion.suggestion}\n`;
+        });
+
+        processDescriptionInput.value += improvementsText;
+        updateStepCounter();
+        suggestionsContainer.innerHTML = '';
+        suggestionsControls.style.display = 'none';
+        selectAllCheckbox.checked = false;
+        showNotification("Улучшения добавлены в описание.", "success");
+    }
 
     function openEditDepartmentModal(id, name) {
         editDepartmentIdInput.value = id;
@@ -1299,6 +1419,14 @@ ${brokenCode}
     }
 
     // --- Initial Event Listeners ---
+    improveBtn.addEventListener('click', handleImproveProcess);
+    selectAllCheckbox.addEventListener('click', handleSelectAllSuggestions);
+    applyImprovementsBtn.addEventListener('click', handleApplyImprovements);
+    suggestionsContainer.addEventListener('change', (e) => {
+        if (e.target.classList.contains('suggestion-checkbox')) {
+            updateSelectionCounter();
+        }
+    });
     closeTranscriptionModalBtn.addEventListener('click', closeTranscriptionModal);
     saveTranscriptionProgressBtn.addEventListener('click', () => handleSaveTranscription(false));
     finalizeTranscriptionBtn.addEventListener('click', () => handleSaveTranscription(true));
