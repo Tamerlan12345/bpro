@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Mermaid & Diagram Functions ---
 
-    mermaid.initialize({ startOnLoad: false, theme: 'base', fontFamily: 'inherit', flowchart: { nodeSpacing: 50, rankSpacing: 60, curve: 'linear' }, themeVariables: { primaryColor: '#FFFFFF', primaryTextColor: '#212529', primaryBorderColor: '#333333', lineColor: '#333333' } });
+    mermaid.initialize({ startOnLoad: false, theme: 'base', fontFamily: 'inherit', flowchart: { nodeSpacing: 50, rankSpacing: 60, curve: 'stepBefore' }, themeVariables: { primaryColor: '#FFFFFF', primaryTextColor: '#212529', primaryBorderColor: '#333333', lineColor: '#333333' } });
 
     async function renderDiagram(mermaidCode, container = diagramContainer, isRetry = false) {
         container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
