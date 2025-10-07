@@ -284,6 +284,22 @@ app.put('/api/departments/:id', isAuthenticated, isAdmin, async (req, res) => {
     }
 });
 
+// Admin: Delete a department
+app.delete('/api/departments/:id', isAuthenticated, isAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        // The ON DELETE CASCADE in schema.sql will handle associated chats, etc.
+        const { rowCount } = await pool.query('DELETE FROM departments WHERE id = $1', [id]);
+        if (rowCount === 0) {
+            return res.status(404).json({ error: 'Department not found' });
+        }
+        res.status(204).send(); // No content
+    } catch (error) {
+        console.error('Error deleting department:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Admin: Get completed chats
 app.get('/api/admin/chats/completed', isAuthenticated, isAdmin, async (req, res) => {
     try {
@@ -357,6 +373,22 @@ app.post('/api/chats', isAuthenticated, isAdmin, async (req, res) => {
     } catch (error) {
         console.error('Error creating chat with RPC:', error);
         return res.status(500).json({ error: error.message });
+    }
+});
+
+// Admin: Delete a chat
+app.delete('/api/chats/:id', isAuthenticated, isAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        // The ON DELETE CASCADE in schema.sql will handle associated versions, comments, etc.
+        const { rowCount } = await pool.query('DELETE FROM chats WHERE id = $1', [id]);
+        if (rowCount === 0) {
+            return res.status(404).json({ error: 'Chat not found' });
+        }
+        res.status(204).send(); // No content
+    } catch (error) {
+        console.error('Error deleting chat:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 

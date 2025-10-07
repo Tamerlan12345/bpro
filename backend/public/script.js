@@ -320,6 +320,8 @@ document.addEventListener('DOMContentLoaded', () => {
 [Чем заканчивается процесс и какие у него исходы]
 \`\`\`
 
+**ВАЖНО:** Если во входных данных присутствует секция \`### Предложения по улучшению:\`, ты ДОЛЖЕН включить ее в конец твоего ответа в неизменном виде, сохранив исходное форматирование.
+
 ### ПРАВИЛА ДЛЯ MERMAID-КОДА:
 СИНТАКСИС И СТИЛЬ:
 - **Направление:** Всегда используй 'flowchart TD'.
@@ -953,6 +955,7 @@ ${brokenCode}
             departmentList.innerHTML = departments.map(dept => `
                 <div class="department-card" data-dept-id="${dept.id}" data-dept-name="${dept.name}">
                     <span>${dept.name}</span>
+                    <button class="button-danger delete-department-btn" data-dept-id="${dept.id}" title="Удалить департамент">Удалить</button>
                 </div>`).join('');
         } catch (error) {
             departmentList.innerHTML = `<div class="error-text">Не удалось загрузить департаменты: ${error.message}</div>`;
@@ -1001,6 +1004,11 @@ ${brokenCode}
     }
 
     async function handleAdminDepartmentSelection(e) {
+        if (e.target.classList.contains('delete-department-btn')) {
+            handleDeleteDepartment(e);
+            return;
+        }
+
         const deptCard = e.target.closest('.department-card');
         if (!deptCard) return;
 
@@ -1011,6 +1019,12 @@ ${brokenCode}
         await loadChatListForAdminDepartment(deptId, deptName);
     }
 
+    function handleAdminChatListClick(e) {
+        if (e.target.classList.contains('delete-chat-btn')) {
+            handleDeleteChat(e);
+        }
+    }
+
     async function loadChatListForAdminDepartment(deptId, deptName) {
         chatListHeader.textContent = `Чаты в "${deptName}"`;
         selectedDepartmentNameSpan.textContent = deptName;
@@ -1019,7 +1033,12 @@ ${brokenCode}
         try {
             const response = await fetchWithAuth(`/api/chats?department_id=${deptId}`);
             const chats = await response.json();
-            chatList.innerHTML = chats.length > 0 ? chats.map(chat => `<div class="chat-item">${chat.name}</div>`).join('') : '<div class="placeholder-text">Нет чатов.</div>';
+            chatList.innerHTML = chats.length > 0 ? chats.map(chat => `
+                <div class="chat-item" data-chat-id="${chat.id}">
+                    <span>${chat.name}</span>
+                    <button class="button-danger delete-chat-btn" data-chat-id="${chat.id}" title="Удалить чат">Удалить</button>
+                </div>
+            `).join('') : '<div class="placeholder-text">Нет чатов.</div>';
         } catch (error) {
             chatList.innerHTML = `<div class="error-text">Не удалось загрузить чаты: ${error.message}</div>`;
         }
@@ -1076,6 +1095,52 @@ ${brokenCode}
             showNotification(`Не удалось создать чат: ${error.message}`, 'error');
         } finally {
             setButtonLoading(createChatBtn, false);
+        }
+    }
+
+    async function handleDeleteDepartment(e) {
+        const button = e.target;
+        const deptId = button.dataset.deptId;
+        const deptCard = button.closest('.department-card');
+        const deptName = deptCard.querySelector('span').textContent;
+
+        if (confirm(`Вы уверены, что хотите удалить департамент "${deptName}"? Это действие также удалит все связанные с ним чаты.`)) {
+            try {
+                await fetchWithAuth(`/api/departments/${deptId}`, { method: 'DELETE' });
+                showNotification(`Департамент "${deptName}" успешно удален.`, 'success');
+                await loadAdminDepartments();
+                if (deptCard.classList.contains('selected')) {
+                    chatList.innerHTML = '<div class="placeholder-text">Выберите департамент, чтобы увидеть чаты.</div>';
+                    chatListHeader.textContent = 'Чаты';
+                    createChatForm.style.display = 'none';
+                }
+            } catch (error) {
+                showNotification(`Ошибка удаления департамента: ${error.message}`, 'error');
+            }
+        }
+    }
+
+    async function handleDeleteChat(e) {
+        const button = e.target;
+        const chatId = button.dataset.chatId;
+        const chatItem = button.closest('.chat-item');
+        const chatName = chatItem.querySelector('span').textContent;
+        const selectedDeptCard = document.querySelector('#department-list .department-card.selected');
+        if (!selectedDeptCard) {
+            showNotification('Не удалось определить департамент для обновления списка.', 'error');
+            return;
+        }
+        const deptId = selectedDeptCard.dataset.deptId;
+        const deptName = selectedDeptCard.dataset.deptName;
+
+        if (confirm(`Вы уверены, что хотите удалить чат "${chatName}"?`)) {
+            try {
+                await fetchWithAuth(`/api/chats/${chatId}`, { method: 'DELETE' });
+                showNotification(`Чат "${chatName}" успешно удален.`, 'success');
+                await loadChatListForAdminDepartment(deptId, deptName);
+            } catch (error) {
+                showNotification(`Ошибка удаления чата: ${error.message}`, 'error');
+            }
         }
     }
 
@@ -1442,6 +1507,7 @@ ${brokenCode}
     chatLoginBtn.addEventListener('click', handleChatLogin);
     createDepartmentBtn.addEventListener('click', handleCreateDepartment);
     departmentList.addEventListener('click', handleAdminDepartmentSelection);
+    chatList.addEventListener('click', handleAdminChatListClick);
     createChatBtn.addEventListener('click', handleCreateChat);
     inReviewList.addEventListener('click', handleAdminChatSelection);
     pendingList.addEventListener('click', handleAdminChatSelection);
