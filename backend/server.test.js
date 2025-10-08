@@ -1,4 +1,3 @@
-// Set dummy environment variables before importing the server
 process.env.DATABASE_URL = 'postgresql://test:test@dummy-host:5432/test';
 process.env.SESSION_SECRET = 'dummy-secret';
 process.env.FRONTEND_URL = 'http://localhost:8080';
@@ -7,21 +6,18 @@ const request = require('supertest');
 const { when } = require('jest-when');
 const bcrypt = require('bcryptjs');
 
-// Mock external dependencies
 jest.mock('bcryptjs', () => ({
     compare: jest.fn(),
     hash: jest.fn(),
     genSalt: jest.fn(),
 }));
 
-// Mock DNS lookup
 jest.mock('dns', () => ({
     promises: {
         lookup: jest.fn().mockResolvedValue({ address: '127.0.0.1', family: 4 }),
     },
 }));
 
-// Mock the 'pg' module
 const mockQuery = jest.fn();
 const mockConnect = jest.fn().mockResolvedValue({
     release: jest.fn(),
@@ -34,19 +30,15 @@ jest.mock('pg', () => {
     return { Pool: jest.fn(() => mockPool) };
 });
 
-// Import the startServer function from the server module
 const { app, startServer } = require('./server');
 let server; // To be assigned in beforeAll
 
-// --- Test Suite Setup ---
 
 beforeAll(async () => {
-    // Mock the queries from ensureUsersExist
     when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'admin'").mockResolvedValue({ rows: [{ id: 'admin-uuid' }] });
     when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'user'").mockResolvedValue({ rows: [{ id: 'user-uuid' }] });
     when(mockQuery).calledWith(expect.stringMatching(/INSERT INTO users/)).mockResolvedValue({ rows: [] });
 
-    // Start the server and get the instance
     const serverInstance = await startServer();
     server = serverInstance.server;
 });
@@ -59,7 +51,6 @@ afterAll((done) => {
     }
 });
 
-// Clear mocks before each test
 beforeEach(() => {
     jest.clearAllMocks();
 });
