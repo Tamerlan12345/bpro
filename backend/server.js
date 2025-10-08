@@ -20,7 +20,6 @@ const multer = require('multer');
 const app = express();
 const sessionsDir = path.join(__dirname, 'sessions');
 
-// Create sessions directory if it doesn't exist
 if (!fs.existsSync(sessionsDir)) {
     fs.mkdirSync(sessionsDir);
     console.log(`Created sessions directory at: ${sessionsDir}`);
@@ -35,7 +34,6 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 
-// --- Middleware ---
 app.use(express.json());
 app.use(cors({
     origin: process.env.FRONTEND_URL,
@@ -55,7 +53,6 @@ app.use(session({
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- Authorization Middleware ---
 const isAuthenticated = (req, res, next) => {
     if (req.session.user) return next();
     res.status(401).json({ error: 'Unauthorized: You must be logged in.' });
@@ -65,7 +62,6 @@ const isAdmin = (req, res, next) => {
     res.status(403).json({ error: 'Forbidden: Administrator access required.' });
 };
 
-// --- Transcription Endpoint ---
 app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No audio file uploaded.' });
@@ -77,7 +73,6 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
     try {
         const client = new BatchClient({ apiKey: process.env.SPEECHMATICS_API_KEY });
 
-        // Create a File-like object from the buffer
         const file = new Blob([req.file.buffer], { type: req.file.mimetype });
         file.name = req.file.originalname;
 
@@ -100,8 +95,6 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
     }
 });
 
-// --- Route Definitions ---
-// (These handlers are defined now, but will only be called after the server starts and `pool` is initialized)
 app.post('/api/auth/login', async (req, res) => {
     const { name, password } = req.body;
     console.log(`Login attempt for user: ${name}`);
@@ -148,8 +141,6 @@ app.get('/api/auth/session', (req, res) => {
     }
 });
 
-// ... (All other routes follow the same pattern)
-// Admin: Get chats in review
 app.get('/api/admin/chats/in_review', isAuthenticated, isAdmin, async (req, res) => {
     try {
         const query = `
@@ -173,7 +164,6 @@ app.get('/api/admin/chats/in_review', isAuthenticated, isAdmin, async (req, res)
     }
 });
 
-// Admin: Get pending chats (draft or needs_revision)
 app.get('/api/admin/chats/pending', isAuthenticated, isAdmin, async (req, res) => {
     try {
         const query = `
@@ -197,7 +187,6 @@ app.get('/api/admin/chats/pending', isAuthenticated, isAdmin, async (req, res) =
     }
 });
 
-// Get chat status
 app.get('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     try {
@@ -210,7 +199,6 @@ app.get('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     }
 });
 
-// Admin: Get all users
 app.get('/api/users', isAuthenticated, isAdmin, async (req, res) => {
     try {
         const { rows } = await pool.query('SELECT id, name FROM users');
@@ -221,7 +209,6 @@ app.get('/api/users', isAuthenticated, isAdmin, async (req, res) => {
     }
 });
 
-// Admin: Create a new department
 app.post('/api/departments', isAuthenticated, isAdmin, async (req, res) => {
     const { name, password, user_id } = req.body;
     if (!name || !password || !user_id) {
@@ -244,7 +231,6 @@ app.post('/api/departments', isAuthenticated, isAdmin, async (req, res) => {
     }
 });
 
-// Get departments
 app.get('/api/departments', isAuthenticated, async (req, res) => {
     const { user } = req.session;
     try {
@@ -260,7 +246,6 @@ app.get('/api/departments', isAuthenticated, async (req, res) => {
     }
 });
 
-// Admin: Update a department
 app.put('/api/departments/:id', isAuthenticated, isAdmin, async (req, res) => {
     const { id } = req.params;
     const { name, password } = req.body;
@@ -284,11 +269,9 @@ app.put('/api/departments/:id', isAuthenticated, isAdmin, async (req, res) => {
     }
 });
 
-// Admin: Delete a department
 app.delete('/api/departments/:id', isAuthenticated, isAdmin, async (req, res) => {
     const { id } = req.params;
     try {
-        // The ON DELETE CASCADE in schema.sql will handle associated chats, etc.
         const { rowCount } = await pool.query('DELETE FROM departments WHERE id = $1', [id]);
         if (rowCount === 0) {
             return res.status(404).json({ error: 'Department not found' });
@@ -300,7 +283,6 @@ app.delete('/api/departments/:id', isAuthenticated, isAdmin, async (req, res) =>
     }
 });
 
-// Admin: Get completed chats
 app.get('/api/admin/chats/completed', isAuthenticated, isAdmin, async (req, res) => {
     try {
         const query = `
@@ -324,7 +306,6 @@ app.get('/api/admin/chats/completed', isAuthenticated, isAdmin, async (req, res)
     }
 });
 
-// Chat authentication
 app.post('/api/auth/chat', isAuthenticated, async (req, res) => {
     const { department_id, name, password } = req.body;
     try {
@@ -343,7 +324,6 @@ app.post('/api/auth/chat', isAuthenticated, async (req, res) => {
     }
 });
 
-// Get all chats for a department
 app.get('/api/chats', isAuthenticated, async (req, res) => {
     const { department_id } = req.query;
     const { user } = req.session;
@@ -362,7 +342,6 @@ app.get('/api/chats', isAuthenticated, async (req, res) => {
     }
 });
 
-// Create a new chat
 app.post('/api/chats', isAuthenticated, isAdmin, async (req, res) => {
     const { department_id, name, password } = req.body;
     try {
@@ -376,7 +355,6 @@ app.post('/api/chats', isAuthenticated, isAdmin, async (req, res) => {
     }
 });
 
-// Admin: Delete a chat
 app.delete('/api/chats/:id', isAuthenticated, isAdmin, async (req, res) => {
     const { id } = req.params;
     try {
@@ -392,7 +370,6 @@ app.delete('/api/chats/:id', isAuthenticated, isAdmin, async (req, res) => {
     }
 });
 
-// Get all versions for a chat
 app.get('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     try {
@@ -403,7 +380,6 @@ app.get('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
     }
 });
 
-// Create a new version for a chat
 app.post('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const { process_text, mermaid_code } = req.body;
@@ -426,7 +402,6 @@ app.get('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     }
 });
 
-// Create a new comment for a chat
 app.post('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const { text } = req.body;
@@ -439,7 +414,6 @@ app.post('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     }
 });
 
-// Get transcription data for a chat
 app.get('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     try {
@@ -454,12 +428,10 @@ app.get('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
     }
 });
 
-// Create or update transcription data for a chat
 app.post('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const { transcribed_text, final_text, status } = req.body;
 
-    // Basic validation
     if (!transcribed_text && !final_text && !status) {
         return res.status(400).json({ error: 'At least one field (transcribed_text, final_text, status) is required.' });
     }
@@ -484,7 +456,6 @@ app.post('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
     }
 });
 
-// Update chat status
 app.put('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
@@ -519,7 +490,6 @@ app.post('/api/generate', isAuthenticated, async (req, res) => {
   }
 });
 
-// --- Helper Functions ---
 const BCRYPT_SALT_ROUNDS = 10;
 async function ensureUsersExist() {
     try {
@@ -543,7 +513,6 @@ async function ensureUsersExist() {
     }
 }
 
-// --- Server Startup Function ---
 const startServer = async () => {
     try {
         if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET || !process.env.FRONTEND_URL) {
