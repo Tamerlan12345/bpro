@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const API_URL = '/api/generate';
 
-    // --- State Variables ---
     let mediaRecorder;
     let audioChunks = [];
     let audioBlob = null; // To store the final audio blob
@@ -17,9 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let chatId = null;
     let chatVersions = []; // Store versions to avoid re-fetching
 
-    // --- DOM Element Selectors ---
 
-    // Login Flow Elements
     const authWrapper = document.querySelector('.auth-wrapper');
     const loginContainer = document.getElementById('login-container');
     const userLogin = document.getElementById('user-login');
@@ -37,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatError = document.getElementById('chat-error');
     const logoutBtn = document.getElementById('logout-btn');
 
-    // Main App Elements
     const mainContainer = document.querySelector('.container');
     const chatNameHeader = document.getElementById('chat-name-header');
     const processDescriptionInput = document.getElementById('process-description');
@@ -83,7 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const completeBtn = document.getElementById('complete-btn');
     const archiveBtn = document.getElementById('archive-btn');
 
-    // Admin Panel Elements
     const adminPanel = document.getElementById('admin-panel');
     const backToAdminBtn = document.getElementById('back-to-admin-btn');
     const userForNewDepartmentSelect = document.getElementById('user-for-new-department');
@@ -105,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const pendingTab = document.getElementById('pending-tab');
     const completedTab = document.getElementById('completed-tab');
 
-    // Transcription Review Modal Elements
     const transcriptionReviewModal = document.getElementById('transcription-review-modal');
     const transcriptionTextArea = document.getElementById('transcription-text-area');
     const saveTranscriptionProgressBtn = document.getElementById('save-transcription-progress-btn');
@@ -115,7 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const finalizedTextDisplay = transcriptionReviewModal.querySelector('.finalized-text-display');
     const closeTranscriptionModalBtn = transcriptionReviewModal.querySelector('.close-btn');
 
-    // Mermaid Editor Modal Elements
     const mermaidEditorModal = document.getElementById('mermaid-editor-modal');
     const editDiagramBtn = document.getElementById('edit-diagram-btn');
     const mermaidEditorTextarea = document.getElementById('mermaid-editor-textarea');
@@ -124,10 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelMermaidEditBtn = document.getElementById('cancel-mermaid-edit-btn');
     const closeMermaidEditorBtn = mermaidEditorModal.querySelector('.close-btn');
 
-    // Notification container
     const notificationContainer = document.getElementById('notification-container');
 
-    // --- Utility Functions ---
 
     function showNotification(message, type = 'success') {
         const notification = document.createElement('div');
@@ -156,7 +147,6 @@ document.addEventListener('DOMContentLoaded', () => {
         button.innerHTML = isLoading ? `<span class="spinner"></span> ${loadingText}` : button.dataset.originalText;
     }
 
-    // --- Mermaid & Diagram Functions ---
 
     mermaid.initialize({ startOnLoad: false, theme: 'base', fontFamily: 'inherit', flowchart: { nodeSpacing: 50, rankSpacing: 60, curve: 'stepBefore' }, themeVariables: { primaryColor: '#FFFFFF', primaryTextColor: '#212529', primaryBorderColor: '#333333', lineColor: '#333333' } });
 
@@ -281,7 +271,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Gemini API Call Functions ---
 
     async function callGeminiAPI(prompt) {
         const response = await fetchWithAuth(API_URL, {
@@ -423,7 +412,6 @@ ${brokenCode}
         return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
     }
 
-    // --- Authentication and Navigation Flow ---
 
     async function handleLogout() {
         try {
@@ -596,7 +584,6 @@ ${brokenCode}
                     await loadDepartmentsForSelection();
                 }
             } else {
-                // Explicitly handle no session: show login form
                 authWrapper.style.display = 'flex';
                 mainContainer.style.display = 'none';
                 loginContainer.style.display = 'block';
@@ -607,7 +594,6 @@ ${brokenCode}
             }
         } catch (error) {
             console.log('No active session found, showing login.');
-            // On network error or 401, ensure login is visible
             authWrapper.style.display = 'flex';
             mainContainer.style.display = 'none';
             loginContainer.style.display = 'block';
@@ -618,7 +604,6 @@ ${brokenCode}
         }
     }
 
-    // --- Main Application Logic ---
 
     async function loadChatData() {
         try {
@@ -636,21 +621,17 @@ ${brokenCode}
             renderVersions(chatVersions);
             renderComments(comments);
 
-            // Handle loading of finalized transcript into its display area (Field 1)
             if (transcriptionData && transcriptionData.status === 'finalized') {
                 transcriptionDisplay.textContent = transcriptionData.final_text;
             }
 
-            // Handle loading for the editable process description (Field 2)
             if (chatVersions.length > 0) {
-                // If saved versions exist, load the latest one into Field 2
                 await displayVersion(chatVersions[0]);
             } else if (transcriptionData && transcriptionData.status === 'finalized') {
                 // Otherwise, if no versions exist but a transcript does, use it as the initial value for Field 2
                 processDescriptionInput.value = transcriptionData.final_text;
                 updateStepCounter();
             } else {
-                // Otherwise, ensure Field 2 is empty
                 await displayVersion(null);
             }
 
@@ -762,7 +743,6 @@ ${brokenCode}
         if (!button) return;
         setButtonLoading(button, true, 'Обновление...');
         try {
-            // We save the version before updating the status
             await handleSaveRawVersion();
 
             await fetchWithAuth(`/api/chats/${chatId}/status`, {
@@ -848,7 +828,6 @@ ${brokenCode}
         return `<span class="status-indicator" style="background-color: ${statusInfo.color};"></span> ${statusInfo.text}`;
     }
 
-    // --- Transcription Modal Logic ---
     function openTranscriptionModal() {
         transcriptionReviewModal.style.display = 'block';
     }
@@ -908,11 +887,9 @@ ${brokenCode}
         }
     }
 
-    // --- Admin Panel Logic ---
 
     async function loadAdminPanel() {
         try {
-            // Load users for the dropdown, but only show 'user' and select it.
             const usersResponse = await fetchWithAuth('/api/users');
             const users = await usersResponse.json();
             const regularUser = users.find(user => user.name === 'user');
@@ -920,15 +897,12 @@ ${brokenCode}
             if (regularUser) {
                 userForNewDepartmentSelect.innerHTML = `<option value="${regularUser.id}" selected>${regularUser.name}</option>`;
             } else {
-                // Fallback if 'user' is not found, although it should always exist based on server.js
                 userForNewDepartmentSelect.innerHTML = '<option value="">Пользователь "user" не найден</option>';
                 console.error('Default user "user" not found in the database.');
             }
 
-            // Load departments list
             await loadAdminDepartments();
 
-            // Load chat lists for review/pending/completed
             const [inReviewResponse, completedResponse, pendingResponse] = await Promise.all([
                 fetchWithAuth('/api/admin/chats/in_review'),
                 fetchWithAuth('/api/admin/chats/completed'),
@@ -1180,7 +1154,6 @@ ${brokenCode}
         }
     }
 
-    // --- Audio Recording Logic ---
     function resetAudioState() {
         audioBlob = null;
         audioChunks = [];
@@ -1278,7 +1251,6 @@ ${brokenCode}
         listenBtn.disabled = true;
         rerecordBtn.disabled = true;
 
-        // Start animation timer
         let secondsProcessing = 0;
         transcriptionTimer.textContent = `(0s)`;
         transcriptionTimer.style.display = 'inline';
@@ -1337,7 +1309,6 @@ ${brokenCode}
     }
 
 
-    // --- Other Handlers ---
     function updateStepCounter() {
         if (!processDescriptionInput) return;
         const lines = processDescriptionInput.value.split('\n').filter(line => line.trim() !== '');
@@ -1361,7 +1332,6 @@ ${brokenCode}
   }
 ]`;
         const responseText = await callGeminiAPI(prompt);
-        // Clean up the response to extract only the JSON part
         const jsonMatch = responseText.match(/\[[\s\S]*\]/);
         if (!jsonMatch) {
             console.error("Invalid response from AI, no JSON array found. Raw response:", responseText);
@@ -1483,7 +1453,6 @@ ${brokenCode}
         }
     }
 
-    // --- Initial Event Listeners ---
     improveBtn.addEventListener('click', handleImproveProcess);
     selectAllCheckbox.addEventListener('click', handleSelectAllSuggestions);
     applyImprovementsBtn.addEventListener('click', handleApplyImprovements);
@@ -1525,13 +1494,11 @@ ${brokenCode}
     downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
     downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
 
-    // Diagram listeners
     renderDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
     regenerateDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
     zoomInBtn.addEventListener('click', () => zoomDiagram(1.1));
     zoomOutBtn.addEventListener('click', () => zoomDiagram(0.9));
 
-    // Mermaid Editor listeners
     editDiagramBtn.addEventListener('click', openMermaidEditor);
     closeMermaidEditorBtn.addEventListener('click', closeMermaidEditor);
     cancelMermaidEditBtn.addEventListener('click', closeMermaidEditor);
@@ -1539,6 +1506,5 @@ ${brokenCode}
     mermaidEditorTextarea.addEventListener('input', handleMermaidEditorInput);
 
 
-    // --- Initial Load ---
     checkSession();
 });
