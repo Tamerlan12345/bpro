@@ -357,21 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             try {
                 // Parse the extracted JSON string.
-                const parsed = JSON.parse(jsonMatch[0]);
-                if (parsed.mermaidCode) {
-                    const startIndex = parsed.mermaidCode.indexOf('flowchart TD');
-                    if (startIndex !== -1) {
-                        const nextStartIndex = parsed.mermaidCode.indexOf('flowchart TD', startIndex + 1);
-                        if (nextStartIndex !== -1) {
-                            // If a second flowchart is found, substring to just before it
-                            parsed.mermaidCode = parsed.mermaidCode.substring(startIndex, nextStartIndex).trim();
-                        } else {
-                            // If no second flowchart, the rest of the string is the diagram
-                            parsed.mermaidCode = parsed.mermaidCode.substring(startIndex).trim();
-                        }
-                    }
-                }
-                return parsed;
+                return JSON.parse(jsonMatch[0]);
             } catch (error) {
                 console.error("Failed to parse JSON from AI response. Raw JSON string:", jsonMatch[0], "Error:", error);
                 throw new Error("Ошибка парсинга JSON ответа от AI.");
@@ -399,19 +385,7 @@ ${brokenCode}
 6.  Нет лишних символов или опечаток.
 
 Ответ должен содержать ТОЛЬКО ИСПРАВЛЕННЫЙ код Mermaid.js, без объяснений и markdown.`;
-        return callGeminiAPI(prompt).then(code => {
-            let mermaidCode = code.replace(/```mermaid/g, '').replace(/```/g, '').trim();
-            const startIndex = mermaidCode.indexOf('flowchart TD');
-            if (startIndex !== -1) {
-                const nextStartIndex = mermaidCode.indexOf('flowchart TD', startIndex + 1);
-                if (nextStartIndex !== -1) {
-                    mermaidCode = mermaidCode.substring(startIndex, nextStartIndex).trim();
-                } else {
-                    mermaidCode = mermaidCode.substring(startIndex).trim();
-                }
-            }
-            return mermaidCode;
-        });
+        return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
     }
 
     async function generateDiagramFromText(processDescription) {
@@ -431,19 +405,7 @@ ${brokenCode}
 
 ИСХОДНЫЙ ПРОЦЕСС ОТ ПОЛЬЗОВАТЕЛЯ:
 "${processDescription}"`;
-        return callGeminiAPI(prompt).then(code => {
-            let mermaidCode = code.replace(/```mermaid/g, '').replace(/```/g, '').trim();
-            const startIndex = mermaidCode.indexOf('flowchart TD');
-            if (startIndex !== -1) {
-                const nextStartIndex = mermaidCode.indexOf('flowchart TD', startIndex + 1);
-                if (nextStartIndex !== -1) {
-                    mermaidCode = mermaidCode.substring(startIndex, nextStartIndex).trim();
-                } else {
-                    mermaidCode = mermaidCode.substring(startIndex).trim();
-                }
-            }
-            return mermaidCode;
-        });
+        return callGeminiAPI(prompt).then(code => code.replace(/```mermaid/g, '').replace(/```/g, '').trim());
     }
 
 
