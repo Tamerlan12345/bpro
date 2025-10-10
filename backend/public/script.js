@@ -71,7 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomOutBtn = document.getElementById('zoom-out-btn');
     const downloadPngBtn = document.getElementById('download-png-btn');
     const downloadSvgBtn = document.getElementById('download-svg-btn');
-    const downloadVsdxBtn = document.getElementById('download-vsdx-btn');
     const resultsBlock = document.querySelector('.results-block');
     const actionButtons = document.getElementById('action-buttons');
     const saveVersionBtn = document.getElementById('save-version-btn');
@@ -1551,11 +1550,6 @@ ${brokenCode}
     versionHistoryContainer.addEventListener('click', async (e) => { if (e.target.tagName === 'BUTTON') { const versionId = e.target.parentElement.dataset.versionId; const selectedVersion = chatVersions.find(v => v.id == versionId); if (selectedVersion) await displayVersion(selectedVersion); } });
     downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
     downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
-    downloadVsdxBtn.addEventListener('click', () => {
-        // Временное решение: скачиваем SVG и даем инструкцию
-        alert("Экспорт в VSDX требует серверной конвертации. Сейчас будет скачан SVG-файл, который вы можете вручную импортировать в Visio (Вставка -> Рисунок).");
-        downloadDiagram('svg');
-    });
 
     renderDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
     regenerateDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
