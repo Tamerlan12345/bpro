@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let mediaRecorder;
     let audioChunks = [];
     let audioBlob = null; // To store the final audio blob
+    let uploadedAudioFile = null; // To store the uploaded audio file
     let rerecordCount = 0; // To count re-record attempts
     let suggestions = [];
     let currentDiagramScale = 1;
@@ -78,6 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendRevisionBtn = document.getElementById('send-revision-btn');
     const completeBtn = document.getElementById('complete-btn');
     const archiveBtn = document.getElementById('archive-btn');
+    const uploadAudioBtn = document.getElementById('upload-audio-btn');
+    const audioFileInput = document.getElementById('audio-file-input');
+    const processUploadBtn = document.getElementById('process-upload-btn');
+    const fileNameDisplay = document.getElementById('file-name-display');
 
     const adminPanel = document.getElementById('admin-panel');
     const backToAdminBtn = document.getElementById('back-to-admin-btn');
@@ -1294,6 +1299,54 @@ ${brokenCode}
         }
     };
 
+    const handleProcessUploadedAudio = async () => {
+        if (!uploadedAudioFile) {
+            showNotification('Файл не выбран.', 'error');
+            return;
+        }
+
+        setButtonLoading(processUploadBtn, true, 'Обработка...');
+
+        let secondsProcessing = 0;
+        transcriptionTimer.textContent = `(0s)`;
+        transcriptionTimer.style.display = 'inline';
+        transcriptionTimerInterval = setInterval(() => {
+            secondsProcessing++;
+            transcriptionTimer.textContent = `(${secondsProcessing}s)`;
+        }, 1000);
+
+        const formData = new FormData();
+        formData.append('audio', uploadedAudioFile, uploadedAudioFile.name);
+
+        try {
+            const response = await fetchWithAuth('/api/transcribe', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                showNotification('Транскрибация успешно завершена.', 'success');
+                transcriptionDisplay.textContent = data.transcript;
+                processDescriptionInput.value = data.transcript;
+                updateStepCounter();
+                processUploadBtn.style.display = 'none'; // Hide after use
+                fileNameDisplay.textContent = ''; // Clear file name
+                uploadedAudioFile = null; // Reset file
+                uploadAudioBtn.style.display = 'inline-block';
+            } else {
+                throw new Error(data.error || 'Неизвестная ошибка сервера');
+            }
+        } catch (error) {
+            console.error('Upload transcription error:', error);
+            showNotification(`Ошибка транскрибации: ${error.message}`, 'error');
+        } finally {
+            clearInterval(transcriptionTimerInterval);
+            transcriptionTimer.style.display = 'none';
+            setButtonLoading(processUploadBtn, false, 'Обработать файл');
+        }
+    };
+
     async function initiateTranscriptionReview(rawText) {
         try {
             const response = await fetchWithAuth(`/api/chats/${chatId}/transcription`, {
@@ -1470,6 +1523,19 @@ ${brokenCode}
     listenBtn.addEventListener('click', () => audioPlayback.play());
     rerecordBtn.addEventListener('click', handleRerecord);
     processBtn.addEventListener('click', handleProcessAudio);
+
+    uploadAudioBtn.addEventListener('click', () => audioFileInput.click());
+    audioFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            uploadedAudioFile = file;
+            fileNameDisplay.textContent = file.name;
+            uploadAudioBtn.style.display = 'none';
+            processUploadBtn.style.display = 'inline-block';
+        }
+    });
+    processUploadBtn.addEventListener('click', handleProcessUploadedAudio);
+
     userLoginBtn.addEventListener('click', handleUserLogin);
     logoutBtn.addEventListener('click', handleLogout);
     departmentSelectionContainer.addEventListener('click', handleDepartmentCardSelection);

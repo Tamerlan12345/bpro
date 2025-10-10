@@ -136,6 +136,12 @@
                         <span id="recording-indicator" style="display: none;">🔴 Идет запись... <span id="recording-timer">00:00</span></span>
                         <span id="transcription-timer" style="display: none; margin-left: 10px; font-style: italic; color: #555;"></span>
                         <audio id="audio-playback" controls class="audio-playback"></audio>
+                        <div class="upload-group" style="margin-top: 10px;">
+                            <input type="file" id="audio-file-input" accept="audio/*" style="display: none;">
+                            <button id="upload-audio-btn" class="button-secondary">📤 Загрузить аудиофайл</button>
+                            <button id="process-upload-btn" class="button-primary" style="display: none;">Обработать файл</button>
+                            <span id="file-name-display" style="margin-left: 10px;"></span>
+                        </div>
                     </div>
 
                     <div id="transcription-display" class="transcription-display-area"></div>
