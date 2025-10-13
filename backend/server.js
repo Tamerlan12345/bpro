@@ -14,8 +14,6 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const WebSocket = require('ws');
-const { BatchClient } = require('@speechmatics/batch-client');
-const multer = require('multer');
 
 const app = express();
 const sessionsDir = path.join(__dirname, 'sessions');
@@ -28,11 +26,6 @@ app.set('trust proxy', 1); // Trust the first proxy
 const PORT = process.env.PORT || 3000;
 
 let pool;
-
-// --- Multer Setup for audio upload ---
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
-
 
 app.use(express.json());
 app.use(cors({
@@ -61,39 +54,6 @@ const isAdmin = (req, res, next) => {
     if (req.session.user && req.session.user.role === 'admin') return next();
     res.status(403).json({ error: 'Forbidden: Administrator access required.' });
 };
-
-app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No audio file uploaded.' });
-    }
-    if (!process.env.SPEECHMATICS_API_KEY) {
-        return res.status(500).json({ error: 'Transcription service is not configured.' });
-    }
-
-    try {
-        const client = new BatchClient({ apiKey: process.env.SPEECHMATICS_API_KEY });
-
-        const file = new Blob([req.file.buffer], { type: req.file.mimetype });
-        file.name = req.file.originalname;
-
-        const response = await client.transcribe(
-            file,
-            {
-                transcription_config: {
-                    language: 'ru',
-                },
-            },
-            'json-v2',
-        );
-
-        const fullTranscript = response.results.map((r) => r.alternatives?.[0].content).join(' ');
-        res.json({ transcript: fullTranscript });
-
-    } catch (error) {
-        console.error('Speechmatics transcription error:', error);
-        res.status(500).json({ error: 'Failed to transcribe audio.' });
-    }
-});
 
 app.post('/api/auth/login', async (req, res) => {
     const { name, password } = req.body;
@@ -411,48 +371,6 @@ app.post('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
         res.status(201).json(rows[0]);
     } catch (error) {
         res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const { rows } = await pool.query('SELECT * FROM transcription_data WHERE chat_id = $1', [id]);
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'Transcription data not found for this chat.' });
-        }
-        res.json(rows[0]);
-    } catch (error) {
-        console.error(`Error fetching transcription data for chat ${id}:`, error);
-        res.status(500).json({ error: 'Failed to retrieve transcription data.' });
-    }
-});
-
-app.post('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
-    const { id } = req.params;
-    const { transcribed_text, final_text, status } = req.body;
-
-    if (!transcribed_text && !final_text && !status) {
-        return res.status(400).json({ error: 'At least one field (transcribed_text, final_text, status) is required.' });
-    }
-
-    try {
-        const query = `
-            INSERT INTO transcription_data (chat_id, transcribed_text, final_text, status, updated_at)
-            VALUES ($1, $2, $3, $4, NOW())
-            ON CONFLICT (chat_id)
-            DO UPDATE SET
-                transcribed_text = COALESCE($2, transcription_data.transcribed_text),
-                final_text = COALESCE($3, transcription_data.final_text),
-                status = COALESCE($4, transcription_data.status),
-                updated_at = NOW()
-            RETURNING *;
-        `;
-        const { rows } = await pool.query(query, [id, transcribed_text, final_text, status]);
-        res.status(201).json(rows[0]);
-    } catch (error) {
-        console.error(`Error creating/updating transcription data for chat ${id}:`, error);
-        res.status(500).json({ error: 'Failed to save transcription data.' });
     }
 });
 

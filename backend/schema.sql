@@ -1,5 +1,4 @@
 
-DROP TABLE IF EXISTS transcription_data CASCADE;
 DROP TABLE IF EXISTS chat_statuses CASCADE;
 DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS process_versions CASCADE;
@@ -8,7 +7,6 @@ DROP TABLE IF EXISTS departments CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
 
-DROP TYPE IF EXISTS transcription_status CASCADE;
 DROP TYPE IF EXISTS author_role CASCADE;
 DROP TYPE IF EXISTS chat_status CASCADE;
 DROP FUNCTION IF EXISTS create_chat_with_status(UUID, TEXT, TEXT) CASCADE;
@@ -51,8 +49,6 @@ CREATE TABLE process_versions (
 
 CREATE TYPE author_role AS ENUM ('user', 'admin');
 CREATE TYPE chat_status AS ENUM ('draft', 'pending_review', 'needs_revision', 'completed', 'archived');
-CREATE TYPE transcription_status AS ENUM ('pending_review', 'finalized');
-
 
 CREATE TABLE comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -67,18 +63,6 @@ CREATE TABLE chat_statuses (
     chat_id UUID PRIMARY KEY REFERENCES chats(id) ON DELETE CASCADE,
     status chat_status DEFAULT 'draft'
 );
-
-
-CREATE TABLE transcription_data (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    chat_id UUID UNIQUE REFERENCES chats(id) ON DELETE CASCADE, -- Assuming one transcription per chat
-    transcribed_text TEXT,
-    final_text TEXT,
-    status transcription_status DEFAULT 'pending_review',
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
-);
-
 
 CREATE OR REPLACE FUNCTION create_chat_with_status(
     department_id_arg UUID,
