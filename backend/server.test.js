@@ -6,12 +6,12 @@ const request = require('supertest');
 const { when } = require('jest-when');
 const bcrypt = require('bcryptjs');
 
-// Valid UUIDs for testing
-const ADMIN_ID = '123e4567-e89b-12d3-a456-426614174001';
-const USER_ID = '123e4567-e89b-12d3-a456-426614174002';
-const DEPT_ID = '123e4567-e89b-12d3-a456-426614174003';
-const CHAT_ID_1 = '123e4567-e89b-12d3-a456-426614174004';
-const CHAT_ID_2 = '123e4567-e89b-12d3-a456-426614174005';
+// IDs updated to strings representing integers (or just strings, but typical for serial)
+const ADMIN_ID = 1;
+const USER_ID = 2;
+const DEPT_ID = 100;
+const CHAT_ID_1 = 200;
+const CHAT_ID_2 = 201;
 
 
 jest.mock('bcryptjs', () => ({
@@ -60,7 +60,7 @@ beforeEach(() => {
 describe('API Security and Authorization', () => {
     describe('Admin-only routes', () => {
         const adminRoute = '/api/departments';
-        const payload = { name: 'New Test Dept', password: 'password123', user_id: USER_ID };
+        const payload = { name: 'New Test Dept', password: 'password123', user_id: String(USER_ID) };
 
         it('should return 401 Unauthorized if the user is not logged in', async () => {
             const response = await request(app).post(adminRoute).send(payload);

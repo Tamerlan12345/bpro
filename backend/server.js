@@ -18,9 +18,6 @@ const multer = require('multer');
 const { z } = require('zod');
 
 const app = express();
-// session directory is no longer needed with pg-session, but keeping it if needed for other things or removing it?
-// User said: "Remove session-file-store". "Ensure permissions on folder sessions (if it remains needed) or uploads allow write to user node".
-// I will create uploads dir here.
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir);
@@ -106,18 +103,22 @@ const isAdmin = (req, res, next) => {
 const departmentSchema = z.object({
     name: z.string().min(1),
     password: z.string().min(1),
-    user_id: z.string().uuid(),
+    user_id: z.string().regex(/^\d+$/, "Must be a numeric string").or(z.number()).transform(val => String(val)),
+    // Adjusted user_id validation: server.js uses integer IDs (Serial), but frontend sends string from <select value="...">.
+    // Zod schema in previous iteration expected uuid.
+    // If I use Serial, it should be number or numeric string.
+    // I'll make it flexible.
 });
 
 const chatSchema = z.object({
-    department_id: z.string().uuid(),
+    department_id: z.string().regex(/^\d+$/, "Must be a numeric string").or(z.number()).transform(val => String(val)),
     name: z.string().min(1),
     password: z.string().min(1),
 });
 
 const validateBody = (schema) => (req, res, next) => {
     try {
-        req.body = schema.parse(req.body); // Strip unknown keys? By default zod doesn't unless strict() is used, but parse returns the object.
+        req.body = schema.parse(req.body);
         next();
     } catch (error) {
         if (error instanceof z.ZodError) {
@@ -132,7 +133,6 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
         return res.status(400).json({ error: 'No audio file uploaded.' });
     }
     if (!process.env.SPEECHMATICS_API_KEY) {
-        // Clean up file if key is missing
         fs.unlink(req.file.path, (err) => {
             if (err) console.error('Error deleting file:', err);
         });
@@ -141,27 +141,7 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
 
     try {
         const client = new BatchClient({ apiKey: process.env.SPEECHMATICS_API_KEY });
-
-        // Read file stream
         const fileStream = fs.createReadStream(req.file.path);
-
-        // BatchClient.transcribe accepts a Blob, Buffer, or Stream (depending on implementation, but typically expects a File-like object or Blob in browser, or Buffer/Stream in node).
-        // Checking Speechmatics SDK documentation or usage.
-        // The original code used `new Blob([req.file.buffer])`.
-        // If we use stream, we might need to pass it differently or just pass the stream if supported.
-        // However, `BatchClient` from `@speechmatics/batch-client` might expect a Blob or File.
-        // In Node environment, `Blob` is available in newer Node versions.
-        // But we want to avoid loading the whole file into memory.
-        // If the library requires a Blob, we are forced to load it into memory unless it supports streams.
-        // Let's assume for this task we should use stream if possible.
-        // "read stream (stream) from temporary file to send to Speechmatics".
-
-        // If the library supports stream, we pass it.
-        // `client.transcribe` signature: (input: InputFile, jobConfig: JobConfig, format?: TranscriptionFormat)
-        // InputFile = Blob | Buffer | ReadableStream | ...
-
-        // If it supports stream, we can pass `fileStream`.
-        // Note: The previous code set `file.name`. We might need to handle that.
 
         const response = await client.transcribe(
             fileStream,
@@ -175,7 +155,6 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
 
         const fullTranscript = response.results.map((r) => r.alternatives?.[0].content).join(' ');
 
-        // Delete file after success
         fs.unlink(req.file.path, (err) => {
             if (err) console.error('Error deleting file:', err);
         });
@@ -184,7 +163,6 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
 
     } catch (error) {
         console.error('Speechmatics transcription error:', error);
-        // Delete file after failure
         if (req.file && req.file.path) {
             fs.unlink(req.file.path, (err) => {
                 if (err) console.error('Error deleting file:', err);
@@ -310,7 +288,6 @@ app.get('/api/users', isAuthenticated, isAdmin, async (req, res) => {
 
 app.post('/api/departments', isAuthenticated, isAdmin, validateBody(departmentSchema), async (req, res) => {
     const { name, password, user_id } = req.body;
-    // Validation is now handled by middleware
     try {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
@@ -455,7 +432,6 @@ app.post('/api/chats', isAuthenticated, isAdmin, validateBody(chatSchema), async
 app.delete('/api/chats/:id', isAuthenticated, isAdmin, async (req, res) => {
     const { id } = req.params;
     try {
-        // The ON DELETE CASCADE in schema.sql will handle associated versions, comments, etc.
         const { rowCount } = await pool.query('DELETE FROM chats WHERE id = $1', [id]);
         if (rowCount === 0) {
             return res.status(404).json({ error: 'Chat not found' });
@@ -616,12 +592,6 @@ const startServer = async () => {
         }
 
         console.log('Initializing database connection...');
-        // Pool is already initialized at top level if DATABASE_URL was present.
-        // If it wasn't present, we might want to init it here, but the check above ensures it is set.
-        // However, if it wasn't set at top level, pool is undefined.
-        // We should handle that case or ensure top level init works.
-        // Since we check process.env.DATABASE_URL here, if it was missing at top level, it will be missing here too (unless set in between, which is unlikely for env vars).
-        // But let's be safe and init if missing.
         if (!pool) {
              const config = parse(process.env.DATABASE_URL);
              pool = new Pool({
