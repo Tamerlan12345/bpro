@@ -12,12 +12,6 @@ jest.mock('bcryptjs', () => ({
     genSalt: jest.fn(),
 }));
 
-jest.mock('dns', () => ({
-    promises: {
-        lookup: jest.fn().mockResolvedValue({ address: '127.0.0.1', family: 4 }),
-    },
-}));
-
 const mockQuery = jest.fn();
 const mockConnect = jest.fn().mockResolvedValue({
     release: jest.fn(),
