@@ -6,6 +6,14 @@ const request = require('supertest');
 const { when } = require('jest-when');
 const bcrypt = require('bcryptjs');
 
+// Valid UUIDs for testing
+const ADMIN_ID = '123e4567-e89b-12d3-a456-426614174001';
+const USER_ID = '123e4567-e89b-12d3-a456-426614174002';
+const DEPT_ID = '123e4567-e89b-12d3-a456-426614174003';
+const CHAT_ID_1 = '123e4567-e89b-12d3-a456-426614174004';
+const CHAT_ID_2 = '123e4567-e89b-12d3-a456-426614174005';
+
+
 jest.mock('bcryptjs', () => ({
     compare: jest.fn(),
     hash: jest.fn(),
@@ -29,8 +37,8 @@ let server; // To be assigned in beforeAll
 
 
 beforeAll(async () => {
-    when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'admin'").mockResolvedValue({ rows: [{ id: 'admin-uuid' }] });
-    when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'user'").mockResolvedValue({ rows: [{ id: 'user-uuid' }] });
+    when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'admin'").mockResolvedValue({ rows: [{ id: ADMIN_ID }] });
+    when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'user'").mockResolvedValue({ rows: [{ id: USER_ID }] });
     when(mockQuery).calledWith(expect.stringMatching(/INSERT INTO users/)).mockResolvedValue({ rows: [] });
 
     const serverInstance = await startServer();
@@ -52,7 +60,7 @@ beforeEach(() => {
 describe('API Security and Authorization', () => {
     describe('Admin-only routes', () => {
         const adminRoute = '/api/departments';
-        const payload = { name: 'New Test Dept', password: 'password123', user_id: 'a-user-uuid' };
+        const payload = { name: 'New Test Dept', password: 'password123', user_id: USER_ID };
 
         it('should return 401 Unauthorized if the user is not logged in', async () => {
             const response = await request(app).post(adminRoute).send(payload);
@@ -62,7 +70,7 @@ describe('API Security and Authorization', () => {
 
         it('should return 403 Forbidden if the user is logged in but not an admin', async () => {
             const agent = request.agent(app);
-            const regularUser = { id: 'a-user-uuid', name: 'user', hashed_password: 'user_hash', role: 'user' };
+            const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
 
             when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
             mockQuery.mockResolvedValueOnce({ rows: [regularUser] });
@@ -79,8 +87,8 @@ describe('API Security and Authorization', () => {
 
         it('should return 201 Created if the user is an admin', async () => {
             const agent = request.agent(app);
-            const adminUser = { id: 'admin-uuid', name: 'admin', hashed_password: 'admin_hash', role: 'admin' };
-            const newDept = { id: 99, ...payload };
+            const adminUser = { id: ADMIN_ID, name: 'admin', hashed_password: 'admin_hash', role: 'admin' };
+            const newDept = { id: DEPT_ID, ...payload };
 
             when(bcrypt.compare).calledWith('adminpass', adminUser.hashed_password).mockResolvedValue(true);
             mockQuery.mockResolvedValueOnce({ rows: [adminUser] });
@@ -105,7 +113,7 @@ describe('GET /api/admin/chats/pending', () => {
 
     beforeEach(async () => {
         agent = request.agent(app);
-        const adminUser = { id: 'admin-uuid', name: 'admin', hashed_password: 'admin_hash', role: 'admin' };
+        const adminUser = { id: ADMIN_ID, name: 'admin', hashed_password: 'admin_hash', role: 'admin' };
 
         when(bcrypt.compare).calledWith('adminpass', adminUser.hashed_password).mockResolvedValue(true);
         mockQuery.mockResolvedValueOnce({ rows: [adminUser] });
@@ -118,8 +126,8 @@ describe('GET /api/admin/chats/pending', () => {
 
     it('should return pending chats for an admin user', async () => {
         const mockPendingChats = [
-            { chat_id: 101, name: 'Chat 1', status: 'draft', department_name: 'Dept A' },
-            { chat_id: 102, name: 'Chat 2', status: 'needs_revision', department_name: 'Dept B' }
+            { chat_id: CHAT_ID_1, name: 'Chat 1', status: 'draft', department_name: 'Dept A' },
+            { chat_id: CHAT_ID_2, name: 'Chat 2', status: 'needs_revision', department_name: 'Dept B' }
         ];
         mockQuery.mockResolvedValueOnce({ rows: mockPendingChats });
 

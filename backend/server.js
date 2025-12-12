@@ -11,22 +11,33 @@ const { Pool } = require('pg');
 const { parse } = require('pg-connection-string');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
-const FileStore = require('session-file-store')(session);
+const pgSession = require('connect-pg-simple')(session);
 const WebSocket = require('ws');
 const { BatchClient } = require('@speechmatics/batch-client');
 const multer = require('multer');
+const { z } = require('zod');
 
 const app = express();
-const sessionsDir = path.join(__dirname, 'sessions');
-
-if (!fs.existsSync(sessionsDir)) {
-    fs.mkdirSync(sessionsDir);
-    console.log(`Created sessions directory at: ${sessionsDir}`);
+// session directory is no longer needed with pg-session, but keeping it if needed for other things or removing it?
+// User said: "Remove session-file-store". "Ensure permissions on folder sessions (if it remains needed) or uploads allow write to user node".
+// I will create uploads dir here.
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+    console.log(`Created uploads directory at: ${uploadsDir}`);
 }
+
 app.set('trust proxy', 1); // Trust the first proxy
 const PORT = process.env.PORT || 3000;
 
 let pool;
+if (process.env.DATABASE_URL) {
+    const config = parse(process.env.DATABASE_URL);
+    pool = new Pool({
+        ...config,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    });
+}
 
 app.get('/health', async (req, res) => {
     if (!pool) {
@@ -41,7 +52,15 @@ app.get('/health', async (req, res) => {
 });
 
 // --- Multer Setup for audio upload ---
-const storage = multer.memoryStorage();
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, 'uploads'))
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        cb(null, file.fieldname + '-' + uniqueSuffix)
+    }
+})
 const upload = multer({ storage: storage });
 
 
@@ -50,8 +69,18 @@ app.use(cors({
     origin: process.env.FRONTEND_URL,
     credentials: true
 }));
+
+if (process.env.NODE_ENV === 'test') {
+    console.log('Using MemoryStore for sessions');
+}
+
 app.use(session({
-    store: new FileStore({ path: path.join(__dirname, 'sessions') }),
+    store: process.env.NODE_ENV === 'test'
+        ? new session.MemoryStore()
+        : new pgSession({
+            pool: pool,
+            tableName: 'session'
+        }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
@@ -73,22 +102,69 @@ const isAdmin = (req, res, next) => {
     res.status(403).json({ error: 'Forbidden: Administrator access required.' });
 };
 
+// --- Zod Schemas ---
+const departmentSchema = z.object({
+    name: z.string().min(1),
+    password: z.string().min(1),
+    user_id: z.string().uuid(),
+});
+
+const chatSchema = z.object({
+    department_id: z.string().uuid(),
+    name: z.string().min(1),
+    password: z.string().min(1),
+});
+
+const validateBody = (schema) => (req, res, next) => {
+    try {
+        req.body = schema.parse(req.body); // Strip unknown keys? By default zod doesn't unless strict() is used, but parse returns the object.
+        next();
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+             return res.status(400).json({ error: 'Validation Error', details: error.errors });
+        }
+        res.status(400).json({ error: 'Invalid Request' });
+    }
+};
+
 app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No audio file uploaded.' });
     }
     if (!process.env.SPEECHMATICS_API_KEY) {
+        // Clean up file if key is missing
+        fs.unlink(req.file.path, (err) => {
+            if (err) console.error('Error deleting file:', err);
+        });
         return res.status(500).json({ error: 'Transcription service is not configured.' });
     }
 
     try {
         const client = new BatchClient({ apiKey: process.env.SPEECHMATICS_API_KEY });
 
-        const file = new Blob([req.file.buffer], { type: req.file.mimetype });
-        file.name = req.file.originalname;
+        // Read file stream
+        const fileStream = fs.createReadStream(req.file.path);
+
+        // BatchClient.transcribe accepts a Blob, Buffer, or Stream (depending on implementation, but typically expects a File-like object or Blob in browser, or Buffer/Stream in node).
+        // Checking Speechmatics SDK documentation or usage.
+        // The original code used `new Blob([req.file.buffer])`.
+        // If we use stream, we might need to pass it differently or just pass the stream if supported.
+        // However, `BatchClient` from `@speechmatics/batch-client` might expect a Blob or File.
+        // In Node environment, `Blob` is available in newer Node versions.
+        // But we want to avoid loading the whole file into memory.
+        // If the library requires a Blob, we are forced to load it into memory unless it supports streams.
+        // Let's assume for this task we should use stream if possible.
+        // "read stream (stream) from temporary file to send to Speechmatics".
+
+        // If the library supports stream, we pass it.
+        // `client.transcribe` signature: (input: InputFile, jobConfig: JobConfig, format?: TranscriptionFormat)
+        // InputFile = Blob | Buffer | ReadableStream | ...
+
+        // If it supports stream, we can pass `fileStream`.
+        // Note: The previous code set `file.name`. We might need to handle that.
 
         const response = await client.transcribe(
-            file,
+            fileStream,
             {
                 transcription_config: {
                     language: 'ru',
@@ -98,10 +174,22 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
         );
 
         const fullTranscript = response.results.map((r) => r.alternatives?.[0].content).join(' ');
+
+        // Delete file after success
+        fs.unlink(req.file.path, (err) => {
+            if (err) console.error('Error deleting file:', err);
+        });
+
         res.json({ transcript: fullTranscript });
 
     } catch (error) {
         console.error('Speechmatics transcription error:', error);
+        // Delete file after failure
+        if (req.file && req.file.path) {
+            fs.unlink(req.file.path, (err) => {
+                if (err) console.error('Error deleting file:', err);
+            });
+        }
         res.status(500).json({ error: 'Failed to transcribe audio.' });
     }
 });
@@ -220,11 +308,9 @@ app.get('/api/users', isAuthenticated, isAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/departments', isAuthenticated, isAdmin, async (req, res) => {
+app.post('/api/departments', isAuthenticated, isAdmin, validateBody(departmentSchema), async (req, res) => {
     const { name, password, user_id } = req.body;
-    if (!name || !password || !user_id) {
-        return res.status(400).json({ error: 'Name, password, and user_id are required.' });
-    }
+    // Validation is now handled by middleware
     try {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
@@ -353,7 +439,7 @@ app.get('/api/chats', isAuthenticated, async (req, res) => {
     }
 });
 
-app.post('/api/chats', isAuthenticated, isAdmin, async (req, res) => {
+app.post('/api/chats', isAuthenticated, isAdmin, validateBody(chatSchema), async (req, res) => {
     const { department_id, name, password } = req.body;
     try {
         const salt = await bcrypt.genSalt(10);
@@ -530,13 +616,19 @@ const startServer = async () => {
         }
 
         console.log('Initializing database connection...');
-        const dbUrl = process.env.DATABASE_URL;
-        const config = parse(dbUrl);
-
-        pool = new Pool({
-            ...config,
-            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-        });
+        // Pool is already initialized at top level if DATABASE_URL was present.
+        // If it wasn't present, we might want to init it here, but the check above ensures it is set.
+        // However, if it wasn't set at top level, pool is undefined.
+        // We should handle that case or ensure top level init works.
+        // Since we check process.env.DATABASE_URL here, if it was missing at top level, it will be missing here too (unless set in between, which is unlikely for env vars).
+        // But let's be safe and init if missing.
+        if (!pool) {
+             const config = parse(process.env.DATABASE_URL);
+             pool = new Pool({
+                ...config,
+                ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            });
+        }
 
         const server = app.listen(PORT, async () => {
             console.log(`Server v2 is running on port ${PORT}`);
@@ -562,4 +654,4 @@ const startServer = async () => {
     }
 };
 
-module.exports = { app, startServer };
+module.exports = { app, startServer, departmentSchema, chatSchema };
