@@ -8,7 +8,7 @@ exports.up = pgm => {
     hashed_password: { type: 'varchar(255)', notNull: true },
     role: { type: 'varchar(50)', default: 'user' },
     created_at: { type: 'timestamp', default: pgm.func('current_timestamp') },
-  });
+  }, { ifNotExists: true });
 
   // Departments
   pgm.createTable('departments', {
@@ -20,8 +20,9 @@ exports.up = pgm => {
     created_at: { type: 'timestamp', default: pgm.func('current_timestamp') },
   }, {
     constraints: {
-        unique: ['user_id', 'name'] // Enforce unique department names per user if needed, or just remove constraints if not strict
-    }
+        unique: ['user_id', 'name'] // Enforce unique department names per user if needed
+    },
+    ifNotExists: true
   });
 
   // Chats
@@ -33,7 +34,7 @@ exports.up = pgm => {
     hashed_password: { type: 'varchar(255)' },
     user_id: { type: 'integer', references: 'users(id)' }, // Added to match some code paths
     created_at: { type: 'timestamp', default: pgm.func('current_timestamp') },
-  });
+  }, { ifNotExists: true });
 
   // Messages
   pgm.createTable('messages', {
@@ -42,13 +43,13 @@ exports.up = pgm => {
     role: { type: 'varchar(50)', notNull: true },
     content: { type: 'text', notNull: true },
     created_at: { type: 'timestamp', default: pgm.func('current_timestamp') },
-  });
+  }, { ifNotExists: true });
 
   // Chat Statuses
   pgm.createTable('chat_statuses', {
     chat_id: { type: 'integer', primaryKey: true, references: 'chats(id)', onDelete: 'CASCADE' },
     status: { type: 'varchar(50)', default: 'draft' },
-  });
+  }, { ifNotExists: true });
 
   // Process Versions
   pgm.createTable('process_versions', {
@@ -57,7 +58,7 @@ exports.up = pgm => {
     process_text: { type: 'text' },
     mermaid_code: { type: 'text' },
     created_at: { type: 'timestamp', default: pgm.func('current_timestamp') },
-  });
+  }, { ifNotExists: true });
 
   // Comments
   pgm.createTable('comments', {
@@ -66,7 +67,7 @@ exports.up = pgm => {
     author_role: { type: 'varchar(50)' },
     text: { type: 'text' },
     created_at: { type: 'timestamp', default: pgm.func('current_timestamp') },
-  });
+  }, { ifNotExists: true });
 
   // Transcription Data
   pgm.createTable('transcription_data', {
@@ -76,16 +77,17 @@ exports.up = pgm => {
     final_text: { type: 'text' },
     status: { type: 'varchar(50)', default: 'pending_review' },
     updated_at: { type: 'timestamp', default: pgm.func('current_timestamp') },
-  });
+  }, { ifNotExists: true });
 
   // Session table for connect-pg-simple
   pgm.createTable('session', {
-    sid: { type: 'varchar', notNull: true, collation: 'default' },
+    sid: { type: 'varchar', notNull: true, collation: 'default', primaryKey: true }, // Added primaryKey here
     sess: { type: 'json', notNull: true },
     expire: { type: 'timestamp(6)', notNull: true }
-  });
-  pgm.addConstraint('session', 'session_pkey', { primaryKey: 'sid' });
-  pgm.createIndex('session', 'expire', { name: 'IDX_session_expire' });
+  }, { ifNotExists: true });
+  // Removed pgm.addConstraint('session', 'session_pkey', ...) as it is now in createTable
+
+  pgm.createIndex('session', 'expire', { name: 'IDX_session_expire', ifNotExists: true });
 
   // Function: create_chat_with_status
   pgm.createFunction(
