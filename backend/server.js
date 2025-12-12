@@ -1,5 +1,9 @@
 const path = require('path');
 const fs = require('fs');
+const pino = require('pino');
+const pinoHttp = require('pino-http');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -18,10 +22,26 @@ const multer = require('multer');
 const { z } = require('zod');
 
 const app = express();
+const logger = pino();
+
+// Security Middleware
+app.use(helmet());
+
+// Logging Middleware
+app.use(pinoHttp({ logger }));
+
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: "Too many requests, please try again later." }
+});
+app.use(limiter);
+
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir);
-    console.log(`Created uploads directory at: ${uploadsDir}`);
+    logger.info(`Created uploads directory at: ${uploadsDir}`);
 }
 
 app.set('trust proxy', 1); // Trust the first proxy
@@ -68,7 +88,7 @@ app.use(cors({
 }));
 
 if (process.env.NODE_ENV === 'test') {
-    console.log('Using MemoryStore for sessions');
+    logger.info('Using MemoryStore for sessions');
 }
 
 app.use(session({
@@ -128,14 +148,12 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
     if (!req.file) {
         return res.status(400).json({ error: 'No audio file uploaded.' });
     }
-    if (!process.env.SPEECHMATICS_API_KEY) {
-        fs.unlink(req.file.path, (err) => {
-            if (err) console.error('Error deleting file:', err);
-        });
-        return res.status(500).json({ error: 'Transcription service is not configured.' });
-    }
 
     try {
+        if (!process.env.SPEECHMATICS_API_KEY) {
+            return res.status(500).json({ error: 'Transcription service is not configured.' });
+        }
+
         const client = new BatchClient({ apiKey: process.env.SPEECHMATICS_API_KEY });
         const fileStream = fs.createReadStream(req.file.path);
 
@@ -151,44 +169,39 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
 
         const fullTranscript = response.results.map((r) => r.alternatives?.[0].content).join(' ');
 
-        fs.unlink(req.file.path, (err) => {
-            if (err) console.error('Error deleting file:', err);
-        });
-
         res.json({ transcript: fullTranscript });
 
     } catch (error) {
-        console.error('Speechmatics transcription error:', error);
-        if (req.file && req.file.path) {
-            fs.unlink(req.file.path, (err) => {
-                if (err) console.error('Error deleting file:', err);
-            });
-        }
+        logger.error(error, 'Speechmatics transcription error');
         res.status(500).json({ error: 'Failed to transcribe audio.' });
+    } finally {
+        fs.unlink(req.file.path, (err) => {
+            if (err) logger.error(err, 'Error deleting file');
+        });
     }
 });
 
 app.post('/api/auth/login', async (req, res) => {
     const { name, password } = req.body;
-    console.log(`Login attempt for user: ${name}`);
+    logger.info(`Login attempt for user: ${name}`);
     try {
         const result = await pool.query('SELECT id, name, hashed_password FROM users WHERE name = $1', [name]);
         const user = result.rows[0];
         if (!user) {
-            console.log(`Login failed for user: ${name}. User not found.`);
+            logger.info(`Login failed for user: ${name}. User not found.`);
             return res.status(401).json({ error: 'Invalid username or password' });
         }
         const passwordMatches = await bcrypt.compare(password, user.hashed_password);
         if (!passwordMatches) {
-            console.log(`Login failed for user: ${name}. Invalid password.`);
+            logger.info(`Login failed for user: ${name}. Invalid password.`);
             return res.status(401).json({ error: 'Invalid username or password' });
         }
         const role = user.name === 'admin' ? 'admin' : 'user';
-        console.log(`Login successful for user: ${name}, role: ${role}`);
+        logger.info(`Login successful for user: ${name}, role: ${role}`);
         req.session.user = { id: user.id, name: user.name, role: role };
         res.json({ id: user.id, name: user.name, role: role });
     } catch (error) {
-        console.error('Error during login:', error);
+        logger.error(error, 'Error during login');
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -197,11 +210,11 @@ app.post('/api/auth/logout', (req, res) => {
     const userName = req.session.user ? req.session.user.name : 'Unknown user';
     req.session.destroy(err => {
         if (err) {
-            console.error(`Logout error for user: ${userName}`, err);
+            logger.error(err, `Logout error for user: ${userName}`);
             return res.status(500).json({ error: 'Could not log out, please try again.' });
         }
         res.clearCookie('connect.sid');
-        console.log(`User ${userName} logged out successfully.`);
+        logger.info(`User ${userName} logged out successfully.`);
         res.status(200).json({ message: 'Logged out successfully' });
     });
 });
@@ -232,7 +245,7 @@ app.get('/api/admin/chats/in_review', isAuthenticated, isAdmin, async (req, res)
         }));
         res.json(transformedData);
     } catch (error) {
-        console.error('Error fetching chats in review:', error);
+        logger.error(error, 'Error fetching chats in review');
         res.status(500).json({ error: error.message });
     }
 });
@@ -255,7 +268,7 @@ app.get('/api/admin/chats/pending', isAuthenticated, isAdmin, async (req, res) =
         }));
         res.json(transformedData);
     } catch (error) {
-        console.error('Error fetching pending chats:', error);
+        logger.error(error, 'Error fetching pending chats');
         res.status(500).json({ error: error.message });
     }
 });
@@ -267,7 +280,7 @@ app.get('/api/chats/:id/status', isAuthenticated, async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ error: 'Status not found' });
         res.json(rows[0]);
     } catch (error) {
-        console.error('Error fetching chat status:', error);
+        logger.error(error, 'Error fetching chat status');
         res.status(500).json({ error: error.message });
     }
 });
@@ -277,7 +290,7 @@ app.get('/api/users', isAuthenticated, isAdmin, async (req, res) => {
         const { rows } = await pool.query('SELECT id, name FROM users');
         res.json(rows);
     } catch (error) {
-        console.error('Error fetching users:', error);
+        logger.error(error, 'Error fetching users');
         res.status(500).json({ error: error.message });
     }
 });
@@ -296,7 +309,7 @@ app.post('/api/departments', isAuthenticated, isAdmin, validateBody(departmentSc
         if (error.code === '23505') {
             return res.status(409).json({ error: 'This department name already exists for the selected user.' });
         }
-        console.error('Error creating department:', error);
+        logger.error(error, 'Error creating department');
         res.status(500).json({ error: error.message });
     }
 });
@@ -311,7 +324,7 @@ app.get('/api/departments', isAuthenticated, async (req, res) => {
         const { rows } = await pool.query(query, params);
         res.json(rows);
     } catch (error) {
-        console.error('Error fetching departments:', error);
+        logger.error(error, 'Error fetching departments');
         res.status(500).json({ error: error.message });
     }
 });
@@ -334,7 +347,7 @@ app.put('/api/departments/:id', isAuthenticated, isAdmin, async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ error: 'Department not found' });
         res.json(rows[0]);
     } catch (error) {
-        console.error('Error updating department:', error);
+        logger.error(error, 'Error updating department');
         return res.status(500).json({ error: error.message });
     }
 });
@@ -348,7 +361,7 @@ app.delete('/api/departments/:id', isAuthenticated, isAdmin, async (req, res) =>
         }
         res.status(204).send(); // No content
     } catch (error) {
-        console.error('Error deleting department:', error);
+        logger.error(error, 'Error deleting department');
         res.status(500).json({ error: error.message });
     }
 });
@@ -371,7 +384,7 @@ app.get('/api/admin/chats/completed', isAuthenticated, isAdmin, async (req, res)
         }));
         res.json(transformedData);
     } catch (error) {
-        console.error('Error fetching completed chats:', error);
+        logger.error(error, 'Error fetching completed chats');
         res.status(500).json({ error: error.message });
     }
 });
@@ -389,7 +402,7 @@ app.post('/api/auth/chat', isAuthenticated, async (req, res) => {
         if (!passwordMatches) return res.status(401).json({ error: 'Invalid chat or password' });
         res.json({ id: chat.id, name: chat.name });
     } catch (error) {
-        console.error('Error during chat authentication:', error);
+        logger.error(error, 'Error during chat authentication');
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -407,7 +420,7 @@ app.get('/api/chats', isAuthenticated, async (req, res) => {
         const { rows } = await pool.query(query, [department_id]);
         res.json(rows);
     } catch (error) {
-        console.error('Error fetching chats for department:', error);
+        logger.error(error, 'Error fetching chats for department');
         res.status(500).json({ error: error.message });
     }
 });
@@ -420,7 +433,7 @@ app.post('/api/chats', isAuthenticated, isAdmin, validateBody(chatSchema), async
         const { rows } = await pool.query("SELECT * FROM create_chat_with_status($1, $2, $3)", [department_id, name, hashedPassword]);
         res.status(201).json(rows[0]);
     } catch (error) {
-        console.error('Error creating chat with RPC:', error);
+        logger.error(error, 'Error creating chat with RPC');
         return res.status(500).json({ error: error.message });
     }
 });
@@ -434,7 +447,7 @@ app.delete('/api/chats/:id', isAuthenticated, isAdmin, async (req, res) => {
         }
         res.status(204).send(); // No content
     } catch (error) {
-        console.error('Error deleting chat:', error);
+        logger.error(error, 'Error deleting chat');
         res.status(500).json({ error: error.message });
     }
 });
@@ -492,7 +505,7 @@ app.get('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
         }
         res.json(rows[0]);
     } catch (error) {
-        console.error(`Error fetching transcription data for chat ${id}:`, error);
+        logger.error(error, `Error fetching transcription data for chat ${id}`);
         res.status(500).json({ error: 'Failed to retrieve transcription data.' });
     }
 });
@@ -520,7 +533,7 @@ app.post('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
         const { rows } = await pool.query(query, [id, transcribed_text, final_text, status]);
         res.status(201).json(rows[0]);
     } catch (error) {
-        console.error(`Error creating/updating transcription data for chat ${id}:`, error);
+        logger.error(error, `Error creating/updating transcription data for chat ${id}`);
         res.status(500).json({ error: 'Failed to save transcription data.' });
     }
 });
@@ -564,22 +577,33 @@ async function ensureUsersExist() {
     try {
         let { rows: adminRows } = await pool.query("SELECT id FROM users WHERE name = 'admin'");
         if (adminRows.length === 0) {
-            console.log('Admin user not found, creating it...');
+            logger.info('Admin user not found, creating it...');
             const hashedPassword = await bcrypt.hash('adminpassword', BCRYPT_SALT_ROUNDS);
             await pool.query("INSERT INTO users (name, hashed_password) VALUES ('admin', $1)", [hashedPassword]);
-            console.log('Admin user created.');
+            logger.info('Admin user created.');
         }
         let { rows: userRows } = await pool.query("SELECT id FROM users WHERE name = 'user'");
         if (userRows.length === 0) {
-            console.log('Regular user not found, creating it...');
+            logger.info('Regular user not found, creating it...');
             const hashedPassword = await bcrypt.hash('userpassword', BCRYPT_SALT_ROUNDS);
             await pool.query("INSERT INTO users (name, hashed_password) VALUES ('user', $1)", [hashedPassword]);
-            console.log('Regular user created.');
+            logger.info('Regular user created.');
         }
     } catch (error) {
-        console.error('Error during initial user setup:', error);
+        logger.error(error, 'Error during initial user setup');
     }
 }
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    logger.error(err);
+    const statusCode = err.statusCode || 500;
+    const message = process.env.NODE_ENV === 'production'
+        ? 'Internal Server Error'
+        : err.message;
+
+    res.status(statusCode).json({ error: message });
+});
 
 const startServer = async () => {
     try {
@@ -587,7 +611,7 @@ const startServer = async () => {
             throw new Error("DATABASE_URL, SESSION_SECRET, and FRONTEND_URL must be set.");
         }
 
-        console.log('Initializing database connection...');
+        logger.info('Initializing database connection...');
         if (!pool) {
              const config = parse(process.env.DATABASE_URL);
              pool = new Pool({
@@ -597,25 +621,25 @@ const startServer = async () => {
         }
 
         const server = app.listen(PORT, async () => {
-            console.log(`Server v2 is running on port ${PORT}`);
+            logger.info(`Server v2 is running on port ${PORT}`);
 
             try {
                 const client = await pool.connect();
-                console.log('Database connection successful.');
+                logger.info('Database connection successful.');
                 client.release();
 
                 if (process.env.NODE_ENV !== 'test') {
                     await ensureUsersExist();
                 }
             } catch (err) {
-                console.error('Database connection failed:', err);
+                logger.error(err, 'Database connection failed');
             }
         });
 
         return { app, server, pool };
 
     } catch (err) {
-        console.error('Failed to start server:', err);
+        logger.error(err, 'Failed to start server');
         process.exit(1);
     }
 };
