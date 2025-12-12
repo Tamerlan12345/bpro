@@ -28,6 +28,18 @@ const PORT = process.env.PORT || 3000;
 
 let pool;
 
+app.get('/health', async (req, res) => {
+    if (!pool) {
+        return res.status(503).json({ status: 'error', database: 'not_initialized' });
+    }
+    try {
+        await pool.query('SELECT 1');
+        res.json({ status: 'ok', database: 'connected' });
+    } catch (error) {
+        res.status(200).json({ status: 'ok', database: 'disconnected', error: error.message });
+    }
+});
+
 // --- Multer Setup for audio upload ---
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -507,8 +519,7 @@ async function ensureUsersExist() {
             console.log('Regular user created.');
         }
     } catch (error) {
-        console.error('Fatal error during initial user setup:', error);
-        process.exit(1);
+        console.error('Error during initial user setup:', error);
     }
 }
 
@@ -527,14 +538,19 @@ const startServer = async () => {
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
         });
 
-        const client = await pool.connect();
-        console.log('Database connection successful.');
-        client.release();
-
         const server = app.listen(PORT, async () => {
             console.log(`Server v2 is running on port ${PORT}`);
-            if (process.env.NODE_ENV !== 'test') {
-                await ensureUsersExist();
+
+            try {
+                const client = await pool.connect();
+                console.log('Database connection successful.');
+                client.release();
+
+                if (process.env.NODE_ENV !== 'test') {
+                    await ensureUsersExist();
+                }
+            } catch (err) {
+                console.error('Database connection failed:', err);
             }
         });
 
