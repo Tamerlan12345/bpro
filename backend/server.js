@@ -25,7 +25,18 @@ const app = express();
 const logger = pino();
 
 // Security Middleware
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        "default-src": ["'self'"],
+        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"], // <-- Разрешаем CDN
+        "img-src": ["'self'", "data:", "blob:"], // <-- Разрешаем картинки-схемы (Mermaid)
+        "connect-src": ["'self'"],
+      },
+    },
+  })
+);
 
 // Logging Middleware
 app.use(pinoHttp({ logger }));
