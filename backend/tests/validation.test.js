@@ -6,28 +6,28 @@ describe('Zod Validation Schemas', () => {
         const validData = {
             name: 'HR',
             password: 'secret',
-            user_id: '123e4567-e89b-12d3-a456-426614174000'
+            user_id: '123'
         };
         expect(() => departmentSchema.parse(validData)).not.toThrow();
 
         const invalidData = {
             name: '',
             password: 'secret',
-            user_id: 'invalid-uuid'
+            user_id: 'invalid-numeric-string'
         };
         expect(() => departmentSchema.parse(invalidData)).toThrow();
     });
 
     test('chatSchema validation', () => {
         const validData = {
-            department_id: '123e4567-e89b-12d3-a456-426614174000',
+            department_id: '456',
             name: 'Chat 1',
             password: 'secure'
         };
         expect(() => chatSchema.parse(validData)).not.toThrow();
 
          const invalidData = {
-            department_id: 'invalid-uuid',
+            department_id: 'invalid-numeric-string',
             name: '',
             password: ''
         };
