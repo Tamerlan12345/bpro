@@ -8,6 +8,10 @@ RUN yarn install --frozen-lockfile
 
 COPY . .
 
+RUN mkdir -p uploads && chown -R node:node /app
+
+USER node
+
 EXPOSE 3000
 
 CMD ["yarn", "start"]
