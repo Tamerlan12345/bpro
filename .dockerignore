@@ -1,0 +1,8 @@
+backend/node_modules
+backend/npm-debug.log
+backend/yarn-error.log
+backend/.env
+backend/sessions
+node_modules
+.git
+.env
