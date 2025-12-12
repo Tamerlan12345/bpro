@@ -103,15 +103,11 @@ const isAdmin = (req, res, next) => {
 const departmentSchema = z.object({
     name: z.string().min(1),
     password: z.string().min(1),
-    user_id: z.string().regex(/^\d+$/, "Must be a numeric string").or(z.number()).transform(val => String(val)),
-    // Adjusted user_id validation: server.js uses integer IDs (Serial), but frontend sends string from <select value="...">.
-    // Zod schema in previous iteration expected uuid.
-    // If I use Serial, it should be number or numeric string.
-    // I'll make it flexible.
+    user_id: z.string().uuid().or(z.string()), // Accept UUID or string
 });
 
 const chatSchema = z.object({
-    department_id: z.string().regex(/^\d+$/, "Must be a numeric string").or(z.number()).transform(val => String(val)),
+    department_id: z.string().uuid().or(z.string()), // Accept UUID or string
     name: z.string().min(1),
     password: z.string().min(1),
 });
