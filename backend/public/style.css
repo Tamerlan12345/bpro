@@ -17,7 +17,9 @@
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --radius: 0.5rem;
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --radius: 16px; /* Increased radius */
     --header-height: 64px;
 }
 
@@ -280,81 +282,148 @@ button {
     margin-bottom: 1.5rem;
 }
 
-/* --- Workspace Layout (3 Columns) --- */
+/* --- Workspace Layout (Canvas-First) --- */
 .container {
     height: 100vh;
     background-color: white;
     padding: 0;
     margin: 0;
     max-width: none;
+    position: relative;
+    overflow: hidden;
 }
 
 .workspace-layout {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
 }
 
-/* Header */
+/* Header - now just an overlay or removed in canvas mode? Keeping it simple for now */
 .workspace-layout > header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     height: var(--header-height);
-    flex-shrink: 0;
+    background-color: var(--glass-bg);
+    backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 1.5rem;
-    background-color: white;
-    z-index: 10;
+    z-index: 50;
+    box-shadow: var(--shadow-sm);
 }
 
 .header-left { display: flex; align-items: center; gap: 1rem; }
 .header-title { font-weight: 600; font-size: 1.1rem; }
-.header-status { font-size: 0.85rem; padding: 0.25rem 0.75rem; border-radius: 1rem; background: #F3F4F6; }
 
 #action-buttons { margin-top: 0; display: flex; gap: 0.75rem; }
 
-/* Main Grid */
+/* Main Content Wrapper - now full screen */
 .main-content {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 320px 1fr 300px; /* Left | Center | Right */
+    position: absolute;
+    inset: 0;
+    top: var(--header-height); /* Below header */
     overflow: hidden;
-    background-color: var(--bg-color);
 }
 
-/* Columns */
-.left-column, .center-column, .right-column {
+/* Layer 0: Center (Diagram Canvas) */
+.center-column {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-color: #F8FAFC;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Layer 1: Floating Panels (Left & Right) */
+.left-column, .right-column {
+    position: absolute;
+    top: 20px;
+    bottom: 20px;
+    width: 360px;
+    z-index: 10;
+    background-color: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     padding: 1.5rem;
     overflow-y: auto;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
 }
 
 .left-column {
-    background-color: white;
-    border-right: 1px solid var(--border-color);
+    left: 20px;
 }
-
-.center-column {
-    background-color: #F8FAFC; /* Slightly different bg for contrast */
-    padding: 0; /* Let diagram fill */
-    position: relative;
-    display: flex;
-    flex-direction: column;
+.left-column.panel-collapsed {
+    transform: translateX(calc(-100% - 30px));
 }
 
 .right-column {
-    background-color: white;
-    border-left: 1px solid var(--border-color);
+    right: 20px;
 }
+.right-column.panel-collapsed {
+    transform: translateX(calc(100% + 30px));
+}
+
+/* Panel Toggles */
+.panel-toggle {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 48px;
+    background: white;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 20;
+    color: var(--secondary-color);
+    font-size: 12px;
+    transition: all 0.2s;
+}
+.panel-toggle:hover {
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+}
+
+.left-panel-toggle {
+    left: 380px; /* 20px (left) + 360px (width) */
+    border-radius: 0 8px 8px 0;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.left-panel-toggle.collapsed {
+    left: 0;
+}
+
+.right-panel-toggle {
+    right: 380px; /* 20px (right) + 360px (width) */
+    border-radius: 8px 0 0 8px;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.right-panel-toggle.collapsed {
+    right: 0;
+}
+
 
 /* --- Components --- */
 
 /* Audio Recorder */
 .audio-recorder-block {
-    background: #F9FAFB;
+    background: white;
     padding: 1rem;
     border-radius: var(--radius);
     border: 1px solid var(--border-color);
@@ -373,12 +442,13 @@ button {
     resize: none;
     font-size: 0.95rem;
     line-height: 1.6;
+    background-color: rgba(255,255,255,0.6);
 }
 
 .transcription-display-area {
     min-height: 100px;
     padding: 0.75rem;
-    background: #F9FAFB;
+    background: white;
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
     color: var(--text-secondary);
@@ -396,12 +466,7 @@ button {
 }
 
 .diagram-header {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-color);
-    background: white;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: none; /* Hide header in canvas mode */
 }
 
 #diagram-placeholder {
@@ -409,7 +474,7 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: auto;
+    overflow: hidden;
     background-image: radial-gradient(#E5E7EB 1px, transparent 1px);
     background-size: 20px 20px;
 }
@@ -417,57 +482,65 @@ button {
 #diagram-container {
     flex: 1;
     display: flex;
-    align-items: flex-start; /* Важно: не center, иначе трансформация будет дергаться */
+    align-items: flex-start;
     justify-content: flex-start;
-    overflow: hidden; /* Скрываем части схемы, ушедшие за край */
+    overflow: hidden;
     background-image: radial-gradient(#E5E7EB 1px, transparent 1px);
     background-size: 20px 20px;
-    cursor: default; /* Обычный курсор по умолчанию */
+    cursor: grab;
     position: relative;
     width: 100%;
     height: 100%;
 }
+#diagram-container:active {
+    cursor: grabbing;
+}
 
-/* Класс для самой SVG внутри (добавляется скриптом или Mermaid) */
+/* Node Styling for Dragging */
+.node {
+    cursor: move;
+}
+.node:hover rect, .node:hover circle, .node:hover polygon {
+    stroke: var(--primary-color) !important;
+    stroke-width: 2px !important;
+}
+
+
 #diagram-container svg {
-    transform-origin: 0 0; /* Точка трансформации - левый верхний угол (важно для математики зума) */
-    transition: transform 0.05s linear; /* Плавность (опционально, можно убрать для мгновенной реакции) */
-    /* Убираем ограничение maxWidth, чтобы зум работал корректно */
+    transform-origin: 0 0;
+    transition: transform 0.05s linear;
     max-width: none !important;
-}
-
-/* Курсор при зажатом Ctrl */
-.pan-mode {
-    cursor: grab !important;
-}
-
-/* Курсор при перетаскивании */
-.pan-active {
-    cursor: grabbing !important;
 }
 
 .diagram-toolbar {
     position: absolute;
-    bottom: 2rem;
+    bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background: white;
-    padding: 0.5rem;
-    border-radius: 2rem;
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    padding: 0.5rem 1rem;
+    border-radius: 100px;
     box-shadow: var(--shadow-lg);
     display: flex;
-    gap: 0.5rem;
+    gap: 0.75rem;
     border: 1px solid var(--border-color);
+    z-index: 100;
 }
 
 .diagram-toolbar button {
     padding: 0.5rem;
     border-radius: 50%;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border: 1px solid transparent;
+    transition: all 0.2s;
+    background: transparent;
 }
-.diagram-toolbar button:hover { background-color: var(--bg-color); }
+.diagram-toolbar button:hover {
+    background-color: rgba(0,0,0,0.05);
+    transform: scale(1.1);
+}
 
 /* Right Panel Cards */
 .sidebar-block {
@@ -477,23 +550,25 @@ button {
 .sidebar-block:last-child { border-bottom: none; }
 
 .sidebar-block h3 {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
     color: var(--text-secondary);
     letter-spacing: 0.05em;
     margin-bottom: 1rem;
+    font-weight: 700;
 }
 
 /* Comments */
 .comment {
-    background: var(--bg-color);
+    background: white;
     padding: 0.75rem;
     border-radius: var(--radius);
     margin-bottom: 0.75rem;
     font-size: 0.9rem;
+    box-shadow: var(--shadow-sm);
 }
 .comment.user { background-color: #EEF2FF; margin-left: 1rem; }
-.comment.admin { background-color: #F3F4F6; margin-right: 1rem; }
+.comment.admin { background-color: #F9FAFB; margin-right: 1rem; }
 .comment-author { font-weight: 600; font-size: 0.8rem; display: block; margin-bottom: 0.25rem; }
 .comment-date { font-size: 0.75rem; color: var(--text-secondary); display: block; margin-top: 0.5rem; text-align: right; }
 
@@ -509,7 +584,7 @@ button {
 /* Modals */
 .modal {
     background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(4px);
 }
 .modal-content {
     border-radius: 1rem;
@@ -544,133 +619,119 @@ button {
     from { opacity: 0; }
     to { opacity: 1; }
 }
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
 
 /* Utilities */
 .hidden { display: none !important; }
 .text-danger { color: var(--danger-color); }
 
-/* --- Admin List Specifics (Fixes) --- */
-#department-list .department-card {
-    flex-direction: row;
-    justify-content: space-between;
-    height: auto;
-    min-height: auto;
-    align-items: center;
-    text-align: left;
-    padding: 0.75rem 1rem;
+/* Toasts */
+.notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.chat-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1rem;
+.notification {
     background: white;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius);
-    margin-bottom: 0.5rem;
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    box-shadow: var(--shadow-lg);
+    border-left: 4px solid var(--primary-color);
+    animation: slideInRight 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    display: flex;
+    align-items: center;
+    min-width: 300px;
+    font-size: 0.95rem;
+}
+.notification.success { border-left-color: var(--success-color); }
+.notification.error { border-left-color: var(--danger-color); }
+.notification.warning { border-left-color: var(--warning-color); }
+
+/* Split View Editor */
+.split-view-container {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    background: white;
 }
 
-.admin-list {
-    list-style: none;
-    padding: 0;
-}
-.admin-list li {
-    margin-bottom: 0.5rem;
-}
-.admin-list li a {
+.split-code {
+    width: 50%;
+    height: 100%;
+    border-right: 1px solid var(--border-color);
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    background: white;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius);
-    text-decoration: none;
-    color: var(--text-primary);
-    transition: all 0.2s;
+    flex-direction: column;
 }
-.admin-list li a:hover {
-    border-color: var(--primary-color);
-    box-shadow: var(--shadow-sm);
+.split-code textarea {
+    flex: 1;
+    border: none;
+    padding: 1.5rem;
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    resize: none;
+    background: #F9FAFB;
+    outline: none;
+}
+.split-code textarea:focus {
+    box-shadow: none;
+    background: white;
+}
+
+.split-preview {
+    width: 50%;
+    height: 100%;
+    position: relative;
+    background: #fff;
+    overflow: hidden;
+}
+
+.split-toolbar {
+    height: 50px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem;
+    background: white;
 }
 
 /* --- Responsive Design --- */
 @media (max-width: 1024px) {
-    /* Tablet Landscape / Small Desktop */
-    .main-content {
-        grid-template-columns: 240px 1fr;
-        grid-template-areas:
-            "left center"
-            "right right";
-    }
-
-    .left-column {
-        grid-area: left;
-        border-right: 1px solid var(--border-color);
-    }
-    .center-column {
-        grid-area: center;
-    }
-    .right-column {
-        grid-area: right;
-        border-left: none;
-        border-top: 1px solid var(--border-color);
-        flex-direction: row;
-        gap: 1.5rem;
-        overflow-x: auto;
-    }
-    .right-column > div {
-        min-width: 300px;
-        flex: 1;
-    }
-
-    /* Admin */
-    .admin-sidebar { width: 220px; }
-    #admin-section-management > div {
-        grid-template-columns: 260px 1fr !important;
-    }
+    .left-column, .right-column { width: 300px; }
+    .left-panel-toggle { left: 320px; }
+    .right-panel-toggle { right: 320px; }
 }
 
 @media (max-width: 768px) {
-    /* Tablet Portrait / Mobile */
-    body {
-        height: auto;
-        overflow: auto;
-    }
+    /* Mobile adjustments */
+    body { height: auto; overflow: auto; }
+    .workspace-layout { position: static; height: auto; overflow: visible; }
+    .main-content { position: static; display: flex; flex-direction: column; }
 
-    /* Auth */
-    .auth-wrapper { padding: 1rem 0; }
-    .login-form { padding: 1.5rem; border-radius: 0; box-shadow: none; max-width: 100%; }
-
-    /* Admin */
-    #admin-panel { height: auto; overflow: visible; }
-    .admin-layout { flex-direction: column; height: auto; overflow: visible; }
-    .admin-sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border-color); }
-    .admin-nav { display: flex; overflow-x: auto; padding: 0.5rem; }
-    .admin-nav-item { margin-bottom: 0; margin-right: 0.5rem; white-space: nowrap; }
-    .admin-content { overflow: visible; padding: 1rem; }
-
-    /* Workspace */
-    .container { height: auto; }
-    .workspace-layout { height: auto; }
-    .main-content {
-        display: flex;
-        flex-direction: column;
-        overflow: visible;
-    }
-    .left-column, .center-column, .right-column {
-        overflow: visible;
+    .left-column, .right-column {
+        position: static;
+        width: 100%;
         height: auto;
         border: none;
-        border-bottom: 1px solid var(--border-color);
+        box-shadow: none;
+        background: transparent;
+        backdrop-filter: none;
         padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
     }
-    .center-column { min-height: 500px; }
-    .right-column { flex-direction: column; }
 
-    /* Adjust Admin Management Grid */
-    #admin-section-management > div {
-        grid-template-columns: 1fr !important;
-    }
+    .panel-toggle { display: none; }
+    .center-column { position: relative; height: 500px; }
+    .diagram-toolbar { width: 90%; bottom: 10px; }
 }
