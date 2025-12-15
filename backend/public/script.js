@@ -116,22 +116,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const finalizedTextDisplay = transcriptionReviewModal.querySelector('.finalized-text-display');
     const closeTranscriptionModalBtn = transcriptionReviewModal.querySelector('.close-btn');
 
-    // Split View Elements
+    const mermaidEditorModal = document.getElementById('mermaid-editor-modal');
     const editDiagramBtn = document.getElementById('edit-diagram-btn');
-    const splitViewContainer = document.getElementById('split-view-container');
-    const splitViewTextarea = document.getElementById('split-view-textarea');
-    const splitViewPreview = document.getElementById('split-view-preview');
-    const saveSplitViewBtn = document.getElementById('save-split-view-btn');
-    const closeSplitViewBtn = document.getElementById('close-split-view-btn');
-
+    const mermaidEditorTextarea = document.getElementById('mermaid-editor-textarea');
+    const mermaidEditorPreview = document.getElementById('mermaid-editor-preview');
+    const saveMermaidChangesBtn = document.getElementById('save-mermaid-changes-btn');
+    const cancelMermaidEditBtn = document.getElementById('cancel-mermaid-edit-btn');
+    const closeMermaidEditorBtn = mermaidEditorModal.querySelector('.close-btn');
 
     const notificationContainer = document.getElementById('notification-container');
-
-    // Panel Toggles
-    const leftPanelToggle = document.getElementById('left-panel-toggle');
-    const rightPanelToggle = document.getElementById('right-panel-toggle');
-    const leftColumn = document.querySelector('.left-column');
-    const rightColumn = document.querySelector('.right-column');
 
 
     function showNotification(message, type = 'success') {
@@ -139,10 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         notification.className = `notification ${type}`;
         notification.textContent = message;
         notificationContainer.appendChild(notification);
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            setTimeout(() => notification.remove(), 300);
-        }, 5000);
+        setTimeout(() => notification.remove(), 5000);
     }
 
     async function fetchWithAuth(url, options = {}) {
@@ -175,87 +165,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Draggable Nodes Logic
-    function enableDraggableNodes(container) {
-        const svg = container.querySelector('svg');
-        if (!svg) return;
-
-        const nodes = svg.querySelectorAll('.node');
-        let draggedNode = null;
-        let startX, startY;
-        let initialTransform = '';
-        let hasWarned = false;
-
-        nodes.forEach(node => {
-            node.addEventListener('mousedown', (e) => {
-                // Prevent drag if ctrl key is pressed (pan mode)
-                if (e.ctrlKey) return;
-
-                e.stopPropagation(); // Prevent panning the whole canvas
-                e.preventDefault();
-
-                if (!hasWarned) {
-                    showNotification("Внимание: Перемещение узлов сбрасывается при регенерации.", "warning");
-                    hasWarned = true;
-                }
-
-                draggedNode = node;
-                // Get current transform or default
-                const transform = node.getAttribute('transform');
-                initialTransform = transform || '';
-
-                // Parse current translation if exists
-                // Expected format: translate(x, y)
-                // Note: Mermaid might use other transforms, but usually groups are translated
-
-                startX = e.clientX;
-                startY = e.clientY;
-
-                node.classList.add('dragging');
-            });
-        });
-
-        svg.addEventListener('mousemove', (e) => {
-            if (!draggedNode) return;
-            e.preventDefault();
-
-            const dx = (e.clientX - startX) / panZoomState.scale;
-            const dy = (e.clientY - startY) / panZoomState.scale;
-
-            // Extract current translation
-            // This is a simplified regex approach. A full matrix parser would be better but overkill here.
-            let currentX = 0;
-            let currentY = 0;
-            const translateMatch = initialTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
-            if (translateMatch) {
-                currentX = parseFloat(translateMatch[1]);
-                currentY = parseFloat(translateMatch[2]);
-            }
-
-            const newX = currentX + dx;
-            const newY = currentY + dy;
-
-            // Update transform
-            // We reconstruct the transform string. If there were other transforms (rotate, scale), they might be lost with this simple replace.
-            // But Mermaid usually just translates nodes.
-            draggedNode.setAttribute('transform', `translate(${newX}, ${newY})`);
-        });
-
-        svg.addEventListener('mouseup', () => {
-            if (draggedNode) {
-                draggedNode.classList.remove('dragging');
-                draggedNode = null;
-            }
-        });
-
-        svg.addEventListener('mouseleave', () => {
-             if (draggedNode) {
-                draggedNode.classList.remove('dragging');
-                draggedNode = null;
-            }
-        });
-    }
-
     async function renderDiagram(mermaidCode, container = diagramContainer, isRetry = false) {
         container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
         try {
@@ -268,8 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const svgElement = container.querySelector('svg');
                 if (svgElement) {
                     svgElement.style.maxWidth = '100%';
-                    // Only reset pan/zoom if it's a fresh render, not an update?
-                    // For now, let's keep it resetting to fit.
                     panZoomState = { scale: 1, pX: 0, pY: 0, isDragging: false, startX: 0, startY: 0 };
                     updateTransform();
                     diagramToolbar.style.display = 'flex';
@@ -278,16 +185,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (sessionUser && sessionUser.role === 'admin') {
                         editDiagramBtn.style.display = 'inline-block';
                     }
-                    enableDraggableNodes(container);
                 }
-            } else if (container === splitViewPreview) {
-                 const svgElement = container.querySelector('svg');
-                 if(svgElement) {
-                    svgElement.style.width = '100%';
-                    svgElement.style.height = '100%';
-                 }
             }
-
         } catch (error) {
             console.error("Mermaid render error:", error);
             // If it's the first attempt, try to fix the code
@@ -309,68 +208,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let mermaidRenderTimeout;
-    function handleSplitViewInput() {
+    function handleMermaidEditorInput() {
         clearTimeout(mermaidRenderTimeout);
         mermaidRenderTimeout = setTimeout(() => {
-            const code = splitViewTextarea.value;
-            renderDiagram(code, splitViewPreview);
+            const code = mermaidEditorTextarea.value;
+            renderDiagram(code, mermaidEditorPreview);
         }, 300); // Debounce for 300ms
     }
 
-    function toggleSplitView() {
+    function openMermaidEditor() {
         const latestVersion = chatVersions[0];
         if (!latestVersion || !latestVersion.mermaid_code) {
             showNotification("Нет схемы для редактирования.", "error");
             return;
         }
-
-        if (splitViewContainer.style.display === 'none') {
-            splitViewTextarea.value = latestVersion.mermaid_code;
-            splitViewContainer.style.display = 'flex';
-            diagramPlaceholder.style.display = 'none'; // Hide main placeholder/canvas
-            renderDiagram(latestVersion.mermaid_code, splitViewPreview);
-            // Hide panels for better focus
-            collapsePanels(true);
-        } else {
-            closeSplitView();
-        }
+        mermaidEditorTextarea.value = latestVersion.mermaid_code;
+        mermaidEditorModal.style.display = 'block';
+        renderDiagram(latestVersion.mermaid_code, mermaidEditorPreview);
     }
 
-    function closeSplitView() {
-        splitViewContainer.style.display = 'none';
-        diagramPlaceholder.style.display = 'flex'; // Show main canvas back
-        // Restore panels
-        collapsePanels(false);
+    function closeMermaidEditor() {
+        mermaidEditorModal.style.display = 'none';
     }
 
-    function collapsePanels(collapse) {
-        if (collapse) {
-            leftColumn.classList.add('panel-collapsed');
-            leftPanelToggle.classList.add('collapsed');
-            leftPanelToggle.textContent = '>>';
-
-            rightColumn.classList.add('panel-collapsed');
-            rightPanelToggle.classList.add('collapsed');
-            rightPanelToggle.textContent = '<<';
-        } else {
-             // Optional: Don't auto-expand if user manually collapsed them.
-             // But for now, let's just leave them as they were or restore default?
-             // Let's just expand them back for "Edit Mode Exit" UX.
-            leftColumn.classList.remove('panel-collapsed');
-            leftPanelToggle.classList.remove('collapsed');
-            leftPanelToggle.textContent = '<<';
-
-            rightColumn.classList.remove('panel-collapsed');
-            rightPanelToggle.classList.remove('collapsed');
-            rightPanelToggle.textContent = '>>';
-        }
-    }
-
-    async function handleSaveSplitViewChanges() {
-        const mermaid_code = splitViewTextarea.value;
+    async function handleSaveMermaidChanges() {
+        const mermaid_code = mermaidEditorTextarea.value;
         const process_text = processDescriptionInput.value; // Keep the existing text description
 
-        setButtonLoading(saveSplitViewBtn, true, 'Сохранение...');
+        setButtonLoading(saveMermaidChangesBtn, true, 'Сохранение...');
         try {
             await fetchWithAuth(`/api/chats/${chatId}/versions`, {
                 method: 'POST',
@@ -379,11 +244,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             showNotification("Изменения в схеме успешно сохранены.", "success");
             await loadChatData();
-            closeSplitView();
+            closeMermaidEditor();
         } catch (error) {
             showNotification(`Ошибка сохранения схемы: ${error.message}`, "error");
         } finally {
-            setButtonLoading(saveSplitViewBtn, false);
+            setButtonLoading(saveMermaidChangesBtn, false);
         }
     }
 
@@ -391,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function downloadDiagram(format) {
         const svgElement = diagramContainer.querySelector('svg');
         if (!svgElement) {
-            showNotification("Сначала сгенерируйте схему.", "warning");
+            alert("Сначала сгенерируйте схему.");
             return;
         }
         if (format === 'svg') {
@@ -1650,23 +1515,11 @@ ${brokenCode}
         updateTransform();
     });
 
-    editDiagramBtn.addEventListener('click', toggleSplitView);
-    closeSplitViewBtn.addEventListener('click', closeSplitView);
-    saveSplitViewBtn.addEventListener('click', handleSaveSplitViewChanges);
-    splitViewTextarea.addEventListener('input', handleSplitViewInput);
-
-    // Panel toggles
-    leftPanelToggle.addEventListener('click', () => {
-        leftColumn.classList.toggle('panel-collapsed');
-        leftPanelToggle.classList.toggle('collapsed');
-        leftPanelToggle.textContent = leftPanelToggle.classList.contains('collapsed') ? '>>' : '<<';
-    });
-
-    rightPanelToggle.addEventListener('click', () => {
-        rightColumn.classList.toggle('panel-collapsed');
-        rightPanelToggle.classList.toggle('collapsed');
-        rightPanelToggle.textContent = rightPanelToggle.classList.contains('collapsed') ? '<<' : '>>';
-    });
+    editDiagramBtn.addEventListener('click', openMermaidEditor);
+    closeMermaidEditorBtn.addEventListener('click', closeMermaidEditor);
+    cancelMermaidEditBtn.addEventListener('click', closeMermaidEditor);
+    saveMermaidChangesBtn.addEventListener('click', handleSaveMermaidChanges);
+    mermaidEditorTextarea.addEventListener('input', handleMermaidEditorInput);
 
 
     checkSession();
@@ -1701,7 +1554,7 @@ ${brokenCode}
         updateTransform();
     });
 
-    // Начало перетаскивания (MouseDown) for Pan
+    // Начало перетаскивания (MouseDown)
     diagramContainer.addEventListener('mousedown', (e) => {
         // Разрешаем драг, если зажат Ctrl ИЛИ нажата средняя кнопка мыши (колесико)
         if (e.ctrlKey || e.button === 1) {
@@ -1713,7 +1566,7 @@ ${brokenCode}
         }
     });
 
-    // Процесс перетаскивания (MouseMove) for Pan
+    // Процесс перетаскивания (MouseMove)
     window.addEventListener('mousemove', (e) => {
         if (!panZoomState.isDragging) return;
 
@@ -1723,7 +1576,7 @@ ${brokenCode}
         updateTransform();
     });
 
-    // Окончание перетаскивания (MouseUp) for Pan
+    // Окончание перетаскивания (MouseUp)
     window.addEventListener('mouseup', () => {
         if (panZoomState.isDragging) {
             panZoomState.isDragging = false;
