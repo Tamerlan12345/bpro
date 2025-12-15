@@ -159,7 +159,7 @@
         </main>
     </div>
 
-    <!-- Workspace (Canvas-First Layout) -->
+    <!-- Workspace (3 Column Layout) -->
     <div class="container" style="display: none;">
         <div class="workspace-layout">
             <header>
@@ -179,7 +179,7 @@
             </header>
 
             <main class="main-content">
-                <!-- Layer 1: Left Column (Inputs) -->
+                <!-- Left Column: Inputs -->
                 <div class="left-column">
                     <div class="sidebar-block">
                         <h3>1. Аудио ввод</h3>
@@ -221,12 +221,8 @@
                         </button>
                     </div>
                 </div>
-                <!-- Toggle for Left Panel -->
-                <div id="left-panel-toggle" class="panel-toggle left-panel-toggle">
-                    &lt;&lt;
-                </div>
 
-                <!-- Layer 0: Center Column (Canvas) -->
+                <!-- Center Column: Visualization -->
                 <div class="center-column">
                     <div id="diagram-block">
                         <div class="diagram-header">
@@ -245,7 +241,7 @@
 
                         <div id="diagram-toolbar" class="diagram-toolbar" style="display: none;">
                             <button id="regenerate-diagram-btn" title="Перегенерировать">🔄</button>
-                            <button id="edit-diagram-btn" title="Редактировать">✏️</button> <!-- Always visible now in split mode -->
+                            <button id="edit-diagram-btn" title="Редактировать" style="display: none;">✏️</button>
                             <button id="zoom-in-btn" title="Приблизить">+</button>
                             <button id="zoom-out-btn" title="Отдалить">-</button>
                             <button id="download-png-btn" title="Скачать PNG">PNG</button>
@@ -254,24 +250,9 @@
                     </div>
                     <!-- Hidden legacy results block if script references it -->
                     <div class="results-block" style="display: none;"></div>
-
-                    <!-- Split View Container (initially hidden) -->
-                    <div id="split-view-container" class="split-view-container" style="display: none;">
-                        <div class="split-code">
-                            <div class="split-toolbar">
-                                <span>Код Mermaid</span>
-                                <button id="close-split-view-btn" class="button-secondary" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;">Закрыть</button>
-                            </div>
-                            <textarea id="split-view-textarea" spellcheck="false"></textarea>
-                            <div style="padding: 1rem; border-top: 1px solid var(--border-color);">
-                                <button id="save-split-view-btn" class="button-primary" style="width: 100%;">Сохранить</button>
-                            </div>
-                        </div>
-                        <div class="split-preview" id="split-view-preview"></div>
-                    </div>
                 </div>
 
-                <!-- Layer 1: Right Column (Collaboration) -->
+                <!-- Right Column: Collaboration -->
                 <div class="right-column">
                     <div class="suggestions-block sidebar-block">
                         <h3>2. Предложения ИИ</h3>
@@ -302,17 +283,13 @@
                         </div>
                     </div>
                 </div>
-                 <!-- Toggle for Right Panel -->
-                 <div id="right-panel-toggle" class="panel-toggle right-panel-toggle">
-                    &gt;&gt;
-                </div>
             </main>
         </div>
     </div>
 
     <div id="notification-container" class="notification-container"></div>
 
-    <!-- Modals (Transcription only, Editor removed) -->
+    <!-- Modals -->
     <div id="transcription-review-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <span class="close-btn">&times;</span>
@@ -330,12 +307,32 @@
         </div>
     </div>
 
-    <!-- Legacy Editor Modal removed/hidden (clean up optional but safer to remove ref in JS) -->
+    <div id="mermaid-editor-modal" class="modal" style="display: none;">
+        <div class="modal-content large">
+            <span class="close-btn">&times;</span>
+            <h2>Редактор схемы</h2>
+            <div class="mermaid-editor-content">
+                <div id="mermaid-syntax-legend" class="mermaid-legend">
+                    <h4>Синтаксис</h4>
+                    <ul>
+                        <li><code>A["Текст"]</code></li>
+                        <li><code>A --> B</code></li>
+                    </ul>
+                </div>
+                <textarea id="mermaid-editor-textarea" spellcheck="false"></textarea>
+                <div id="mermaid-editor-preview"></div>
+            </div>
+            <div class="mermaid-editor-buttons">
+                <button id="cancel-mermaid-edit-btn" class="button-secondary">Отмена</button>
+                <button id="save-mermaid-changes-btn" class="button-primary">Сохранить</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Legend (Hidden visually but kept if script references classes inside) -->
     <div class="legend" style="display: none;"></div>
 
-    <script src="script.js?v=4"></script>
+    <script src="script.js?v=3"></script>
     <script>
         // Simple UI Script for Admin Tabs (View Switching)
         document.addEventListener('DOMContentLoaded', () => {
