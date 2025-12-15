@@ -17,9 +17,9 @@
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-bg: rgba(255, 255, 255, 0.95);
     --glass-border: rgba(255, 255, 255, 0.5);
-    --radius: 16px; /* Increased radius */
+    --radius: 12px;
     --header-height: 64px;
 }
 
@@ -300,7 +300,7 @@ button {
     overflow: hidden;
 }
 
-/* Header - now just an overlay or removed in canvas mode? Keeping it simple for now */
+/* Header */
 .workspace-layout > header {
     position: absolute;
     top: 0;
@@ -308,7 +308,7 @@ button {
     right: 0;
     height: var(--header-height);
     background-color: var(--glass-bg);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
@@ -316,6 +316,10 @@ button {
     padding: 0 1.5rem;
     z-index: 50;
     box-shadow: var(--shadow-sm);
+    pointer-events: none; /* Let clicks pass through to canvas if empty space */
+}
+.workspace-layout > header > * {
+    pointer-events: auto; /* Re-enable for buttons/title */
 }
 
 .header-left { display: flex; align-items: center; gap: 1rem; }
@@ -327,15 +331,16 @@ button {
 .main-content {
     position: absolute;
     inset: 0;
-    top: var(--header-height); /* Below header */
+    top: 0; /* Cover full screen */
     overflow: hidden;
 }
 
 /* Layer 0: Center (Diagram Canvas) */
 .center-column {
     position: absolute;
-    inset: 0;
-    z-index: 0;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1; /* Lowest layer */
     background-color: #F8FAFC;
     padding: 0;
     display: flex;
@@ -345,18 +350,18 @@ button {
 /* Layer 1: Floating Panels (Left & Right) */
 .left-column, .right-column {
     position: absolute;
-    top: 20px;
+    top: 80px; /* Below header margin */
     bottom: 20px;
-    width: 360px;
+    width: 320px;
     z-index: 10;
     background-color: var(--glass-bg);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
     padding: 1.5rem;
     overflow-y: auto;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.3s ease;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -365,15 +370,15 @@ button {
 .left-column {
     left: 20px;
 }
-.left-column.panel-collapsed {
-    transform: translateX(calc(-100% - 30px));
+.panel-hidden-left {
+    transform: translateX(-340px); /* 320px width + 20px margin */
 }
 
 .right-column {
     right: 20px;
 }
-.right-column.panel-collapsed {
-    transform: translateX(calc(100% + 30px));
+.panel-hidden-right {
+    transform: translateX(340px);
 }
 
 /* Panel Toggles */
@@ -393,7 +398,7 @@ button {
     z-index: 20;
     color: var(--secondary-color);
     font-size: 12px;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
 }
 .panel-toggle:hover {
     background-color: var(--bg-color);
@@ -401,18 +406,16 @@ button {
 }
 
 .left-panel-toggle {
-    left: 380px; /* 20px (left) + 360px (width) */
+    left: 340px; /* 20px (left) + 320px (width) */
     border-radius: 0 8px 8px 0;
-    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .left-panel-toggle.collapsed {
     left: 0;
 }
 
 .right-panel-toggle {
-    right: 380px; /* 20px (right) + 360px (width) */
+    right: 340px; /* 20px (right) + 320px (width) */
     border-radius: 8px 0 0 8px;
-    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .right-panel-toggle.collapsed {
     right: 0;
@@ -487,28 +490,41 @@ button {
     overflow: hidden;
     background-image: radial-gradient(#E5E7EB 1px, transparent 1px);
     background-size: 20px 20px;
-    cursor: grab;
+    cursor: default; /* Changed from grab to default, use Ctrl for hand */
     position: relative;
     width: 100%;
     height: 100%;
 }
-#diagram-container:active {
+#diagram-container.hand-cursor {
+    cursor: grab;
+}
+#diagram-container.hand-cursor:active {
     cursor: grabbing;
 }
 
-/* Node Styling for Dragging */
+/* Node Styling for Interaction */
 .node {
-    cursor: move;
+    cursor: pointer;
 }
-.node:hover rect, .node:hover circle, .node:hover polygon {
+.node:hover rect, .node:hover circle, .node:hover polygon, .node:hover path {
+    filter: drop-shadow(0 0 4px rgba(79, 70, 229, 0.4));
     stroke: var(--primary-color) !important;
     stroke-width: 2px !important;
+}
+
+/* Edge Styling */
+.edgePath {
+    cursor: pointer;
+}
+.edgePath:hover path {
+    stroke: var(--primary-color) !important;
+    stroke-width: 3px !important;
 }
 
 
 #diagram-container svg {
     transform-origin: 0 0;
-    transition: transform 0.05s linear;
+    /* transition: transform 0.1s ease-out;  Managed by JS now */
     max-width: none !important;
 }
 
@@ -583,13 +599,31 @@ button {
 
 /* Modals */
 .modal {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
 }
 .modal-content {
+    background: white;
+    padding: 2rem;
+    width: 90%;
+    max-width: 600px;
     border-radius: 1rem;
     border: none;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    position: relative;
+}
+.close-btn {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
 }
 
 /* Admin Table */
@@ -633,7 +667,7 @@ button {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 1000;
+    z-index: 2000;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -706,11 +740,76 @@ button {
     background: white;
 }
 
+/* --- Editor Components (New) --- */
+
+/* Node Editor Popover */
+.editor-popover {
+    position: absolute;
+    z-index: 200;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    width: 300px;
+    animation: fadeIn 0.15s ease-out;
+}
+
+.editor-popover h4 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.editor-field {
+    margin-bottom: 1rem;
+}
+.editor-field label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Edge Context Menu */
+.edge-menu {
+    position: absolute;
+    z-index: 200;
+    background: white;
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    min-width: 180px;
+    overflow: hidden;
+    animation: fadeIn 0.1s ease-out;
+}
+
+.edge-menu-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.1s;
+}
+.edge-menu-item:hover {
+    background-color: #F3F4F6;
+    color: var(--primary-color);
+}
+.edge-menu-item.danger { color: var(--danger-color); }
+.edge-menu-item.danger:hover { background-color: #FEF2F2; }
+
+
 /* --- Responsive Design --- */
 @media (max-width: 1024px) {
     .left-column, .right-column { width: 300px; }
     .left-panel-toggle { left: 320px; }
     .right-panel-toggle { right: 320px; }
+    .panel-hidden-left { transform: translateX(-320px); }
+    .panel-hidden-right { transform: translateX(320px); }
 }
 
 @media (max-width: 768px) {
@@ -729,6 +828,7 @@ button {
         backdrop-filter: none;
         padding: 1rem;
         border-bottom: 1px solid var(--border-color);
+        overflow: visible;
     }
 
     .panel-toggle { display: none; }
