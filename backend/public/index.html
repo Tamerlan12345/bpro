@@ -17,6 +17,7 @@
         </header>
         <main>
             <div id="login-container" class="login-container">
+                <!-- Step 1: User Login -->
                 <div id="user-login" class="login-form">
                     <h2>Вход в систему</h2>
                     <p>Пожалуйста, авторизуйтесь для продолжения работы</p>
@@ -32,27 +33,34 @@
                     <p id="user-error" class="error-message" style="color: var(--danger-color); text-align: center; margin-top: 1rem; margin-bottom: 0;"></p>
                 </div>
 
+                <!-- Step 2: Department Selection -->
                 <div id="department-selection" class="login-form" style="display: none; max-width: 800px;">
                     <h2>Выберите департамент</h2>
+                    <p>В каком подразделении вы хотите работать сегодня?</p>
                     <div id="department-selection-container"></div>
                     <p id="department-selection-error" class="error-message"></p>
                 </div>
 
+                <!-- Step 3: Chat Selection -->
                 <div id="chat-login" class="login-form" style="display: none; max-width: 800px;">
                     <div style="display: flex; align-items: center; margin-bottom: 1.5rem;">
-                         <button id="back-to-depts-btn" class="button-secondary" style="margin-right: auto;">← Назад</button>
+                         <button id="back-to-depts-btn" class="button-secondary" style="margin-right: auto; padding: 0.5rem 1rem;">← Назад</button>
                          <h2 style="margin: 0; flex: 1; text-align: center;">Выберите чат</h2>
-                         <div style="width: 80px;"></div>
+                         <div style="width: 80px;"></div> <!-- Spacer -->
                     </div>
+
                     <div id="chat-selection-container"></div>
+
                     <div style="border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1rem;">
-                         <input type="password" id="chat-password" placeholder="Пароль чата" style="max-width: 300px; margin: 0 auto 1rem; display: block;">
+                         <label for="chat-password" style="display: block; margin-bottom: 0.5rem; font-weight: 500; text-align: center;">Пароль доступа к чату</label>
+                         <input type="password" id="chat-password" placeholder="••••••••" style="max-width: 300px; margin: 0 auto 1rem; display: block;">
                          <button id="chat-login-btn" class="button-primary" style="width: 100%; max-width: 300px; margin: 0 auto; display: flex;">Войти в чат</button>
                          <p id="chat-error" class="error-message" style="text-align: center; color: var(--danger-color); margin-top: 1rem;"></p>
                     </div>
                 </div>
             </div>
 
+            <!-- Admin Panel Dashboard -->
             <div id="admin-panel" style="display: none;">
                 <div class="admin-layout">
                     <aside class="admin-sidebar">
@@ -62,41 +70,88 @@
                             <button class="admin-nav-item" data-target="admin-section-review">Проверка</button>
                         </nav>
                     </aside>
+
                     <main class="admin-content">
+                        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                             <h2 id="admin-page-title" style="margin: 0;">Управление</h2>
+                        </header>
+
+                        <!-- Section: Management (Departments & Chats) -->
                         <div id="admin-section-management" class="admin-view-section active">
-                            <div style="display: grid; grid-template-columns: 350px 1fr; gap: 2rem;">
+                            <div style="display: grid; grid-template-columns: 350px 1fr; gap: 2rem; align-items: start;">
+
+                                <!-- Left: Departments -->
                                 <div class="admin-column">
-                                     <div class="admin-card">
-                                        <h4>Новый департамент</h4>
-                                        <select id="user-for-new-department" style="margin-bottom: 0.5rem;"></select>
-                                        <input type="text" id="new-department-name" placeholder="Название" style="margin-bottom: 0.5rem;">
-                                        <input type="password" id="new-department-password" placeholder="Пароль" style="margin-bottom: 0.5rem;">
-                                        <button id="create-department-btn" class="button-primary">Создать</button>
-                                     </div>
-                                     <div id="department-list"></div>
-                                </div>
-                                <div class="admin-column">
-                                    <div class="admin-card">
-                                        <h3 id="chat-list-header">Чаты</h3>
-                                        <div id="create-chat-form" style="display: none; margin-bottom: 1rem;">
-                                            <input type="text" id="new-chat-name" placeholder="Название" style="margin-bottom: 0.5rem;">
-                                            <input type="password" id="new-chat-password" placeholder="Пароль" style="margin-bottom: 0.5rem;">
-                                            <button id="create-chat-btn" class="button-primary">Создать</button>
+                                    <div class="admin-card" style="background-color: #F9FAFB;">
+                                        <h4 style="margin-top: 0; margin-bottom: 1rem;">Новый департамент</h4>
+                                        <div id="create-department-form" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                            <div class="form-group" style="margin: 0;">
+                                                <select id="user-for-new-department"></select>
+                                            </div>
+                                            <div class="form-group" style="margin: 0;">
+                                                <input type="text" id="new-department-name" placeholder="Название">
+                                            </div>
+                                            <div class="form-group" style="margin: 0;">
+                                                <input type="password" id="new-department-password" placeholder="Пароль">
+                                            </div>
+                                            <button id="create-department-btn" class="button-primary">Создать</button>
                                         </div>
-                                        <div id="chat-list"></div>
+                                    </div>
+
+                                    <h3 style="margin-bottom: 1rem; padding-left: 0.5rem;">Департаменты</h3>
+                                    <div id="department-list" style="display: grid; gap: 0.5rem;"></div>
+                                </div>
+
+                                <!-- Right: Chats -->
+                                <div class="admin-column">
+                                    <div id="chat-list-container">
+                                        <div style="background: white; border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1.5rem; min-height: 400px;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+                                                <div>
+                                                    <h3 id="chat-list-header" style="margin: 0;">Чаты</h3>
+                                                    <span id="selected-department-name" style="font-size: 0.9rem; color: var(--text-secondary);">Выберите департамент слева</span>
+                                                </div>
+                                            </div>
+
+                                            <div id="create-chat-form" style="display: none; margin-bottom: 1.5rem; background: #EEF2FF; padding: 1rem; border-radius: var(--radius);">
+                                                <h5 style="margin-top: 0;">Создать новый чат</h5>
+                                                <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem;">
+                                                    <input type="text" id="new-chat-name" placeholder="Название чата">
+                                                    <input type="password" id="new-chat-password" placeholder="Пароль чата">
+                                                    <button id="create-chat-btn" class="button-primary">Создать</button>
+                                                </div>
+                                            </div>
+
+                                            <div id="chat-list">
+                                                <div class="placeholder-text" style="padding: 2rem; text-align: center;">
+                                                    ← Выберите департамент из списка слева, чтобы увидеть чаты.
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Section: Review -->
                         <div id="admin-section-review" class="admin-view-section">
-                            <div class="admin-tabs">
-                                <button id="in-review-tab" class="tab-link active">На проверке</button>
-                                <button id="pending-tab" class="tab-link">В работе</button>
-                                <button id="completed-tab" class="tab-link">Завершенные</button>
+                            <div class="admin-card">
+                                <div class="admin-tabs" style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color);">
+                                    <button id="in-review-tab" class="tab-link active">На проверке</button>
+                                    <button id="pending-tab" class="tab-link">В работе</button>
+                                    <button id="completed-tab" class="tab-link">Завершенные</button>
+                                </div>
+
+                                <div id="in-review" class="tab-content" style="display: block;">
+                                    <ul id="in-review-list" class="admin-list" style="list-style: none; padding: 0;"></ul>
+                                </div>
+                                <div id="pending" class="tab-content" style="display: none;">
+                                    <ul id="pending-list" class="admin-list" style="list-style: none; padding: 0;"></ul>
+                                </div>
+                                <div id="completed" class="tab-content" style="display: none;">
+                                    <ul id="completed-list" class="admin-list" style="list-style: none; padding: 0;"></ul>
+                                </div>
                             </div>
-                            <ul id="in-review-list" class="admin-list"></ul>
-                            <ul id="pending-list" class="admin-list" style="display:none;"></ul>
-                            <ul id="completed-list" class="admin-list" style="display:none;"></ul>
                         </div>
                     </main>
                 </div>
@@ -104,13 +159,15 @@
         </main>
     </div>
 
+    <!-- Workspace (Canvas-First Layout) -->
     <div class="container" style="display: none;">
         <div class="workspace-layout">
             <header>
                 <div class="header-left">
-                    <button id="back-to-admin-btn" style="display: none;">←</button>
-                    <h1 id="chat-name-header" class="header-title">BizMap AI</h1>
+                    <button id="back-to-admin-btn" style="display: none; border: none; background: none; font-size: 1.2rem; cursor: pointer;">←</button>
+                    <h1 id="chat-name-header" class="header-title">BizMap AI Agent</h1>
                 </div>
+
                 <div id="action-buttons">
                     <button id="save-version-btn" class="button-primary">Сохранить с ИИ</button>
                     <button id="save-raw-version-btn" class="button-secondary">Сохранить</button>
@@ -122,147 +179,227 @@
             </header>
 
             <main class="main-content">
+                <!-- Layer 1: Left Column (Inputs) -->
                 <div class="left-column">
                     <div class="sidebar-block">
-                        <h3>1. Описание</h3>
-                        <textarea id="process-description" placeholder="Опишите процесс..." style="min-height: 150px;"></textarea>
-                        <div id="step-counter" class="step-counter" style="margin-bottom: 0.5rem;">0 шагов</div>
-                        <div class="audio-controls" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                             <button id="start-record-btn" class="button-primary" style="flex: 1;">🎙️ Запись</button>
-                             <button id="stop-record-btn" class="button-danger" style="display: none; flex: 1;">⏹️ Стоп</button>
-                             <button id="process-btn" class="button-primary" style="display: none; flex: 1;">⚡ Обработать</button>
+                        <h3>1. Аудио ввод</h3>
+                        <div class="audio-recorder-block">
+                            <div class="recorder-controls">
+                                <button id="start-record-btn" class="button-primary" style="width: 100%;">🎙️ Начать запись</button>
+                                <button id="stop-record-btn" class="button-danger" style="display: none; width: 100%;">⏹️ Стоп</button>
+                                <button id="listen-btn" class="button-secondary" style="display: none;">🎧 Слушать</button>
+                                <button id="process-btn" class="button-primary" style="display: none;">⚡ Обработать</button>
+                                <button id="rerecord-btn" class="button-secondary" style="display: none;">🔄 Заново</button>
+                            </div>
+
+                            <span id="recording-indicator" style="display: none; color: var(--danger-color); font-weight: 600; font-size: 0.9rem;">
+                                🔴 Запись: <span id="recording-timer">00:00</span>
+                            </span>
+                            <span id="transcription-timer" style="display: none; margin-left: 10px; font-style: italic; color: #555;"></span>
+
+                            <audio id="audio-playback" controls class="audio-playback" style="display: none; width: 100%; margin-top: 0.5rem;"></audio>
+
+                            <div id="transcription-display" class="transcription-display-area" style="margin-top: 1rem; display: none;"></div>
+                            <div id="partial-transcript-display" class="partial-transcript" style="display: none;"></div>
                         </div>
-                        <span id="recording-timer" style="display:none; color: var(--danger-color); font-weight: bold; margin-top: 0.5rem;">00:00</span>
+                    </div>
+
+                    <div class="sidebar-block" style="flex: 1; display: flex; flex-direction: column;">
+                        <h3>1.1 Описание процесса</h3>
+                        <div class="textarea-wrapper" style="flex: 1; display: flex; flex-direction: column;">
+                            <textarea id="process-description" placeholder="Опишите процесс по шагам..." style="flex: 1;"></textarea>
+                            <div id="step-counter" class="step-counter">0 шагов</div>
+                        </div>
+
+                        <div class="prompt-block" style="margin-top: 1rem;">
+                            <label for="user-prompt" style="font-size: 0.85rem; color: var(--text-secondary);">Контекст для ИИ (опционально)</label>
+                            <input type="text" id="user-prompt" placeholder="Например: 'Сделай акцент на безопасности'">
+                        </div>
+
+                        <button id="improve-btn" class="button-primary" style="width: 100%; margin-top: 1rem;">
+                            ✨ Улучшить с ИИ
+                        </button>
                     </div>
                 </div>
-                <div id="left-panel-toggle" class="panel-toggle left-panel-toggle">&lt;&lt;</div>
+                <!-- Toggle for Left Panel -->
+                <div id="left-panel-toggle" class="panel-toggle left-panel-toggle">
+                    &lt;&lt;
+                </div>
 
+                <!-- Layer 0: Center Column (Canvas) -->
                 <div class="center-column">
-                    <div id="diagram-container" class="diagram-container"></div>
-                    <div id="diagram-placeholder" class="diagram-placeholder">
-                        <div class="placeholder-content">
-                            <p>Схема появится здесь</p>
-                            <button id="render-diagram-btn" class="button-secondary">Создать схему</button>
+                    <div id="diagram-block">
+                        <div class="diagram-header">
+                            <h3 style="margin: 0;">Визуализация</h3>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">Mermaid.js</div>
+                        </div>
+
+                        <div id="diagram-placeholder" class="diagram-placeholder">
+                            <div class="placeholder-content">
+                                <svg class="placeholder-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10a4 4 0 1 0-8 0 4 4 0 0 0 8 0z"/><path d="M12 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M6 10a4 4 0 1 0-8 0 4 4 0 0 0 8 0zM12 6V2"/><path d="M12 22v-4"/><path d="m15 7 2-2"/><path d="m5 17 2 2"/><path d="m15 17-2 2"/><path d="m5 7 2-2"/></svg>
+                                <p>Схема появится здесь</p>
+                                <button id="render-diagram-btn" class="button-secondary">Создать схему</button>
+                            </div>
+                            <div id="diagram-container" class="diagram-container" style="display: none;"></div>
+                        </div>
+
+                        <div id="diagram-toolbar" class="diagram-toolbar" style="display: none;">
+                            <button id="regenerate-diagram-btn" title="Перегенерировать">🔄</button>
+                            <button id="edit-diagram-btn" title="Редактировать">✏️</button> <!-- Always visible now in split mode -->
+                            <button id="zoom-in-btn" title="Приблизить">+</button>
+                            <button id="zoom-out-btn" title="Отдалить">-</button>
+                            <button id="download-png-btn" title="Скачать PNG">PNG</button>
+                            <button id="download-svg-btn" title="Скачать SVG">SVG</button>
                         </div>
                     </div>
+                    <!-- Hidden legacy results block if script references it -->
+                    <div class="results-block" style="display: none;"></div>
 
-                    <div id="floating-toolbar" class="floating-toolbar" style="display: none;">
-                        <button id="zoom-in-btn" title="Приблизить">+</button>
-                        <button id="zoom-out-btn" title="Отдалить">-</button>
-                        <div class="divider"></div>
-                        <button id="fit-screen-btn" title="Весь экран">⛶</button>
-                        <button id="download-png-btn" title="Скачать PNG">📷</button>
-                        <div class="divider"></div>
-                         <button class="add-node-btn" data-shape="rect" title="Действие">⬜</button>
-                        <button class="add-node-btn" data-shape="diamond" title="Условие">◇</button>
-                        <button class="add-node-btn" data-shape="rounded" title="Начало/Конец">◯</button>
-                    </div>
-
+                    <!-- Split View Container (initially hidden) -->
                     <div id="split-view-container" class="split-view-container" style="display: none;">
                         <div class="split-code">
                             <div class="split-toolbar">
-                                <span>Mermaid Code</span>
-                                <button id="close-split-view-btn" class="button-secondary">Закрыть</button>
+                                <span>Код Mermaid</span>
+                                <button id="close-split-view-btn" class="button-secondary" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;">Закрыть</button>
                             </div>
                             <textarea id="split-view-textarea" spellcheck="false"></textarea>
-                            <button id="save-split-view-btn" class="button-primary" style="margin: 1rem;">Применить</button>
+                            <div style="padding: 1rem; border-top: 1px solid var(--border-color);">
+                                <button id="save-split-view-btn" class="button-primary" style="width: 100%;">Сохранить</button>
+                            </div>
                         </div>
                         <div class="split-preview" id="split-view-preview"></div>
                     </div>
                 </div>
 
+                <!-- Layer 1: Right Column (Collaboration) -->
                 <div class="right-column">
-                    <div class="sidebar-block">
-                        <h3>История & Комментарии</h3>
-                        <div id="version-history-container" style="max-height: 150px; overflow-y: auto; margin-bottom: 1rem;"></div>
-                        <div id="comments-container" style="max-height: 200px; overflow-y: auto;"></div>
-                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                            <input id="comment-input" type="text" placeholder="Комментарий...">
-                            <button id="add-comment-btn" class="button-secondary">OK</button>
+                    <div class="suggestions-block sidebar-block">
+                        <h3>2. Предложения ИИ</h3>
+                        <div id="suggestions-controls" class="suggestions-controls" style="display: none;">
+                            <div class="select-all-wrapper">
+                                <input type="checkbox" id="select-all-checkbox">
+                                <label for="select-all-checkbox">Все</label>
+                            </div>
+                            <div id="selection-counter" style="font-size: 0.85rem;">0 выбрано</div>
+                        </div>
+                        <div id="suggestions-container" class="suggestions-container">
+                            <p class="placeholder-text" style="font-size: 0.9rem;">Нет предложений.</p>
+                        </div>
+                        <button id="apply-improvements-btn" class="button-success" disabled style="width: 100%; margin-top: 1rem; background-color: var(--success-color); color: white;">Применить</button>
+                    </div>
+
+                    <div class="version-history-block sidebar-block">
+                        <h3>История</h3>
+                        <div id="version-history-container" style="max-height: 200px; overflow-y: auto;"></div>
+                    </div>
+
+                    <div class="comments-block sidebar-block">
+                        <h3>Комментарии</h3>
+                        <div id="comments-container" style="height: 200px; overflow-y: auto; margin-bottom: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius); padding: 0.5rem;"></div>
+                        <div class="comment-form">
+                            <textarea id="comment-input" placeholder="Ваш комментарий..." style="min-height: 60px;"></textarea>
+                            <button id="add-comment-btn" class="button-secondary" style="width: 100%; margin-top: 0.5rem;">Отправить</button>
                         </div>
                     </div>
                 </div>
-                <div id="right-panel-toggle" class="panel-toggle right-panel-toggle">&gt;&gt;</div>
+                 <!-- Toggle for Right Panel -->
+                 <div id="right-panel-toggle" class="panel-toggle right-panel-toggle">
+                    &gt;&gt;
+                </div>
             </main>
         </div>
     </div>
 
     <div id="notification-container" class="notification-container"></div>
 
-    <div id="node-context-menu" class="context-menu" style="display: none;">
-        <div class="context-header">Редактирование узла</div>
-        <div class="context-body">
-            <textarea id="node-edit-text" rows="2" placeholder="Текст узла"></textarea>
-            <div class="context-row">
-                <label>Форма:</label>
-                <div class="shape-selector">
-                    <button class="shape-btn" data-shape="rect" title="Прямоугольник">⬜</button>
-                    <button class="shape-btn" data-shape="rounded" title="Скругленный">◯</button>
-                    <button class="shape-btn" data-shape="diamond" title="Ромб">◇</button>
-                    <button class="shape-btn" data-shape="database" title="База">🛢</button>
-                </div>
+    <!-- Modals (Transcription only, Editor removed) -->
+    <div id="transcription-review-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Транскрибация</h2>
+            <p>Проверьте и отредактируйте текст.</p>
+            <textarea id="transcription-text-area" rows="15"></textarea>
+            <div id="transcription-modal-buttons" style="margin-top: 1rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                <button id="save-transcription-progress-btn" class="button-secondary">Черновик</button>
+                <button id="finalize-transcription-btn" class="button-primary">Готово</button>
             </div>
-            <div class="context-row">
-                <label>Цвет:</label>
-                <div class="color-selector">
-                    <button class="color-btn" style="background:#fff; border:1px solid #ccc;" data-color="default"></button>
-                    <button class="color-btn" style="background:#bbf7d0;" data-color="green"></button>
-                    <button class="color-btn" style="background:#bfdbfe;" data-color="blue"></button>
-                    <button class="color-btn" style="background:#fecaca;" data-color="red"></button>
-                    <button class="color-btn" style="background:#fef08a;" data-color="yellow"></button>
-                </div>
-            </div>
-            <div class="context-actions">
-                <button id="node-delete-btn" class="button-danger-text">Удалить</button>
+            <div id="transcription-finalized-view" style="display: none;">
+                <h4>Текст финализирован</h4>
+                <div class="finalized-text-display"></div>
             </div>
         </div>
     </div>
 
-    <div id="edge-context-menu" class="context-menu" style="display: none;">
-        <div class="context-header">Редактирование связи</div>
-        <div class="context-body">
-            <input type="text" id="edge-edit-text" placeholder="Текст (напр. Да)">
-            <div class="quick-tags">
-                <button class="tag-btn" data-text="Да">Да</button>
-                <button class="tag-btn" data-text="Нет">Нет</button>
-                <button class="tag-btn" data-text="">(Очистить)</button>
-            </div>
-            <div class="context-row">
-                <label>Тип:</label>
-                <div class="style-selector">
-                    <button class="style-btn" data-style="solid" title="Сплошная">──→</button>
-                    <button class="style-btn" data-style="dotted" title="Пунктирная">- -→</button>
-                    <button class="style-btn" data-style="thick" title="Жирная">══→</button>
-                </div>
-            </div>
-            <div class="context-actions">
-                <button id="edge-reverse-btn" class="button-secondary-text">🔄 Развернуть</button>
-                <button id="edge-delete-btn" class="button-danger-text">Удалить</button>
-            </div>
+    <!-- Legacy Editor Modal removed/hidden (clean up optional but safer to remove ref in JS) -->
+
+    <!-- Legend (Hidden visually but kept if script references classes inside) -->
+    <div class="legend" style="display: none;"></div>
+
+    <!-- Node Editor Popover (Hidden by default) -->
+    <div id="node-editor-popover" class="editor-popover" style="display: none;">
+        <h4>Редактирование узла</h4>
+        <div class="editor-field">
+            <label>Текст</label>
+            <input type="text" id="node-editor-text">
+        </div>
+        <div class="editor-field">
+            <label>Форма</label>
+            <select id="node-editor-shape">
+                <option value="rect">Прямоугольник []</option>
+                <option value="rounded">Скругленный ()</option>
+                <option value="diamond">Ромб (Условие) {}</option>
+                <option value="database">База данных [()]</option>
+            </select>
+        </div>
+        <div class="editor-field">
+            <label>Padding (Размер)</label>
+            <input type="range" id="node-editor-padding" min="0" max="10" value="0" style="width: 100%;">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button id="node-editor-cancel" class="button-secondary" style="padding: 0.5rem;">Отмена</button>
+            <button id="node-editor-save" class="button-primary" style="padding: 0.5rem;">ОК</button>
         </div>
     </div>
 
-    <script src="script.js?v=5"></script>
+    <!-- Edge Context Menu (Hidden by default) -->
+    <div id="edge-context-menu" class="edge-menu" style="display: none;">
+        <div class="edge-menu-item" id="edge-reverse">🔄 Развернуть</div>
+        <div class="edge-menu-item" id="edge-style">✏️ Тип линии</div>
+        <div class="edge-menu-item" id="edge-text">📝 Добавить текст</div>
+        <div class="edge-menu-item danger" id="edge-delete">🗑️ Удалить</div>
+    </div>
+
+    <script src="script.js?v=4"></script>
     <script>
+        // Simple UI Script for Admin Tabs (View Switching)
         document.addEventListener('DOMContentLoaded', () => {
             const adminNavItems = document.querySelectorAll('.admin-nav-item');
             const adminSections = document.querySelectorAll('.admin-view-section');
-            if (adminNavItems) {
-                adminNavItems.forEach(item => {
-                    item.addEventListener('click', () => {
-                        const targetId = item.dataset.target;
-                        adminNavItems.forEach(nav => nav.classList.remove('active'));
-                        item.classList.add('active');
-                        adminSections.forEach(section => {
-                            if (section.id === targetId) {
-                                section.classList.add('active');
-                            } else {
-                                section.classList.remove('active');
-                            }
-                        });
+            const adminTitle = document.getElementById('admin-page-title');
+
+            adminNavItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const targetId = item.dataset.target;
+
+                    // Update Nav Active State
+                    adminNavItems.forEach(nav => nav.classList.remove('active'));
+                    item.classList.add('active');
+
+                    // Show Target Section
+                    adminSections.forEach(section => {
+                        if (section.id === targetId) {
+                            section.classList.add('active');
+                        } else {
+                            section.classList.remove('active');
+                        }
                     });
+
+                    // Update Title
+                    adminTitle.textContent = item.textContent;
                 });
-            }
+            });
+
+            // Back button logic enhancement for chat selection
             const backToDeptsBtn = document.getElementById('back-to-depts-btn');
             if(backToDeptsBtn) {
                 backToDeptsBtn.addEventListener('click', () => {
