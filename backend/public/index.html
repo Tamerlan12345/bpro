@@ -35,23 +35,30 @@
 
                 <!-- Step 2: Department Selection -->
                 <div id="department-selection" class="login-form" style="display: none; max-width: 800px;">
-                    <h2>Выберите департамент</h2>
+                    <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                        <button id="back-to-login-btn" class="button-secondary" style="margin-right: auto; padding: 0.5rem 1rem;">← Назад</button>
+                        <h2 style="margin: 0; flex: 1; text-align: center;">Выберите департамент</h2>
+                        <div style="width: 80px;"></div> <!-- Spacer -->
+                    </div>
                     <p>В каком подразделении вы хотите работать сегодня?</p>
                     <div id="department-selection-container"></div>
                     <p id="department-selection-error" class="error-message"></p>
                 </div>
 
                 <!-- Step 3: Chat Selection -->
-                <div id="chat-login" class="login-form" style="display: none; max-width: 800px;">
-                    <div style="display: flex; align-items: center; margin-bottom: 1.5rem;">
+                <div id="chat-login" class="login-form" style="display: none; max-width: 800px; height: 80vh; flex-direction: column;">
+                    <!-- Header -->
+                    <div style="display: flex; align-items: center; margin-bottom: 1rem; flex-shrink: 0;">
                          <button id="back-to-depts-btn" class="button-secondary" style="margin-right: auto; padding: 0.5rem 1rem;">← Назад</button>
                          <h2 style="margin: 0; flex: 1; text-align: center;">Выберите чат</h2>
                          <div style="width: 80px;"></div> <!-- Spacer -->
                     </div>
 
-                    <div id="chat-selection-container"></div>
+                    <!-- List Container (Scrollable) -->
+                    <div id="chat-selection-container" style="flex-grow: 1; overflow-y: auto; margin-bottom: 1rem; padding-right: 0.5rem;"></div>
 
-                    <div style="border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1rem;">
+                    <!-- Footer (Fixed) -->
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 1rem; flex-shrink: 0;">
                          <label for="chat-password" style="display: block; margin-bottom: 0.5rem; font-weight: 500; text-align: center;">Пароль доступа к чату</label>
                          <input type="password" id="chat-password" placeholder="••••••••" style="max-width: 300px; margin: 0 auto 1rem; display: block;">
                          <button id="chat-login-btn" class="button-primary" style="width: 100%; max-width: 300px; margin: 0 auto; display: flex;">Войти в чат</button>
@@ -244,6 +251,7 @@
                             <button id="edit-diagram-btn" title="Редактировать" style="display: none;">✏️</button>
                             <button id="zoom-in-btn" title="Приблизить">+</button>
                             <button id="zoom-out-btn" title="Отдалить">-</button>
+                            <button id="reset-zoom-btn" title="Сброс масштаба">Сброс</button>
                             <button id="download-png-btn" title="Скачать PNG">PNG</button>
                             <button id="download-svg-btn" title="Скачать SVG">SVG</button>
                         </div>
@@ -318,6 +326,13 @@
                         <li><code>A["Текст"]</code></li>
                         <li><code>A --> B</code></li>
                     </ul>
+                </div>
+                <div class="visual-toolbar" style="margin-bottom: 0.5rem; display: flex; gap: 0.5rem;">
+                    <button id="insert-step-btn" class="button-secondary" title="Действие">🟩 Действие</button>
+                    <button id="insert-check-btn" class="button-secondary" title="Условие">🔶 Условие</button>
+                    <button id="insert-db-btn" class="button-secondary" title="База данных">🛢 База</button>
+                    <button id="insert-doc-btn" class="button-secondary" title="Документ">📄 Документ</button>
+                    <button id="insert-arrow-btn" class="button-secondary" title="Связь">🔗 Связь</button>
                 </div>
                 <textarea id="mermaid-editor-textarea" spellcheck="false"></textarea>
                 <div id="mermaid-editor-preview"></div>

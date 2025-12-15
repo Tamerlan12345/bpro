@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let rerecordCount = 0; // To count re-record attempts
     let suggestions = [];
     let currentDiagramScale = 1;
+    let isPanning = false;
+    let startX = 0, startY = 0;
+    let translateX = 0, translateY = 0;
     let timerInterval;
     let secondsRecorded = 0;
     let transcriptionTimerInterval;
@@ -238,11 +241,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function zoomDiagram(factor) {
+        if (factor === 0) {
+            // Reset
+            currentDiagramScale = 1;
+            translateX = 0;
+            translateY = 0;
+        } else {
+            currentDiagramScale *= factor;
+        }
+        updateDiagramTransform();
+    }
+
+    function updateDiagramTransform() {
         const svg = diagramContainer.querySelector('svg');
         if (svg) {
-            currentDiagramScale *= factor;
-            svg.style.transform = `scale(${currentDiagramScale})`;
+            svg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentDiagramScale})`;
+            svg.style.transformOrigin = 'center center';
+            svg.style.cursor = isPanning ? 'grabbing' : 'grab';
         }
+    }
+
+    function insertMermaidTemplate(template) {
+        const cursorPosition = mermaidEditorTextarea.selectionStart;
+        const textBefore = mermaidEditorTextarea.value.substring(0, cursorPosition);
+        const textAfter = mermaidEditorTextarea.value.substring(cursorPosition);
+
+        mermaidEditorTextarea.value = textBefore + template + textAfter;
+
+        // Move cursor inside the quotes
+        const quoteIndex = template.indexOf('"');
+        if (quoteIndex !== -1) {
+            mermaidEditorTextarea.selectionStart = mermaidEditorTextarea.selectionEnd = cursorPosition + quoteIndex + 1;
+        } else {
+            mermaidEditorTextarea.selectionStart = mermaidEditorTextarea.selectionEnd = cursorPosition + template.length;
+        }
+
+        mermaidEditorTextarea.focus();
+        handleMermaidEditorInput(); // Update preview
     }
 
     function downloadDiagram(format) {
@@ -314,21 +349,26 @@ document.addEventListener('DOMContentLoaded', () => {
 ### ПРАВИЛА ДЛЯ MERMAID-КОДА:
 СИНТАКСИС И СТИЛЬ:
 - **Направление:** Всегда используй 'flowchart TD'.
-- **Линии:** Все связи должны быть ПРЯМЫМИ. Используй \`-->\` для всех связей. Не используй другие типы стрелок.
-- **Экранирование:** Внутри текстовых меток все специальные символы, особенно кавычки, должны быть экранированы с помощью HTML-кодов. Например, для кавычки (") используй #quot;.
+- **Группировка:** Использй \`subgraph "Название этапа" ... end\` для логической группировки шагов.
+- **Стилизация (ClassDef):**
+    - Используй \`classDef startend fill:#d1e7dd,stroke:#0f5132,stroke-width:2px;
+    - Используй \`classDef decision fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
+    - Применяй \`:::startend\` к начальным и конечным узлам.
+    - Применяй \`:::decision\` к ромбам (условиям).
+- **Минимизация пересечений:** Старайся строить граф так, чтобы линии пересекались как можно реже.
+- **Линии:** Все связи должны быть ПРЯМЫМИ. Используй \`-->\` для всех связей.
+- **Экранирование:** Внутри текстовых меток все специальные символы, особенно кавычки, должны быть экранированы (например, #quot;).
 
 ФИГУРЫ:
 - ПРЯМОУГОЛЬНИК \`id["Текст"]\`: Для стандартных действий.
-- РОМБ \`id{"Текст"}\`: ТОЛЬКО для решений и условий (если, проверить, да/нет).
-- ЦИЛИНДР \`id[("Текст")]\`: Для баз данных, CRM, хранилищ.
-- ДОКУМЕНТ \`id>Текст]\`: Для отчетов, счетов, заявок.
+- РОМБ \`id{"Текст"}\`:::decision: ТОЛЬКО для решений.
+- ЦИЛИНДР \`id[("Текст")]\`: Для баз данных.
+- ДОКУМЕНТ \`id>Текст]\`: Для документов.
 
-**КЛЮЧЕВОЕ ПРАВИЛО СТРОК:** Весь текст внутри фигур (внутри \`""\`, \`{}\`, \`()\`, \`>\`) ДОЛЖЕН быть заключен в стандартные двойные кавычки ASCII (\`"\`). Это самое важное правило. Пример: \`A["Это валидный текст"]\`.
+**КЛЮЧЕВОЕ ПРАВИЛО СТРОК:** Весь текст внутри фигур ДОЛЖЕН быть в двойных кавычках ASCII (\`"\`).
 
 **СПЕЦИАЛЬНЫЕ ПРАВИЛА ДЛЯ СУЩНОСТЕЙ:**
-- Если в тексте упоминаются "КИАС", "БД", "CRM", "база данных" или любая другая "система", используй для них фигуру **ЦИЛИНДР**.
-
-СТИЛИЗАЦИЯ: Обязательно добавляй стили для ромбов, цилиндров и документов в конце кода.
+- Системы (КИАС, CRM, БД) -> ЦИЛИНДР.
 
 
 ФОРМАТ ОТВЕТА:
@@ -388,21 +428,26 @@ ${brokenCode}
 ### ПРАВИЛА ДЛЯ MERMAID-КОДА:
 СИНТАКСИС И СТИЛЬ:
 - **Направление:** Всегда используй 'flowchart TD'.
-- **Линии:** Все связи должны быть ПРЯМЫМИ. Используй \`-->\` для всех связей. Не используй другие типы стрелок.
-- **Экранирование:** Внутри текстовых меток все специальные символы, особенно кавычки, должны быть экранированы с помощью HTML-кодов. Например, для кавычки (") используй #quot;.
+- **Группировка:** Используй \`subgraph\` для группировки связанных шагов.
+- **Стилизация (ClassDef):**
+    - Определи классы:
+      \`classDef startend fill:#d1e7dd,stroke:#0f5132,stroke-width:2px;\`
+      \`classDef decision fill:#fff3cd,stroke:#ffc107,stroke-width:2px;\`
+    - Применяй \`:::startend\` к началу и концу.
+    - Применяй \`:::decision\` к условиям.
+- **Линии:** Используй \`-->\`.
+- **Экранирование:** Экранируй кавычки как #quot;.
 
 ФИГУРЫ:
-- ПРЯМОУГОЛЬНИК \`id["Текст"]\`: Для стандартных действий.
-- РОМБ \`id{"Текст"}\`: ТОЛЬКО для решений и условий (если, проверить, да/нет).
-- ЦИЛИНДР \`id[("Текст")]\`: Для баз данных, CRM, хранилищ.
-- ДОКУМЕНТ \`id>Текст]\`: Для отчетов, счетов, заявок.
+- ПРЯМОУГОЛЬНИК \`id["Текст"]\`: Действия.
+- РОМБ \`id{"Текст"}\`:::decision: Условия.
+- ЦИЛИНДР \`id[("Текст")]\`: Базы данных.
+- ДОКУМЕНТ \`id>Текст]\`: Документы.
 
-**КЛЮЧЕВОЕ ПРАВИЛО СТРОК:** Весь текст внутри фигур (внутри \`""\`, \`{}\`, \`()\`, \`>\`) ДОЛЖЕН быть заключен в стандартные двойные кавычки ASCII (\`"\`). Это самое важное правило. Пример: \`A["Это валидный текст"]\`.
+**КЛЮЧЕВОЕ ПРАВИЛО СТРОК:** Весь текст внутри фигур ДОЛЖЕН быть в двойных кавычках ASCII (\`"\`).
 
 **СПЕЦИАЛЬНЫЕ ПРАВИЛА ДЛЯ СУЩНОСТЕЙ:**
-- Если в тексте упоминаются "КИАС", "БД", "CRM", "база данных" или любая другая "система", используй для них фигуру **ЦИЛИНДР**.
-
-СТИЛИЗАЦИЯ: Обязательно добавляй стили для ромбов, цилиндров и документов в конце кода.
+- Системы (КИАС, CRM, БД) -> ЦИЛИНДР.
 
 ФОРМАТ ОТВЕТА:
 Твой ответ должен содержать ТОЛЬКО код Mermaid.js, без объяснений и markdown.
@@ -484,7 +529,7 @@ ${brokenCode}
             name: card.dataset.deptName
         };
         departmentSelection.style.display = 'none';
-        chatLogin.style.display = 'block';
+        chatLogin.style.display = 'flex';
         loadChats(selectedDepartment.id);
     }
 
@@ -921,6 +966,40 @@ ${brokenCode}
             adminPanel.innerHTML = `<p class="error">Failed to load admin panel: ${error.message}</p>`;
         }
     }
+
+    // --- Pan & Zoom Logic ---
+    diagramContainer.addEventListener('mousedown', (e) => {
+        if (e.ctrlKey || e.button === 0) { // Ctrl+Click or just Click (if we want it to be default behavior)
+             // Let's stick to the requirement: "Activates when Ctrl key is held + Left Click (or just dragging if not conflicting)"
+             // Since text selection isn't primary here, let's allow drag always on the container area
+            isPanning = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+            diagramContainer.style.cursor = 'grabbing';
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        isPanning = false;
+        if (diagramContainer) diagramContainer.style.cursor = 'grab';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        e.preventDefault();
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        updateDiagramTransform();
+    });
+
+    diagramContainer.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || true) { // Always zoom on wheel for better UX in this container
+            e.preventDefault();
+            const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            zoomDiagram(scaleFactor);
+        }
+    });
+    // --- End Pan & Zoom Logic ---
 
     async function loadAdminDepartments() {
         try {
@@ -1498,8 +1577,39 @@ ${brokenCode}
     regenerateDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
     zoomInBtn.addEventListener('click', () => zoomDiagram(1.1));
     zoomOutBtn.addEventListener('click', () => zoomDiagram(0.9));
+    document.getElementById('reset-zoom-btn').addEventListener('click', () => zoomDiagram(0));
 
     editDiagramBtn.addEventListener('click', openMermaidEditor);
+
+    // Visual Toolbar Listeners
+    document.getElementById('insert-step-btn').addEventListener('click', () => insertMermaidTemplate('\nStep["Описание"]'));
+    document.getElementById('insert-check-btn').addEventListener('click', () => insertMermaidTemplate('\nCheck{"Условие?"}'));
+    document.getElementById('insert-db-btn').addEventListener('click', () => insertMermaidTemplate('\nDB[("База данных")]'));
+    document.getElementById('insert-doc-btn').addEventListener('click', () => insertMermaidTemplate('\nDoc>Документ]'));
+    document.getElementById('insert-arrow-btn').addEventListener('click', () => insertMermaidTemplate(' --> '));
+
+    // Back button listeners
+    const backToLoginBtn = document.getElementById('back-to-login-btn');
+    if (backToLoginBtn) {
+        backToLoginBtn.addEventListener('click', () => {
+            departmentSelection.style.display = 'none';
+            userLogin.style.display = 'block';
+        });
+    }
+
+    const backToDeptsBtn = document.getElementById('back-to-depts-btn');
+    if (backToDeptsBtn) {
+        backToDeptsBtn.addEventListener('click', () => {
+            chatLogin.style.display = 'none';
+
+            departmentSelection.style.display = 'block';
+
+            // Reset selected chat
+            document.querySelectorAll('.chat-card').forEach(c => c.classList.remove('selected'));
+            chatError.textContent = '';
+        });
+    }
+
     closeMermaidEditorBtn.addEventListener('click', closeMermaidEditor);
     cancelMermaidEditBtn.addEventListener('click', closeMermaidEditor);
     saveMermaidChangesBtn.addEventListener('click', handleSaveMermaidChanges);
