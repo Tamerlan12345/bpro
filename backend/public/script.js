@@ -7,7 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let audioBlob = null; // To store the final audio blob
     let rerecordCount = 0; // To count re-record attempts
     let suggestions = [];
-    let currentDiagramScale = 1;
+    let panZoomState = {
+        scale: 1,
+        pX: 0,
+        pY: 0,
+        isDragging: false,
+        startX: 0,
+        startY: 0
+    };
     let timerInterval;
     let secondsRecorded = 0;
     let transcriptionTimerInterval;
@@ -150,6 +157,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     mermaid.initialize({ startOnLoad: false, theme: 'base', fontFamily: 'inherit', flowchart: { nodeSpacing: 50, rankSpacing: 60, curve: 'stepBefore' }, themeVariables: { primaryColor: '#FFFFFF', primaryTextColor: '#212529', primaryBorderColor: '#333333', lineColor: '#333333' } });
 
+    function updateTransform() {
+        const svg = diagramContainer.querySelector('svg');
+        if (svg) {
+            // Применяем смещение (translate) и масштаб (scale)
+            svg.style.transform = `translate(${panZoomState.pX}px, ${panZoomState.pY}px) scale(${panZoomState.scale})`;
+        }
+    }
+
     async function renderDiagram(mermaidCode, container = diagramContainer, isRetry = false) {
         container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
         try {
@@ -162,8 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const svgElement = container.querySelector('svg');
                 if (svgElement) {
                     svgElement.style.maxWidth = '100%';
-                    currentDiagramScale = 1;
-                    zoomDiagram(1);
+                    panZoomState = { scale: 1, pX: 0, pY: 0, isDragging: false, startX: 0, startY: 0 };
+                    updateTransform();
                     diagramToolbar.style.display = 'flex';
                     renderDiagramBtn.style.display = 'none';
                     regenerateDiagramBtn.disabled = false;
@@ -237,13 +252,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function zoomDiagram(factor) {
-        const svg = diagramContainer.querySelector('svg');
-        if (svg) {
-            currentDiagramScale *= factor;
-            svg.style.transform = `scale(${currentDiagramScale})`;
-        }
-    }
 
     function downloadDiagram(format) {
         const svgElement = diagramContainer.querySelector('svg');
@@ -1496,8 +1504,16 @@ ${brokenCode}
 
     renderDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
     regenerateDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
-    zoomInBtn.addEventListener('click', () => zoomDiagram(1.1));
-    zoomOutBtn.addEventListener('click', () => zoomDiagram(0.9));
+
+    zoomInBtn.addEventListener('click', () => {
+        panZoomState.scale *= 1.2;
+        updateTransform();
+    });
+
+    zoomOutBtn.addEventListener('click', () => {
+        panZoomState.scale /= 1.2;
+        updateTransform();
+    });
 
     editDiagramBtn.addEventListener('click', openMermaidEditor);
     closeMermaidEditorBtn.addEventListener('click', closeMermaidEditor);
@@ -1507,4 +1523,77 @@ ${brokenCode}
 
 
     checkSession();
+
+    // Обработчик колесика мыши (Зум в точку курсора)
+    diagramContainer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+
+        const svg = diagramContainer.querySelector('svg');
+        if (!svg) return;
+
+        const zoomIntensity = 0.1;
+        const direction = e.deltaY > 0 ? -1 : 1; // Вниз - отдалить, Вверх - приблизить
+        const factor = direction * zoomIntensity;
+
+        // Ограничения зума
+        let newScale = panZoomState.scale + factor;
+        if (newScale < 0.1) newScale = 0.1;
+        if (newScale > 5) newScale = 5;
+
+        // Математика зума в точку курсора
+        // Получаем координаты мыши относительно контейнера
+        const rect = diagramContainer.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Вычисляем смещение, чтобы точка под курсором осталась на месте
+        panZoomState.pX = mouseX - (mouseX - panZoomState.pX) * (newScale / panZoomState.scale);
+        panZoomState.pY = mouseY - (mouseY - panZoomState.pY) * (newScale / panZoomState.scale);
+        panZoomState.scale = newScale;
+
+        updateTransform();
+    });
+
+    // Начало перетаскивания (MouseDown)
+    diagramContainer.addEventListener('mousedown', (e) => {
+        // Разрешаем драг, если зажат Ctrl ИЛИ нажата средняя кнопка мыши (колесико)
+        if (e.ctrlKey || e.button === 1) {
+            e.preventDefault(); // Чтобы не выделялся текст
+            panZoomState.isDragging = true;
+            panZoomState.startX = e.clientX - panZoomState.pX;
+            panZoomState.startY = e.clientY - panZoomState.pY;
+            diagramContainer.classList.add('pan-active');
+        }
+    });
+
+    // Процесс перетаскивания (MouseMove)
+    window.addEventListener('mousemove', (e) => {
+        if (!panZoomState.isDragging) return;
+
+        e.preventDefault();
+        panZoomState.pX = e.clientX - panZoomState.startX;
+        panZoomState.pY = e.clientY - panZoomState.startY;
+        updateTransform();
+    });
+
+    // Окончание перетаскивания (MouseUp)
+    window.addEventListener('mouseup', () => {
+        if (panZoomState.isDragging) {
+            panZoomState.isDragging = false;
+            diagramContainer.classList.remove('pan-active');
+        }
+    });
+
+    // Визуальная подсказка (курсор) при нажатии Ctrl
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Control') {
+            diagramContainer.classList.add('pan-mode');
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (e.key === 'Control') {
+            diagramContainer.classList.remove('pan-mode');
+        }
+    });
 });
