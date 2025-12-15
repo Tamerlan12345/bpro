@@ -404,7 +404,7 @@ button {
     align-items: center;
 }
 
-#diagram-placeholder, #diagram-container {
+#diagram-placeholder {
     flex: 1;
     display: flex;
     align-items: center;
@@ -412,6 +412,38 @@ button {
     overflow: auto;
     background-image: radial-gradient(#E5E7EB 1px, transparent 1px);
     background-size: 20px 20px;
+}
+
+#diagram-container {
+    flex: 1;
+    display: flex;
+    align-items: flex-start; /* Важно: не center, иначе трансформация будет дергаться */
+    justify-content: flex-start;
+    overflow: hidden; /* Скрываем части схемы, ушедшие за край */
+    background-image: radial-gradient(#E5E7EB 1px, transparent 1px);
+    background-size: 20px 20px;
+    cursor: default; /* Обычный курсор по умолчанию */
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* Класс для самой SVG внутри (добавляется скриптом или Mermaid) */
+#diagram-container svg {
+    transform-origin: 0 0; /* Точка трансформации - левый верхний угол (важно для математики зума) */
+    transition: transform 0.05s linear; /* Плавность (опционально, можно убрать для мгновенной реакции) */
+    /* Убираем ограничение maxWidth, чтобы зум работал корректно */
+    max-width: none !important;
+}
+
+/* Курсор при зажатом Ctrl */
+.pan-mode {
+    cursor: grab !important;
+}
+
+/* Курсор при перетаскивании */
+.pan-active {
+    cursor: grabbing !important;
 }
 
 .diagram-toolbar {
