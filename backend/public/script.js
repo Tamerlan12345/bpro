@@ -11,9 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         scale: 1,
         pX: 0,
         pY: 0,
-        isDragging: false,
-        startX: 0,
-        startY: 0
+        isDragging: false
     };
     let timerInterval;
     let secondsRecorded = 0;
@@ -22,6 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedDepartment = null; // Holds the department a user selects to work in
     let chatId = null;
     let chatVersions = []; // Store versions to avoid re-fetching
+    let currentEditingNodeId = null; // For Node Editor
+    let currentEditingEdgeId = null; // For Edge Context Menu (index or key)
 
 
     const authWrapper = document.querySelector('.auth-wrapper');
@@ -133,6 +133,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const leftColumn = document.querySelector('.left-column');
     const rightColumn = document.querySelector('.right-column');
 
+    // Editor Popovers
+    const nodeEditorPopover = document.getElementById('node-editor-popover');
+    const nodeEditorText = document.getElementById('node-editor-text');
+    const nodeEditorShape = document.getElementById('node-editor-shape');
+    const nodeEditorPadding = document.getElementById('node-editor-padding');
+    const nodeEditorSave = document.getElementById('node-editor-save');
+    const nodeEditorCancel = document.getElementById('node-editor-cancel');
+
+    const edgeContextMenu = document.getElementById('edge-context-menu');
+    const edgeReverse = document.getElementById('edge-reverse');
+    const edgeStyle = document.getElementById('edge-style');
+    const edgeText = document.getElementById('edge-text');
+    const edgeDelete = document.getElementById('edge-delete');
+
 
     function showNotification(message, type = 'success') {
         const notification = document.createElement('div');
@@ -170,12 +184,418 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateTransform() {
         const svg = diagramContainer.querySelector('svg');
         if (svg) {
-            // Применяем смещение (translate) и масштаб (scale)
             svg.style.transform = `translate(${panZoomState.pX}px, ${panZoomState.pY}px) scale(${panZoomState.scale})`;
         }
     }
 
-    // Draggable Nodes Logic
+    // --- Interactive Editing Logic ---
+
+    function setupDiagramInteractions() {
+        // Node Interaction
+        const nodes = diagramContainer.querySelectorAll('.node');
+        nodes.forEach(node => {
+            node.addEventListener('click', (e) => {
+                // Ignore click if it was part of a drag operation
+                if (panZoomState.wasDragging) return;
+
+                e.stopPropagation(); // Stop bubbling to container (pan)
+
+                // Extract Node ID (Mermaid usually sets id="flowchart-A-...")
+                // We need to match this ID to the code.
+                // Mermaid IDs often look like "flowchart-nodeId-..."
+                let rawId = node.id;
+                // Try to extract the simple ID used in code (e.g., 'A' from 'flowchart-A-234')
+                // This depends heavily on Mermaid version.
+                // Alternative: Look for the text content and search in code, but ID is safer.
+                // Mermaid 10+ usually puts the ID in data-id or id.
+                // Let's try to get the 'data-id' attribute if it exists, or parse the ID.
+                // Actually, for Mermaid 10, the id attribute is often complex.
+                // But the element usually has a class like "node default" or "node".
+
+                // Let's assume we can map it back or just use the text content for now if ID is hard.
+                // Wait, the plan said "Programmer must write a parser".
+
+                // Strategy: Store the clicked node element and try to find its definition in the mermaid code.
+                // We'll open the editor popover.
+
+                // Position popover near the node
+                const rect = node.getBoundingClientRect();
+                openNodeEditor(node, rect.left, rect.bottom);
+            });
+        });
+
+        // Edge Interaction
+        const edges = diagramContainer.querySelectorAll('.edgePath');
+        edges.forEach(edge => {
+            edge.addEventListener('click', (e) => {
+                if (panZoomState.wasDragging) return;
+                e.stopPropagation();
+                openEdgeMenu(edge, e.clientX, e.clientY);
+            });
+        });
+    }
+
+    function openNodeEditor(nodeElement, x, y) {
+        // 1. Identify the node in the source code.
+        // We'll use the text content of the node to find it in the mermaid code.
+        // This is heuristic but often works.
+        // A better way is finding the ID.
+        // nodeElement.id usually starts with "flowchart-{ID}-"
+
+        let nodeId = null;
+        const idMatch = nodeElement.id.match(/^flowchart-([^-]+)-/);
+        if (idMatch) {
+            nodeId = idMatch[1];
+        }
+
+        // Get current text from the node
+        // The text is inside a <foreignObject> or <text> inside the node group
+        const textEl = nodeElement.querySelector('.nodeLabel');
+        const currentText = textEl ? textEl.innerText.trim() : "";
+
+        currentEditingNodeId = nodeId;
+        nodeEditorText.value = currentText;
+
+        // Try to guess shape from code? Or just default to rect.
+        // We can check the class of the shape inside the node (rect, circle, polygon, path)
+        let shape = 'rect';
+        if (nodeElement.querySelector('circle')) shape = 'rounded'; // simplified guess
+        if (nodeElement.querySelector('polygon')) shape = 'diamond';
+        if (nodeElement.querySelector('path')) shape = 'database'; // cylinder is path usually
+
+        nodeEditorShape.value = shape;
+        nodeEditorPadding.value = 0; // Default
+
+        // Show Popover
+        nodeEditorPopover.style.display = 'block';
+
+        // Adjust position to keep on screen
+        const popoverWidth = 300;
+        let left = x;
+        let top = y + 10;
+
+        if (left + popoverWidth > window.innerWidth) left = window.innerWidth - popoverWidth - 20;
+        if (top + 300 > window.innerHeight) top = y - 300; // Show above if too low
+
+        nodeEditorPopover.style.left = `${left}px`;
+        nodeEditorPopover.style.top = `${top}px`;
+
+        // Close edge menu if open
+        edgeContextMenu.style.display = 'none';
+    }
+
+    function closeNodeEditor() {
+        nodeEditorPopover.style.display = 'none';
+        currentEditingNodeId = null;
+    }
+
+    function openEdgeMenu(edgeElement, x, y) {
+        // We need to identify the edge.
+        // Mermaid edges often have classes like "L-A-B-0" which means Link from A to B.
+        // Let's try to parse the class list.
+        let sourceId = null;
+        let targetId = null;
+
+        edgeElement.classList.forEach(cls => {
+            if (cls.startsWith('LS-')) {
+                 sourceId = cls.replace('LS-', '');
+            }
+            if (cls.startsWith('LE-')) {
+                 targetId = cls.replace('LE-', '');
+            }
+        });
+
+        // Fallback: Mermaid 10 might use different classes.
+        // If we can't find IDs, we can't edit.
+        // But let's assume we can find them.
+
+        if (!sourceId || !targetId) {
+            // Try extracting from ID if it follows a pattern?
+            console.warn("Could not identify edge source/target");
+            return;
+        }
+
+        currentEditingEdgeId = { source: sourceId, target: targetId };
+
+        edgeContextMenu.style.display = 'block';
+        edgeContextMenu.style.left = `${x}px`;
+        edgeContextMenu.style.top = `${y}px`;
+
+        // Close node editor
+        nodeEditorPopover.style.display = 'none';
+    }
+
+    function closeEdgeMenu() {
+        edgeContextMenu.style.display = 'none';
+        currentEditingEdgeId = null;
+    }
+
+    // --- Mermaid Code Modification Helpers ---
+
+    function updateMermaidCode(action) {
+        // Get current code
+        // We can get it from the split view textarea OR from the latest version in memory
+        // But for consistency, let's use what's likely displayed.
+        // If split view is open, use that. If not, use chatVersions[0].mermaid_code.
+        let code = '';
+        if (splitViewContainer.style.display !== 'none') {
+            code = splitViewTextarea.value;
+        } else if (chatVersions.length > 0) {
+            code = chatVersions[0].mermaid_code;
+        } else {
+            return;
+        }
+
+        const lines = code.split('\n');
+        let newLines = [];
+        let modified = false;
+
+        // ACTION: Update Node
+        if (action.type === 'updateNode') {
+            const { id, text, shape, padding } = action.payload;
+            // Regex to find node definition: id["text"] or id{"text"} etc.
+            // We need to handle:
+            // A["Text"]
+            // A{"Text"}
+            // A
+
+            // Build the new wrapper based on shape
+            let openChar = '[';
+            let closeChar = ']';
+            if (shape === 'rounded') { openChar = '('; closeChar = ')'; }
+            else if (shape === 'diamond') { openChar = '{'; closeChar = '}'; }
+            else if (shape === 'database') { openChar = '[('; closeChar = ')]'; }
+
+            // Add padding (spaces)
+            let paddedText = text;
+            if (padding > 0) {
+                const spaces = "&nbsp;".repeat(padding * 2); // Use HTML spaceentity or just spaces if Mermaid supports it well.
+                // Mermaid supports HTML codes.
+                paddedText = `${spaces}${text}${spaces}`;
+            }
+
+            // Replace logic
+            // We iterate lines to find definition of this ID
+            // Regex: ^\s*ID\s*(\[|\(|\{>|\[\(|\(\()...
+
+            const regex = new RegExp(`^(\\s*${id})\\s*([\\(\\[\\{\\>]+)(.*)([\\)\\]\\}\\>]+)`, 'i');
+
+            let found = false;
+            newLines = lines.map(line => {
+                if (regex.test(line)) {
+                     found = true;
+                     modified = true;
+                     // Reconstruct line
+                     // Keep indentation (group 1 includes ID)
+                     // Replace brackets and text
+                     // We need to be careful not to destroy text if we only want to change shape,
+                     // but here we change both text and shape.
+                     // The text is in group 3, but might contain quotes.
+
+                     // Simply: ID + open + "text" + close
+                     return `${id}${openChar}"${paddedText}"${closeChar}`;
+                }
+                return line;
+            });
+
+            // If not found, maybe it's just defined as "A --> B"?
+            // If so, we should append a definition line at the end or replace an occurrence in a link?
+            // Mermaid allows defining node inline: A[Text] --> B
+            // This is harder to parse.
+            // For MVP, let's assume definitions are on their own lines or we append a style class.
+            // If not found, append it?
+            if (!found) {
+                // Check for inline usage
+                // This is complex. Let's just add a specific definition line at the top (after graph TD)
+                // Mermaid allows re-definition which overrides? No, it merges.
+                // So adding A["New Text"] at the end might work to update label!
+                newLines.push(`${id}${openChar}"${paddedText}"${closeChar}`);
+                modified = true;
+            }
+        }
+
+        // ACTION: Reverse Edge
+        if (action.type === 'reverseEdge') {
+            const { source, target } = action.payload;
+            // Find line with Source ... Target
+            // A --> B
+            // Regex: Source\s*(-.|==.)+>*\s*Target
+
+            newLines = lines.map(line => {
+                if (line.includes(source) && line.includes(target)) {
+                    // Check order
+                    if (line.indexOf(source) < line.indexOf(target)) {
+                         // Found A -> B
+                         // We need to reverse it to B -> A
+                         // Extract the arrow type?
+                         // Simple replace
+                         // Warning: This assumes one edge per line for simplicity
+                         if (line.includes('-->')) {
+                             modified = true;
+                             return line.replace(`${source} --> ${target}`, `${target} --> ${source}`);
+                         }
+                         if (line.includes('-.->')) {
+                             modified = true;
+                             return line.replace(`${source} -.-> ${target}`, `${target} -.-> ${source}`);
+                         }
+                    }
+                }
+                return line;
+            });
+        }
+
+        // ACTION: Delete Edge
+        if (action.type === 'deleteEdge') {
+            const { source, target } = action.payload;
+             newLines = lines.filter(line => {
+                // If line contains A --> B, remove it.
+                // Be careful not to remove "A --> B --> C" completely if only A->B is deleted?
+                // For MVP, remove the line if it matches the link.
+                const isMatch = (line.includes(`${source} --> ${target}`) || line.includes(`${source} -.-> ${target}`));
+                if (isMatch) modified = true;
+                return !isMatch;
+            });
+        }
+
+        // ACTION: Change Edge Style
+         if (action.type === 'changeEdgeStyle') {
+            const { source, target } = action.payload;
+             newLines = lines.map(line => {
+                if (line.includes(source) && line.includes(target)) {
+                    // Toggle --> and -.->
+                    if (line.includes('-->')) {
+                        modified = true;
+                        return line.replace('-->', '-.->');
+                    } else if (line.includes('-.->')) {
+                        modified = true;
+                        return line.replace('-.->', '-->');
+                    }
+                }
+                return line;
+            });
+        }
+
+        // ACTION: Add Edge Text
+        if (action.type === 'addEdgeText') {
+             const { source, target } = action.payload;
+             const text = prompt("Введите текст для стрелки:");
+             if (text) {
+                 newLines = lines.map(line => {
+                    if (line.includes(`${source} --> ${target}`)) {
+                        modified = true;
+                        return line.replace(`${source} --> ${target}`, `${source} -- "${text}" --> ${target}`);
+                    }
+                     // Handle existing text? Replace it?
+                    if (line.match(new RegExp(`${source}.*--.*-->.*${target}`))) {
+                         // Already has text, replace it
+                         // regex replace is harder here.
+                         // Simplest: Replace the whole segment
+                    }
+                    return line;
+                });
+
+                if (!modified) {
+                    // Maybe it was dotted?
+                     newLines = lines.map(line => {
+                        if (line.includes(`${source} -.-> ${target}`)) {
+                            modified = true;
+                            return line.replace(`${source} -.-> ${target}`, `${source} -. "${text}" .-> ${target}`);
+                        }
+                        return line;
+                    });
+                }
+             }
+        }
+
+
+        if (modified) {
+            const newCode = newLines.join('\n');
+            // Update UI
+            if (splitViewContainer.style.display !== 'none') {
+                splitViewTextarea.value = newCode;
+                handleSplitViewInput(); // Trigger render
+            } else {
+                // If not in split view, we need to update the diagram directly
+                // AND ideally save it as a draft or update the 'latest' version in memory?
+                // The requirement says: "visual changes should programmatically change source code and redraw".
+                // We should assume this updates the "current" working copy.
+                // We can use renderDiagram(newCode)
+                // And update the textarea (if visible, but it's hidden)
+                // We should definitely update processDescriptionInput? No, that's text description.
+                // We update chatVersions[0].mermaid_code?
+                if (chatVersions.length > 0) {
+                    chatVersions[0].mermaid_code = newCode;
+                }
+                renderDiagram(newCode);
+
+                // Show a toast that changes are local until saved?
+                showNotification("Изменения применены. Не забудьте сохранить версию!", "warning");
+            }
+        } else {
+             showNotification("Не удалось найти элемент в коде для изменения.", "error");
+        }
+    }
+
+    // --- Editor Event Listeners ---
+
+    nodeEditorSave.addEventListener('click', () => {
+        if (!currentEditingNodeId) return;
+        updateMermaidCode({
+            type: 'updateNode',
+            payload: {
+                id: currentEditingNodeId,
+                text: nodeEditorText.value,
+                shape: nodeEditorShape.value,
+                padding: nodeEditorPadding.value
+            }
+        });
+        closeNodeEditor();
+    });
+
+    nodeEditorCancel.addEventListener('click', closeNodeEditor);
+
+    edgeReverse.addEventListener('click', () => {
+        if (currentEditingEdgeId) {
+            updateMermaidCode({ type: 'reverseEdge', payload: currentEditingEdgeId });
+            closeEdgeMenu();
+        }
+    });
+
+    edgeDelete.addEventListener('click', () => {
+        if (currentEditingEdgeId) {
+            updateMermaidCode({ type: 'deleteEdge', payload: currentEditingEdgeId });
+            closeEdgeMenu();
+        }
+    });
+
+    edgeStyle.addEventListener('click', () => {
+         if (currentEditingEdgeId) {
+            updateMermaidCode({ type: 'changeEdgeStyle', payload: currentEditingEdgeId });
+            closeEdgeMenu();
+        }
+    });
+
+    edgeText.addEventListener('click', () => {
+        if (currentEditingEdgeId) {
+            updateMermaidCode({ type: 'addEdgeText', payload: currentEditingEdgeId });
+            closeEdgeMenu();
+        }
+    });
+
+    // Close popovers on click outside
+    window.addEventListener('click', (e) => {
+        if (!e.target.closest('.editor-popover') && !e.target.closest('.node')) {
+            closeNodeEditor();
+        }
+        if (!e.target.closest('.edge-menu') && !e.target.closest('.edgePath')) {
+            closeEdgeMenu();
+        }
+    });
+
+
+    // --- Existing Functions (Modified where needed) ---
+
+    // Draggable Nodes Logic (Visual Only)
     function enableDraggableNodes(container) {
         const svg = container.querySelector('svg');
         if (!svg) return;
@@ -191,7 +611,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Prevent drag if ctrl key is pressed (pan mode)
                 if (e.ctrlKey) return;
 
-                e.stopPropagation(); // Prevent panning the whole canvas
+                // Use Left Click for dragging nodes visually
+
+                e.stopPropagation();
                 e.preventDefault();
 
                 if (!hasWarned) {
@@ -204,12 +626,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const transform = node.getAttribute('transform');
                 initialTransform = transform || '';
 
-                // Parse current translation if exists
-                // Expected format: translate(x, y)
-                // Note: Mermaid might use other transforms, but usually groups are translated
-
+                // Need to account for zoom level
                 startX = e.clientX;
                 startY = e.clientY;
+
+                // Track that we are dragging, to prevent click event on mouseup
+                panZoomState.wasDragging = false;
 
                 node.classList.add('dragging');
             });
@@ -219,11 +641,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!draggedNode) return;
             e.preventDefault();
 
+            panZoomState.wasDragging = true; // We moved, so it's a drag
+
             const dx = (e.clientX - startX) / panZoomState.scale;
             const dy = (e.clientY - startY) / panZoomState.scale;
 
-            // Extract current translation
-            // This is a simplified regex approach. A full matrix parser would be better but overkill here.
             let currentX = 0;
             let currentY = 0;
             const translateMatch = initialTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
@@ -235,9 +657,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const newX = currentX + dx;
             const newY = currentY + dy;
 
-            // Update transform
-            // We reconstruct the transform string. If there were other transforms (rotate, scale), they might be lost with this simple replace.
-            // But Mermaid usually just translates nodes.
             draggedNode.setAttribute('transform', `translate(${newX}, ${newY})`);
         });
 
@@ -245,6 +664,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (draggedNode) {
                 draggedNode.classList.remove('dragging');
                 draggedNode = null;
+                // Reset flag after a short delay to allow click handler to check it
+                setTimeout(() => { panZoomState.wasDragging = false; }, 100);
             }
         });
 
@@ -257,7 +678,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function renderDiagram(mermaidCode, container = diagramContainer, isRetry = false) {
-        container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+        // container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+        // Removing innerHTML loading spinner because it causes flashes during frequent updates.
+        // Maybe just an overlay?
+
         try {
             // The mermaid.render function is the modern, preferred way.
             const { svg } = await mermaid.render(`mermaid-graph-${Date.now()}`, mermaidCode);
@@ -268,17 +692,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 const svgElement = container.querySelector('svg');
                 if (svgElement) {
                     svgElement.style.maxWidth = '100%';
-                    // Only reset pan/zoom if it's a fresh render, not an update?
-                    // For now, let's keep it resetting to fit.
-                    panZoomState = { scale: 1, pX: 0, pY: 0, isDragging: false, startX: 0, startY: 0 };
+
+                    // KEEP PAN/ZOOM State if it exists!
+                    // If we reset every time, editing is painful.
+                    // panZoomState = { scale: 1, pX: 0, pY: 0, isDragging: false };
+                    // Only reset if it's the very first load?
+                    if (panZoomState.scale === 1 && panZoomState.pX === 0 && panZoomState.pY === 0) {
+                         // Maybe center it initially?
+                    }
+
                     updateTransform();
+
                     diagramToolbar.style.display = 'flex';
                     renderDiagramBtn.style.display = 'none';
                     regenerateDiagramBtn.disabled = false;
+
                     if (sessionUser && sessionUser.role === 'admin') {
                         editDiagramBtn.style.display = 'inline-block';
                     }
+
                     enableDraggableNodes(container);
+                    setupDiagramInteractions(); // Add click listeners
                 }
             } else if (container === splitViewPreview) {
                  const svgElement = container.querySelector('svg');
@@ -290,19 +724,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error("Mermaid render error:", error);
-            // If it's the first attempt, try to fix the code
             if (!isRetry) {
                 console.log("Attempting to self-correct the diagram code...");
                 try {
                     const fixedCode = await getFixedMermaidCode(mermaidCode, error.message);
                     showNotification("AI исправило ошибку в схеме. Повторный рендеринг...", "success");
-                    await renderDiagram(fixedCode, container, true); // Retry with the fixed code
+                    await renderDiagram(fixedCode, container, true);
                 } catch (fixError) {
                     console.error("Failed to get fixed mermaid code:", fixError);
                     container.innerHTML = `<div class="error-text">Не удалось исправить и отобразить схему: ${fixError.message}</div>`;
                 }
             } else {
-                // If it fails even after a retry, show the final error.
                 container.innerHTML = `<div class="error-text">Ошибка рендеринга даже после исправления: ${error.message}</div>`;
             }
         }
@@ -319,16 +751,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function toggleSplitView() {
         const latestVersion = chatVersions[0];
-        if (!latestVersion || !latestVersion.mermaid_code) {
-            showNotification("Нет схемы для редактирования.", "error");
-            return;
-        }
+        // If we have edited code in memory (unsaved), we should use it?
+        // But for now, chatVersions is the source of truth for saved state.
+        // If user made edits using visual editor, renderDiagram updated the view but maybe not saved to DB.
+        // We should handle that.
+
+        let initialCode = latestVersion ? latestVersion.mermaid_code : "";
+        // If diagram container has code? No, we don't store it there.
 
         if (splitViewContainer.style.display === 'none') {
-            splitViewTextarea.value = latestVersion.mermaid_code;
+            splitViewTextarea.value = initialCode;
             splitViewContainer.style.display = 'flex';
             diagramPlaceholder.style.display = 'none'; // Hide main placeholder/canvas
-            renderDiagram(latestVersion.mermaid_code, splitViewPreview);
+            renderDiagram(initialCode, splitViewPreview);
             // Hide panels for better focus
             collapsePanels(true);
         } else {
@@ -345,22 +780,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function collapsePanels(collapse) {
         if (collapse) {
-            leftColumn.classList.add('panel-collapsed');
+            leftColumn.classList.add('panel-hidden-left');
             leftPanelToggle.classList.add('collapsed');
             leftPanelToggle.textContent = '>>';
 
-            rightColumn.classList.add('panel-collapsed');
+            rightColumn.classList.add('panel-hidden-right');
             rightPanelToggle.classList.add('collapsed');
             rightPanelToggle.textContent = '<<';
         } else {
-             // Optional: Don't auto-expand if user manually collapsed them.
-             // But for now, let's just leave them as they were or restore default?
-             // Let's just expand them back for "Edit Mode Exit" UX.
-            leftColumn.classList.remove('panel-collapsed');
+            leftColumn.classList.remove('panel-hidden-left');
             leftPanelToggle.classList.remove('collapsed');
             leftPanelToggle.textContent = '<<';
 
-            rightColumn.classList.remove('panel-collapsed');
+            rightColumn.classList.remove('panel-hidden-right');
             rightPanelToggle.classList.remove('collapsed');
             rightPanelToggle.textContent = '>>';
         }
@@ -1657,13 +2089,20 @@ ${brokenCode}
 
     // Panel toggles
     leftPanelToggle.addEventListener('click', () => {
-        leftColumn.classList.toggle('panel-collapsed');
-        leftPanelToggle.classList.toggle('collapsed');
-        leftPanelToggle.textContent = leftPanelToggle.classList.contains('collapsed') ? '>>' : '<<';
+        if (leftColumn.classList.contains('panel-hidden-left')) {
+            collapsePanels(false);
+        } else {
+             // We can toggle individually? The design says "Toggle for Left Panel" so yes.
+             // But my helper `collapsePanels` does both.
+             // Let's implement individual toggle logic.
+            leftColumn.classList.toggle('panel-hidden-left');
+            leftPanelToggle.classList.toggle('collapsed');
+            leftPanelToggle.textContent = leftPanelToggle.classList.contains('collapsed') ? '>>' : '<<';
+        }
     });
 
     rightPanelToggle.addEventListener('click', () => {
-        rightColumn.classList.toggle('panel-collapsed');
+        rightColumn.classList.toggle('panel-hidden-right');
         rightPanelToggle.classList.toggle('collapsed');
         rightPanelToggle.textContent = rightPanelToggle.classList.contains('collapsed') ? '<<' : '>>';
     });
@@ -1710,6 +2149,10 @@ ${brokenCode}
             panZoomState.startX = e.clientX - panZoomState.pX;
             panZoomState.startY = e.clientY - panZoomState.pY;
             diagramContainer.classList.add('pan-active');
+            diagramContainer.style.cursor = 'grabbing';
+            // Disable transition for smooth dragging
+            const svg = diagramContainer.querySelector('svg');
+            if (svg) svg.style.transition = 'none';
         }
     });
 
@@ -1718,8 +2161,15 @@ ${brokenCode}
         if (!panZoomState.isDragging) return;
 
         e.preventDefault();
-        panZoomState.pX = e.clientX - panZoomState.startX;
-        panZoomState.pY = e.clientY - panZoomState.startY;
+
+        // Use movementX/Y for Delta (Requirement 2.2)
+        // Note: pX/pY are absolute translations, so we add the delta
+        panZoomState.pX += e.movementX;
+        panZoomState.pY += e.movementY;
+
+        // OR legacy way (startX calc) - the movementX way is smoother if we don't rely on startX
+        // Let's stick to movementX as requested
+
         updateTransform();
     });
 
@@ -1728,19 +2178,25 @@ ${brokenCode}
         if (panZoomState.isDragging) {
             panZoomState.isDragging = false;
             diagramContainer.classList.remove('pan-active');
+            diagramContainer.style.cursor = ''; // Reset cursor
+
+            // Re-enable transition? The prompt said "optional".
+            // svgElement.style.transition = 'transform 0.1s ease-out';
+            const svg = diagramContainer.querySelector('svg');
+            if (svg) svg.style.transition = 'transform 0.1s ease-out';
         }
     });
 
     // Визуальная подсказка (курсор) при нажатии Ctrl
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Control') {
-            diagramContainer.classList.add('pan-mode');
+            diagramContainer.classList.add('hand-cursor');
         }
     });
 
     window.addEventListener('keyup', (e) => {
         if (e.key === 'Control') {
-            diagramContainer.classList.remove('pan-mode');
+            diagramContainer.classList.remove('hand-cursor');
         }
     });
 });

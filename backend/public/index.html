@@ -335,6 +335,40 @@
     <!-- Legend (Hidden visually but kept if script references classes inside) -->
     <div class="legend" style="display: none;"></div>
 
+    <!-- Node Editor Popover (Hidden by default) -->
+    <div id="node-editor-popover" class="editor-popover" style="display: none;">
+        <h4>Редактирование узла</h4>
+        <div class="editor-field">
+            <label>Текст</label>
+            <input type="text" id="node-editor-text">
+        </div>
+        <div class="editor-field">
+            <label>Форма</label>
+            <select id="node-editor-shape">
+                <option value="rect">Прямоугольник []</option>
+                <option value="rounded">Скругленный ()</option>
+                <option value="diamond">Ромб (Условие) {}</option>
+                <option value="database">База данных [()]</option>
+            </select>
+        </div>
+        <div class="editor-field">
+            <label>Padding (Размер)</label>
+            <input type="range" id="node-editor-padding" min="0" max="10" value="0" style="width: 100%;">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button id="node-editor-cancel" class="button-secondary" style="padding: 0.5rem;">Отмена</button>
+            <button id="node-editor-save" class="button-primary" style="padding: 0.5rem;">ОК</button>
+        </div>
+    </div>
+
+    <!-- Edge Context Menu (Hidden by default) -->
+    <div id="edge-context-menu" class="edge-menu" style="display: none;">
+        <div class="edge-menu-item" id="edge-reverse">🔄 Развернуть</div>
+        <div class="edge-menu-item" id="edge-style">✏️ Тип линии</div>
+        <div class="edge-menu-item" id="edge-text">📝 Добавить текст</div>
+        <div class="edge-menu-item danger" id="edge-delete">🗑️ Удалить</div>
+    </div>
+
     <script src="script.js?v=4"></script>
     <script>
         // Simple UI Script for Admin Tabs (View Switching)
