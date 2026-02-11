@@ -131,6 +131,15 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchWithAuth(url, options = {}) {
         const finalOptions = { ...options, credentials: 'include' };
         const response = await fetch(url, finalOptions);
+
+        if (response.status === 401) {
+            // Check if we are already on login screen to avoid spamming
+            if (authWrapper.style.display === 'none') {
+                showNotification("Сессия истекла. Пожалуйста, перезагрузите страницу.", "error");
+            }
+            throw new Error("Session expired");
+        }
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: `HTTP Error: ${response.status} ${response.statusText}` }));
             throw new Error(errorData.error || 'An unknown network error occurred.');
@@ -606,6 +615,7 @@ ${brokenCode}
 
 
     async function loadChatData() {
+        resetAudioState();
         try {
             const [versionsResponse, commentsResponse, statusResponse, transcriptionResponse] = await Promise.all([
                 fetchWithAuth(`/api/chats/${chatId}/versions`),
@@ -1155,20 +1165,27 @@ ${brokenCode}
     }
 
     function resetAudioState() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
         audioBlob = null;
         audioChunks = [];
         rerecordCount = 0;
         processDescriptionInput.readOnly = false;
-        transcriptionDisplay.textContent = ''; // Clear the display area
+        transcriptionDisplay.textContent = '';
 
         startRecordBtn.style.display = 'block';
         stopRecordBtn.style.display = 'none';
         listenBtn.style.display = 'none';
-        processBtn.style.display = 'none'; // Use processBtn
+        processBtn.style.display = 'none';
         rerecordBtn.style.display = 'none';
         audioPlayback.style.display = 'none';
         recordingIndicator.style.display = 'none';
         partialTranscriptDisplay.textContent = '';
+
+        listenBtn.disabled = false;
+        processBtn.disabled = false;
+        rerecordBtn.disabled = false;
     }
 
     const handleStartRecording = async () => {

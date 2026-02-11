@@ -89,7 +89,10 @@ const storage = multer.diskStorage({
         cb(null, file.fieldname + '-' + uniqueSuffix)
     }
 })
-const upload = multer({ storage: storage });
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
 
 
 app.use(express.json());
@@ -143,6 +146,38 @@ const chatSchema = z.object({
     password: z.string().min(1),
 });
 
+const loginSchema = z.object({
+    name: z.string().min(1),
+    password: z.string().min(1),
+});
+
+const chatLoginSchema = z.object({
+    department_id: z.string().uuid().or(z.string()),
+    name: z.string().min(1),
+    password: z.string().min(1),
+});
+
+const generateSchema = z.object({
+    prompt: z.string().min(1),
+});
+
+const versionSchema = z.object({
+    process_text: z.string().min(1),
+    mermaid_code: z.string().optional().nullable(),
+});
+
+const commentSchema = z.object({
+    text: z.string().min(1),
+});
+
+const transcriptionDataSchema = z.object({
+    transcribed_text: z.string().optional().nullable(),
+    final_text: z.string().optional().nullable(),
+    status: z.string().optional().nullable(),
+}).refine(data => data.transcribed_text || data.final_text || data.status, {
+    message: "At least one field (transcribed_text, final_text, status) is required."
+});
+
 const validateBody = (schema) => (req, res, next) => {
     try {
         req.body = schema.parse(req.body);
@@ -186,13 +221,15 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
         logger.error(error, 'Speechmatics transcription error');
         res.status(500).json({ error: 'Failed to transcribe audio.' });
     } finally {
-        fs.unlink(req.file.path, (err) => {
-            if (err) logger.error(err, 'Error deleting file');
-        });
+        if (req.file && req.file.path) {
+            fs.unlink(req.file.path, (err) => {
+                if (err) logger.error(err, 'Error deleting file');
+            });
+        }
     }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', validateBody(loginSchema), async (req, res) => {
     const { name, password } = req.body;
     logger.info(`Login attempt for user: ${name}`);
     try {
@@ -400,7 +437,7 @@ app.get('/api/admin/chats/completed', isAuthenticated, isAdmin, async (req, res)
     }
 });
 
-app.post('/api/auth/chat', isAuthenticated, async (req, res) => {
+app.post('/api/auth/chat', isAuthenticated, validateBody(chatLoginSchema), async (req, res) => {
     const { department_id, name, password } = req.body;
     try {
         const { rows } = await pool.query(
@@ -473,7 +510,7 @@ app.get('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
     }
 });
 
-app.post('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
+app.post('/api/chats/:id/versions', isAuthenticated, validateBody(versionSchema), async (req, res) => {
     const { id } = req.params;
     const { process_text, mermaid_code } = req.body;
     try {
@@ -495,7 +532,7 @@ app.get('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     }
 });
 
-app.post('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
+app.post('/api/chats/:id/comments', isAuthenticated, validateBody(commentSchema), async (req, res) => {
     const { id } = req.params;
     const { text } = req.body;
     const author_role = req.session.user.role;
@@ -521,13 +558,9 @@ app.get('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
     }
 });
 
-app.post('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
+app.post('/api/chats/:id/transcription', isAuthenticated, validateBody(transcriptionDataSchema), async (req, res) => {
     const { id } = req.params;
     const { transcribed_text, final_text, status } = req.body;
-
-    if (!transcribed_text && !final_text && !status) {
-        return res.status(400).json({ error: 'At least one field (transcribed_text, final_text, status) is required.' });
-    }
 
     try {
         const query = `
@@ -560,12 +593,13 @@ app.put('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     }
 });
 
-app.post('/api/generate', isAuthenticated, async (req, res) => {
+app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (req, res) => {
   const { prompt } = req.body;
   const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
-  if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+
   if (!GOOGLE_API_KEY) return res.status(500).json({ error: 'API key is not configured' });
+
   try {
     const apiResponse = await fetch(API_URL, {
       method: 'POST',
@@ -573,13 +607,19 @@ app.post('/api/generate', isAuthenticated, async (req, res) => {
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
     });
     if (!apiResponse.ok) {
-      const errorData = await apiResponse.json();
+      let errorData;
+      try {
+          errorData = await apiResponse.json();
+      } catch (e) {
+          errorData = { message: 'Unknown error from Google API' };
+      }
       return res.status(apiResponse.status).json({ error: 'Failed to fetch from Google API', details: errorData });
     }
     const data = await apiResponse.json();
     res.status(200).json(data);
   } catch (error) {
-    res.status(500).json({ error: 'An internal server error occurred.' });
+    logger.error(error, "Gemini API Error");
+    res.status(500).json({ error: 'An internal server error occurred while contacting the AI service.' });
   }
 });
 
