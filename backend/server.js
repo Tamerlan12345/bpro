@@ -107,6 +107,7 @@ if (process.env.NODE_ENV === 'test') {
     logger.info('Using MemoryStore for sessions');
 }
 
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
     store: process.env.NODE_ENV === 'test'
         ? new session.MemoryStore()
@@ -124,7 +125,6 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000
     }
 }));
-app.use(express.static(path.join(__dirname, 'public')));
 
 const isAuthenticated = (req, res, next) => {
     if (req.session.user) return next();
