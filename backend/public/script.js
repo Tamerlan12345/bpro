@@ -176,7 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Mermaid render error:", error);
             // If it's the first attempt, try to fix the code
             if (!isRetry) {
-                console.log("Attempting to self-correct the diagram code...");
                 try {
                     const fixedCode = await getFixedMermaidCode(mermaidCode, error.message);
                     showNotification("AI исправило ошибку в схеме. Повторный рендеринг...", "success");
@@ -593,7 +592,6 @@ ${brokenCode}
                 adminPanel.style.display = 'none';
             }
         } catch (error) {
-            console.log('No active session found, showing login.');
             authWrapper.style.display = 'flex';
             mainContainer.style.display = 'none';
             loginContainer.style.display = 'block';
