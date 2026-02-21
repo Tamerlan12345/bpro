@@ -149,3 +149,56 @@ describe('/api/generate endpoint', () => {
         expect(response.status).toBe(401);
     });
 });
+
+describe('PUT /api/chats/:id/status', () => {
+    let agent;
+
+    beforeEach(async () => {
+        agent = request.agent(app);
+        const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
+        when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
+        mockQuery.mockResolvedValueOnce({ rows: [regularUser] });
+
+        await agent
+            .post('/api/auth/login')
+            .send({ name: 'user', password: 'password' })
+            .expect(200);
+    });
+
+    it('should update chat status when authenticated', async () => {
+        const newStatus = 'completed';
+        const mockUpdatedStatus = { chat_id: CHAT_ID_1, status: newStatus };
+
+        mockQuery.mockResolvedValueOnce({ rows: [mockUpdatedStatus] });
+
+        const response = await agent
+            .put(`/api/chats/${CHAT_ID_1}/status`)
+            .send({ status: newStatus });
+
+        expect(response.status).toBe(200);
+        expect(response.body.status).toBe(newStatus);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringMatching(/UPDATE chat_statuses SET status = \$1 WHERE chat_id = \$2/),
+            [newStatus, String(CHAT_ID_1)]
+        );
+    });
+
+    it('should return 401 Unauthorized if not logged in', async () => {
+        const response = await request(app)
+            .put(`/api/chats/${CHAT_ID_1}/status`)
+            .send({ status: 'completed' });
+
+        expect(response.status).toBe(401);
+    });
+
+    it('should return 500 if database error occurs', async () => {
+        mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+        const response = await agent
+            .put(`/api/chats/${CHAT_ID_1}/status`)
+            .send({ status: 'completed' });
+
+        expect(response.status).toBe(500);
+        expect(response.body.error).toBe('Database error');
+    });
+});
