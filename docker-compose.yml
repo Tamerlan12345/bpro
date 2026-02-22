@@ -9,7 +9,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgres://postgres:password@db:5432/bpro
+      - DATABASE_URL=${DATABASE_URL:-postgres://postgres:password@db:5432/bpro}
       - SESSION_SECRET=supersecretkey
       - FRONTEND_URL=http://localhost:3000
     depends_on:
