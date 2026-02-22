@@ -631,21 +631,29 @@ app.post('/api/generate', isAuthenticated, async (req, res) => {
 });
 
 const BCRYPT_SALT_ROUNDS = 10;
-async function ensureUsersExist() {
+async function ensureUsersExist(pool) {
     try {
         let { rows: adminRows } = await pool.query("SELECT id FROM users WHERE name = 'admin'");
         if (adminRows.length === 0) {
-            logger.info('Admin user not found, creating it...');
-            const hashedPassword = await bcrypt.hash('adminpassword', BCRYPT_SALT_ROUNDS);
-            await pool.query("INSERT INTO users (name, hashed_password) VALUES ('admin', $1)", [hashedPassword]);
-            logger.info('Admin user created.');
+            if (process.env.ADMIN_INITIAL_PASSWORD) {
+                logger.info('Admin user not found, creating it...');
+                const hashedPassword = await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD, BCRYPT_SALT_ROUNDS);
+                await pool.query("INSERT INTO users (name, hashed_password) VALUES ('admin', $1)", [hashedPassword]);
+                logger.info('Admin user created.');
+            } else {
+                logger.warn('ADMIN_INITIAL_PASSWORD not set. Skipping admin user creation.');
+            }
         }
         let { rows: userRows } = await pool.query("SELECT id FROM users WHERE name = 'user'");
         if (userRows.length === 0) {
-            logger.info('Regular user not found, creating it...');
-            const hashedPassword = await bcrypt.hash('userpassword', BCRYPT_SALT_ROUNDS);
-            await pool.query("INSERT INTO users (name, hashed_password) VALUES ('user', $1)", [hashedPassword]);
-            logger.info('Regular user created.');
+            if (process.env.USER_INITIAL_PASSWORD) {
+                logger.info('Regular user not found, creating it...');
+                const hashedPassword = await bcrypt.hash(process.env.USER_INITIAL_PASSWORD, BCRYPT_SALT_ROUNDS);
+                await pool.query("INSERT INTO users (name, hashed_password) VALUES ('user', $1)", [hashedPassword]);
+                logger.info('Regular user created.');
+            } else {
+                logger.warn('USER_INITIAL_PASSWORD not set. Skipping regular user creation.');
+            }
         }
     } catch (error) {
         logger.error(error, 'Error during initial user setup');
@@ -692,7 +700,7 @@ const startServer = async () => {
                 client.release();
 
                 if (process.env.NODE_ENV !== 'test') {
-                    await ensureUsersExist();
+                    await ensureUsersExist(pool);
                 }
             } catch (err) {
                 logger.error(err, 'Database connection failed');
@@ -707,4 +715,4 @@ const startServer = async () => {
     }
 };
 
-module.exports = { app, startServer, departmentSchema, chatSchema };
+module.exports = { app, startServer, departmentSchema, chatSchema, ensureUsersExist };
