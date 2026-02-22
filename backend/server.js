@@ -138,7 +138,20 @@ if (process.env.NODE_ENV === 'test') {
     logger.info('Using MemoryStore for sessions');
 }
 
-app.use(express.static(path.join(__dirname, 'public')));
+// --- Static Asset Caching ---
+// Cache static assets (JS, CSS, Images) for 1 day in production to reduce load times.
+// HTML files are never cached to ensure users get the latest version (with new script hashes).
+const staticOptions = {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+        } else if (process.env.NODE_ENV === 'production') {
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+        }
+    }
+};
+
+app.use(express.static(path.join(__dirname, 'public'), staticOptions));
 app.use(session({
     store: process.env.NODE_ENV === 'test'
         ? new session.MemoryStore()
