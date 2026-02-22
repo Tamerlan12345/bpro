@@ -1,2 +1,0 @@
--- The content of this file has been moved to migrations/1715418000000_init.js
--- Please use 'npm run migrate' to initialize the database.
