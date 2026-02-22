@@ -16,7 +16,6 @@ const { parse } = require('pg-connection-string');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
-const WebSocket = require('ws');
 const { BatchClient } = require('@speechmatics/batch-client');
 const multer = require('multer');
 const { z } = require('zod');
