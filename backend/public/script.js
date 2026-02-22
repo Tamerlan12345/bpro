@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const API_URL = '/api/generate';
 
+    let csrfToken = null;
     let mediaRecorder;
     let audioChunks = [];
     let audioBlob = null; // To store the final audio blob
@@ -128,8 +129,28 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => notification.remove(), 5000);
     }
 
+    async function fetchCsrfToken() {
+        try {
+            const response = await fetch('/api/csrf-token');
+            if (response.ok) {
+                const data = await response.json();
+                csrfToken = data.csrfToken;
+            }
+        } catch (error) {
+            console.error('Error fetching CSRF token:', error);
+        }
+    }
+
     async function fetchWithAuth(url, options = {}) {
         const finalOptions = { ...options, credentials: 'include' };
+
+        if (csrfToken && finalOptions.method && finalOptions.method.toUpperCase() !== 'GET') {
+            finalOptions.headers = {
+                ...finalOptions.headers,
+                'CSRF-Token': csrfToken
+            };
+        }
+
         const response = await fetch(url, finalOptions);
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: `HTTP Error: ${response.status} ${response.statusText}` }));
@@ -1504,5 +1525,6 @@ ${brokenCode}
     mermaidEditorTextarea.addEventListener('input', handleMermaidEditorInput);
 
 
+    fetchCsrfToken();
     checkSession();
 });

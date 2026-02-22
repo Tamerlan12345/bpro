@@ -20,6 +20,7 @@ const WebSocket = require('ws');
 const { BatchClient } = require('@speechmatics/batch-client');
 const multer = require('multer');
 const { z } = require('zod');
+const csrf = require('csurf');
 
 const app = express();
 const logger = pino();
@@ -125,6 +126,13 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000
     }
 }));
+
+const csrfProtection = csrf();
+app.use(csrfProtection);
+
+app.get('/api/csrf-token', (req, res) => {
+    res.json({ csrfToken: req.csrfToken() });
+});
 
 const isAuthenticated = (req, res, next) => {
     if (req.session.user) return next();
@@ -615,6 +623,11 @@ async function ensureUsersExist() {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
+    if (err.code === 'EBADCSRFTOKEN') {
+        logger.error(err, 'CSRF Token Validation Failed');
+        return res.status(403).json({ error: 'Invalid or missing CSRF token' });
+    }
+
     logger.error(err);
     const statusCode = err.statusCode || 500;
     const message = process.env.NODE_ENV === 'production'

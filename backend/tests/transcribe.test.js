@@ -7,6 +7,7 @@ const { when } = require('jest-when');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
+const { getCsrfToken } = require('./test_utils');
 
 const ADMIN_ID = '1';
 const USER_ID = '2';
@@ -56,6 +57,7 @@ beforeEach(() => {
 describe('POST /api/transcribe', () => {
     it('should attempt to delete the uploaded file using fs.promises.unlink in finally block', async () => {
         const agent = request.agent(app);
+        const csrfToken = await getCsrfToken(agent);
         const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
 
         // Authenticate
@@ -64,6 +66,7 @@ describe('POST /api/transcribe', () => {
 
         await agent
             .post('/api/auth/login')
+            .set('CSRF-Token', csrfToken)
             .send({ name: 'user', password: 'password' })
             .expect(200);
 
@@ -78,6 +81,7 @@ describe('POST /api/transcribe', () => {
              // Perform request
              const response = await agent
                  .post('/api/transcribe')
+                 .set('CSRF-Token', csrfToken)
                  .attach('audio', dummyFilePath);
 
              // Expect 500 because SPEECHMATICS_API_KEY is missing

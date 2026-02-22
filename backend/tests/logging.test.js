@@ -6,6 +6,7 @@ process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
 const { when } = require('jest-when');
+const { getCsrfToken } = require('./test_utils');
 
 // Mock pino to capture log calls
 const mockLogger = {
@@ -59,12 +60,14 @@ beforeEach(() => {
 describe('Error Logging Tests', () => {
     it('should log error when /api/generate fails', async () => {
         const agent = request.agent(app);
+        const csrfToken = await getCsrfToken(agent);
 
         // Mock user login
         const user = { id: 1, name: 'user', role: 'user', hashed_password: 'hash' };
         mockQuery.mockResolvedValueOnce({ rows: [user] });
         await agent
             .post('/api/auth/login')
+            .set('CSRF-Token', csrfToken)
             .send({ name: 'user', password: 'password' })
             .expect(200);
 
@@ -75,6 +78,7 @@ describe('Error Logging Tests', () => {
         // Call the endpoint
         const response = await agent
             .post('/api/generate')
+            .set('CSRF-Token', csrfToken)
             .send({ prompt: 'test prompt' });
 
         // Expect 500 error

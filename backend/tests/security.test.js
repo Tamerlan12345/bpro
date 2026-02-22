@@ -6,6 +6,7 @@ process.env.SPEECHMATICS_API_KEY = 'dummy-key';
 const request = require('supertest');
 const { when } = require('jest-when');
 const bcrypt = require('bcryptjs');
+const { getCsrfToken } = require('./test_utils');
 
 const USER_ID = 2;
 
@@ -59,9 +60,12 @@ afterAll((done) => {
 
 describe('Security: File Upload Size Limit', () => {
     let agent;
+    let csrfToken;
 
     beforeEach(async () => {
         agent = request.agent(app);
+        csrfToken = await getCsrfToken(agent);
+
         const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
 
         when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
@@ -69,6 +73,7 @@ describe('Security: File Upload Size Limit', () => {
 
         await agent
             .post('/api/auth/login')
+            .set('CSRF-Token', csrfToken)
             .send({ name: 'user', password: 'password' })
             .expect(200);
     });
@@ -79,6 +84,7 @@ describe('Security: File Upload Size Limit', () => {
 
         const response = await agent
             .post('/api/transcribe')
+            .set('CSRF-Token', csrfToken)
             .attach('audio', largeBuffer, 'large_audio.mp3');
 
         // Multer throws an error when limit is exceeded.
@@ -95,6 +101,7 @@ describe('Security: File Upload Size Limit', () => {
 
         const response = await agent
             .post('/api/transcribe')
+            .set('CSRF-Token', csrfToken)
             .attach('audio', smallBuffer, 'small_audio.mp3');
 
         expect(response.status).toBe(200);
