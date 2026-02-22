@@ -30,7 +30,7 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         "default-src": ["'self'"],
-        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"], // <-- Разрешаем CDN
+        "script-src": ["'self'", "https://cdn.jsdelivr.net"], // <-- Разрешаем CDN
         "img-src": ["'self'", "data:", "blob:"], // <-- Разрешаем картинки-схемы (Mermaid)
         "connect-src": ["'self'"],
       },
