@@ -12,6 +12,8 @@ services:
       - DATABASE_URL=${DATABASE_URL:-postgres://postgres:password@db:5432/bpro}
       - SESSION_SECRET=supersecretkey
       - FRONTEND_URL=http://localhost:3000
+      - ADMIN_INITIAL_PASSWORD=adminpassword
+      - USER_INITIAL_PASSWORD=userpassword
     depends_on:
       - db
     volumes:
