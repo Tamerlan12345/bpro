@@ -586,6 +586,7 @@ app.post('/api/generate', isAuthenticated, async (req, res) => {
     const data = await apiResponse.json();
     res.status(200).json(data);
   } catch (error) {
+    logger.error(error);
     res.status(500).json({ error: 'An internal server error occurred.' });
   }
 });
