@@ -90,12 +90,43 @@ const storage = multer.diskStorage({
         cb(null, file.fieldname + '-' + uniqueSuffix)
     }
 })
+const allowedMimes = [
+    'audio/wav',
+    'audio/wave',
+    'audio/x-wav',
+    'audio/x-pn-wav',
+    'audio/mpeg',
+    'audio/mp4',
+    'audio/aac',
+    'audio/ogg',
+    'audio/webm',
+    'audio/flac'
+];
+
 const upload = multer({
     storage: storage,
+    fileFilter: (req, file, cb) => {
+        if (allowedMimes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Only audio files are allowed.'));
+        }
+    },
     limits: {
         fileSize: 50 * 1024 * 1024 // 50MB
     }
 });
+
+const uploadAudio = (req, res, next) => {
+    upload.single('audio')(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            return res.status(400).json({ error: err.message });
+        } else if (err) {
+            return res.status(400).json({ error: err.message });
+        }
+        next();
+    });
+};
 
 
 app.use(express.json());
@@ -168,7 +199,7 @@ const validateBody = (schema) => (req, res, next) => {
     }
 };
 
-app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req, res) => {
+app.post('/api/transcribe', isAuthenticated, uploadAudio, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No audio file uploaded.' });
     }

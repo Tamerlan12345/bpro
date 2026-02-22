@@ -98,4 +98,76 @@ describe('POST /api/transcribe', () => {
             }
         }
     });
+
+    it('should reject non-audio files', async () => {
+        const agent = request.agent(app);
+        const csrfToken = await getCsrfToken(agent);
+        const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
+
+        // Authenticate
+        when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
+        mockQuery.mockResolvedValueOnce({ rows: [regularUser] });
+
+        await agent
+            .post('/api/auth/login')
+            .set('CSRF-Token', csrfToken)
+            .send({ name: 'user', password: 'password' })
+            .expect(200);
+
+        // Create a dummy text file
+        const dummyFilePath = path.join(__dirname, 'test.txt');
+        fs.writeFileSync(dummyFilePath, 'dummy text content');
+
+        try {
+             const response = await agent
+                 .post('/api/transcribe')
+                 .set('CSRF-Token', csrfToken)
+                 .attach('audio', dummyFilePath);
+
+             expect(response.status).toBe(400);
+             expect(response.body.error).toBe('Invalid file type. Only audio files are allowed.');
+
+        } finally {
+            if (fs.existsSync(dummyFilePath)) {
+                fs.unlinkSync(dummyFilePath);
+            }
+        }
+    });
+
+    it('should accept valid audio files', async () => {
+        const agent = request.agent(app);
+        const csrfToken = await getCsrfToken(agent);
+        const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
+
+        // Authenticate
+        when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
+        mockQuery.mockResolvedValueOnce({ rows: [regularUser] });
+
+        await agent
+            .post('/api/auth/login')
+            .set('CSRF-Token', csrfToken)
+            .send({ name: 'user', password: 'password' })
+            .expect(200);
+
+        // Create a dummy audio file
+        const dummyFilePath = path.join(__dirname, 'test.wav');
+        fs.writeFileSync(dummyFilePath, 'RIFF....WAVE');
+
+        try {
+             // We expect 500 because of missing API key, but NOT 400 (bad request)
+             // This confirms the file filter passed
+             const response = await agent
+                 .post('/api/transcribe')
+                 .set('CSRF-Token', csrfToken)
+                 .attach('audio', dummyFilePath);
+
+             expect(response.status).toBe(500);
+             expect(response.body.error).toBe('Transcription service is not configured.');
+
+        } finally {
+            if (fs.existsSync(dummyFilePath)) {
+                fs.unlinkSync(dummyFilePath);
+            }
+        }
+    });
 });

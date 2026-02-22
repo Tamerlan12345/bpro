@@ -88,12 +88,10 @@ describe('Security: File Upload Size Limit', () => {
             .attach('audio', largeBuffer, 'large_audio.mp3');
 
         // Multer throws an error when limit is exceeded.
-        // The global error handler catches it and returns 500 (or the error status if set).
-        // By default, Multer errors have a statusCode or we can check the error message.
-        expect(response.status).toBe(500);
-        // In server.js, the global error handler returns { error: message }
+        // We catch it in our wrapper and return 400 with the error message.
+        expect(response.status).toBe(400);
         // For LIMIT_FILE_SIZE, the message is usually "File too large"
-        expect(response.body.error).toBeDefined();
+        expect(response.body.error).toBe('File too large');
     });
 
     it('should accept file uploads within the 50MB limit', async () => {
