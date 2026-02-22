@@ -5,6 +5,7 @@ process.env.FRONTEND_URL = 'http://localhost:8080';
 const request = require('supertest');
 const { when } = require('jest-when');
 const bcrypt = require('bcryptjs');
+const { getCsrfToken } = require('./tests/test_utils');
 
 // IDs updated to strings representing integers (or just strings, but typical for serial)
 const ADMIN_ID = 1;
@@ -63,13 +64,16 @@ describe('API Security and Authorization', () => {
         const payload = { name: 'New Test Dept', password: 'password123', user_id: String(USER_ID) };
 
         it('should return 401 Unauthorized if the user is not logged in', async () => {
-            const response = await request(app).post(adminRoute).send(payload);
+            const agent = request.agent(app);
+            const token = await getCsrfToken(agent);
+            const response = await agent.post(adminRoute).set('CSRF-Token', token).send(payload);
             expect(response.status).toBe(401);
             expect(response.body.error).toContain('Unauthorized');
         });
 
         it('should return 403 Forbidden if the user is logged in but not an admin', async () => {
             const agent = request.agent(app);
+            const token = await getCsrfToken(agent);
             const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
 
             when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
@@ -77,16 +81,18 @@ describe('API Security and Authorization', () => {
 
             await agent
                 .post('/api/auth/login')
+                .set('CSRF-Token', token)
                 .send({ name: 'user', password: 'password' })
                 .expect(200);
 
-            const response = await agent.post(adminRoute).send(payload);
+            const response = await agent.post(adminRoute).set('CSRF-Token', token).send(payload);
             expect(response.status).toBe(403);
             expect(response.body.error).toContain('Forbidden');
         });
 
         it('should return 201 Created if the user is an admin', async () => {
             const agent = request.agent(app);
+            const token = await getCsrfToken(agent);
             const adminUser = { id: ADMIN_ID, name: 'admin', hashed_password: 'admin_hash', role: 'admin' };
             const newDept = { id: DEPT_ID, ...payload };
 
@@ -95,13 +101,14 @@ describe('API Security and Authorization', () => {
 
             await agent
                 .post('/api/auth/login')
+                .set('CSRF-Token', token)
                 .send({ name: 'admin', password: 'adminpass' })
                 .expect(200);
 
             when(bcrypt.hash).mockResolvedValue('new_hashed_password');
             mockQuery.mockResolvedValueOnce({ rows: [newDept] });
 
-            const response = await agent.post(adminRoute).send(payload);
+            const response = await agent.post(adminRoute).set('CSRF-Token', token).send(payload);
             expect(response.status).toBe(201);
             expect(response.body.name).toBe(newDept.name);
         });
@@ -113,6 +120,10 @@ describe('GET /api/admin/chats/pending', () => {
 
     beforeEach(async () => {
         agent = request.agent(app);
+        const token = await getCsrfToken(agent);
+        agent.csrfToken = token; // Store for reuse in this suite if needed (though beforeEach resets agent usually, wait. agent is reused?)
+        // beforeEach creates NEW agent. So we fetch token each time.
+
         const adminUser = { id: ADMIN_ID, name: 'admin', hashed_password: 'admin_hash', role: 'admin' };
 
         when(bcrypt.compare).calledWith('adminpass', adminUser.hashed_password).mockResolvedValue(true);
@@ -120,6 +131,7 @@ describe('GET /api/admin/chats/pending', () => {
 
         await agent
             .post('/api/auth/login')
+            .set('CSRF-Token', token)
             .send({ name: 'admin', password: 'adminpass' })
             .expect(200);
     });
@@ -143,8 +155,11 @@ describe('GET /api/admin/chats/pending', () => {
 
 describe('/api/generate endpoint', () => {
     it('should return 401 Unauthorized if user is not authenticated', async () => {
-        const response = await request(app)
+        const agent = request.agent(app);
+        const token = await getCsrfToken(agent);
+        const response = await agent
             .post('/api/generate')
+            .set('CSRF-Token', token)
             .send({ prompt: 'test prompt' });
         expect(response.status).toBe(401);
     });
@@ -152,15 +167,19 @@ describe('/api/generate endpoint', () => {
 
 describe('PUT /api/chats/:id/status', () => {
     let agent;
+    let csrfToken;
 
     beforeEach(async () => {
         agent = request.agent(app);
+        csrfToken = await getCsrfToken(agent);
+
         const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
         when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
         mockQuery.mockResolvedValueOnce({ rows: [regularUser] });
 
         await agent
             .post('/api/auth/login')
+            .set('CSRF-Token', csrfToken)
             .send({ name: 'user', password: 'password' })
             .expect(200);
     });
@@ -173,6 +192,7 @@ describe('PUT /api/chats/:id/status', () => {
 
         const response = await agent
             .put(`/api/chats/${CHAT_ID_1}/status`)
+            .set('CSRF-Token', csrfToken)
             .send({ status: newStatus });
 
         expect(response.status).toBe(200);
@@ -184,8 +204,12 @@ describe('PUT /api/chats/:id/status', () => {
     });
 
     it('should return 401 Unauthorized if not logged in', async () => {
-        const response = await request(app)
+        const unauthAgent = request.agent(app);
+        const token = await getCsrfToken(unauthAgent);
+
+        const response = await unauthAgent
             .put(`/api/chats/${CHAT_ID_1}/status`)
+            .set('CSRF-Token', token)
             .send({ status: 'completed' });
 
         expect(response.status).toBe(401);
@@ -196,6 +220,7 @@ describe('PUT /api/chats/:id/status', () => {
 
         const response = await agent
             .put(`/api/chats/${CHAT_ID_1}/status`)
+            .set('CSRF-Token', csrfToken)
             .send({ status: 'completed' });
 
         expect(response.status).toBe(500);
