@@ -191,9 +191,11 @@ app.post('/api/transcribe', isAuthenticated, upload.single('audio'), async (req,
         logger.error(error, 'Speechmatics transcription error');
         res.status(500).json({ error: 'Failed to transcribe audio.' });
     } finally {
-        fs.unlink(req.file.path, (err) => {
-            if (err) logger.error(err, 'Error deleting file');
-        });
+        try {
+            await fs.promises.unlink(req.file.path);
+        } catch (err) {
+            logger.error(err, 'Error deleting file');
+        }
     }
 });
 
