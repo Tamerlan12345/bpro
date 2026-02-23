@@ -252,21 +252,21 @@ app.post('/api/transcribe', isAuthenticated, uploadAudio, async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
     const { name, password } = req.body;
-    logger.info(`Login attempt for user: ${name}`);
+    logger.info('Login attempt initiated');
     try {
         const result = await pool.query('SELECT id, name, hashed_password FROM users WHERE name = $1', [name]);
         const user = result.rows[0];
         if (!user) {
-            logger.info(`Login failed for user: ${name}. User not found.`);
+            logger.info('Login failed: User not found.');
             return res.status(401).json({ error: 'Invalid username or password' });
         }
         const passwordMatches = await bcrypt.compare(password, user.hashed_password);
         if (!passwordMatches) {
-            logger.info(`Login failed for user: ${name}. Invalid password.`);
+            logger.info(`Login failed for user: ${user.name}. Invalid password.`);
             return res.status(401).json({ error: 'Invalid username or password' });
         }
         const role = user.name === 'admin' ? 'admin' : 'user';
-        logger.info(`Login successful for user: ${name}, role: ${role}`);
+        logger.info(`Login successful for user: ${user.name}, role: ${role}`);
         req.session.user = { id: user.id, name: user.name, role: role };
         res.json({ id: user.id, name: user.name, role: role });
     } catch (error) {
