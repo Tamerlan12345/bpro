@@ -39,7 +39,17 @@ app.use(
 );
 
 // Logging Middleware
-app.use(pinoHttp({ logger }));
+app.use(pinoHttp({
+  logger,
+  autoLogging: {
+    ignore: (req) => {
+      // Skip logging for health checks and static assets to reduce noise and I/O overhead
+      const isStatic = /\.(js|css|ico|png|jpg|jpeg|svg|woff|woff2)(\?|$)/.test(req.url);
+      const isHealth = req.url === '/health';
+      return isStatic || isHealth;
+    }
+  }
+}));
 
 // Rate Limiting
 const limiter = rateLimit({
