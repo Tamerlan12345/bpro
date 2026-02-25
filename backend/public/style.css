@@ -15,7 +15,31 @@
     --text-muted-color: #6c757d;
     --shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --border-radius: 8px;
+
+    /* Design Tokens */
+    /* Spacing */
+    --space-xs: 0.25rem;   /* 4px */
+    --space-sm: 0.5rem;    /* 8px */
+    --space-md: 1rem;      /* 16px */
+    --space-lg: 1.5rem;    /* 24px */
+    --space-xl: 2rem;      /* 32px */
+    --space-2xl: 3rem;     /* 48px */
+    --space-3xl: 4rem;     /* 64px */
+
+    /* Radii */
+    --radius-sm: 0.25rem;  /* 4px */
+    --radius-md: 0.5rem;   /* 8px */
+    --radius-lg: 0.75rem;  /* 12px */
+
+    /* Font Sizes */
+    --font-xs: 0.75rem;    /* 12px */
+    --font-sm: 0.875rem;   /* 14px */
+    --font-base: 1rem;     /* 16px */
+    --font-lg: 1.125rem;   /* 18px */
+    --font-xl: 1.25rem;    /* 20px */
+    --font-2xl: 1.5rem;    /* 24px */
+    --font-3xl: 2rem;      /* 32px */
+    --font-4xl: 2.5rem;    /* 40px */
 }
 
 body {
@@ -24,7 +48,7 @@ body {
     margin: 0;
     background-color: var(--light-bg-color);
     color: var(--text-color);
-    font-size: 16px;
+    font-size: var(--font-base);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
@@ -34,18 +58,18 @@ body {
     flex-direction: column;
     align-items: center;
     min-height: 100vh;
-    padding: 2rem 1rem;
+    padding: var(--space-xl) var(--space-md);
 }
 
 .app-header {
     width: 100%;
     max-width: 1200px;
-    margin-bottom: 2rem;
+    margin-bottom: var(--space-xl);
     text-align: left;
 }
 
 .app-header h1 {
-    font-size: 1.5rem;
+    font-size: var(--font-2xl);
     font-weight: 600;
     color: var(--text-color);
 }
@@ -63,9 +87,9 @@ body {
 .container {
     max-width: 1600px; /* Wider container */
     margin: 0 auto;
-    padding: 30px; /* Increased padding */
+    padding: var(--space-xl);
     background-color: var(--white-color);
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow);
 }
 
@@ -73,8 +97,8 @@ header {
     position: relative;
     text-align: center;
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 25px;
-    margin-bottom: 40px;
+    padding-bottom: var(--space-lg);
+    margin-bottom: var(--space-2xl);
 }
 
 #back-to-admin-btn {
@@ -84,7 +108,7 @@ header {
     background-color: transparent;
     border: 1px solid var(--border-color);
     color: var(--text-muted-color);
-    padding: 8px 16px;
+    padding: var(--space-sm) var(--space-md);
     font-size: 0.9em;
 }
 
@@ -94,55 +118,55 @@ header {
 }
 
 header h1 {
-    font-size: 2.5em; /* Larger title */
+    font-size: var(--font-4xl);
     color: var(--text-color);
-    font-weight: 700; /* Bolder */
+    font-weight: 700;
 }
 
 header p {
-    font-size: 1.2em; /* Larger subtitle */
+    font-size: var(--font-xl);
     color: var(--text-muted-color);
     max-width: 600px;
-    margin: 10px auto 0;
+    margin: var(--space-sm) auto 0;
 }
 
 .main-content {
     display: grid;
     grid-template-columns: 1.5fr 1fr; /* Asymmetrical grid */
-    gap: 60px; /* Increased gap */
+    gap: var(--space-3xl);
 }
 
 .left-column, .right-column {
     display: flex;
     flex-direction: column;
-    gap: 40px;
+    gap: var(--space-2xl);
 }
 
 /* --- Content Blocks --- */
 .input-block, .results-block, .diagram-block, .suggestions-block, .version-history-block, .comments-block {
     background-color: var(--white-color);
-    padding: 30px;
-    border-radius: var(--border-radius);
-    border: 1px solid var(--border-color); /* Subtle border */
+    padding: var(--space-xl);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
 }
 
 .input-block label, h2, h3, h4 {
     font-weight: 600;
-    margin-bottom: 20px;
+    margin-bottom: var(--space-xl);
     display: block;
 }
 
 .textarea-wrapper {
     position: relative;
-    margin-bottom: 20px;
+    margin-bottom: var(--space-xl);
 }
 
 textarea#process-description, #user-prompt {
     width: 100%;
-    padding: 15px;
+    padding: var(--space-md);
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    font-size: 1em;
+    border-radius: var(--radius-md);
+    font-size: var(--font-base);
     resize: vertical;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -159,32 +183,35 @@ textarea#process-description:focus, #user-prompt:focus {
 
 .transcription-display-area {
     width: 100%;
-    min-height: 150px; /* Give it some default height */
-    padding: 15px;
+    min-height: 150px;
+    padding: var(--space-md);
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    background-color: var(--light-bg-color); /* A light grey to indicate it's not editable */
-    font-size: 1em;
-    white-space: pre-wrap; /* To respect line breaks from the transcript */
-    word-wrap: break-word; /* To break long words */
-    margin-bottom: 20px;
+    border-radius: var(--radius-md);
+    background-color: var(--light-bg-color);
+    font-size: var(--font-base);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin-bottom: var(--space-xl);
 }
 
 .step-counter {
     position: absolute;
-    bottom: 12px;
-    right: 15px;
+    bottom: var(--space-md); /* Approx 12px -> 16px or keep 12? using 12px as space-radius-lg? No. Let's use 12px explicitly or var */
+    /* 12px is not in my scale, closest is 8px or 16px. 12px is fine for small padding. I'll use 12px for now or add space-md-minus? Let's use hardcoded or calc. I'll stick to 12px or use space-sm + 4px? Let's use 12px if critical. Actually bottom: 12px -> 0.75rem (space-lg is 24, space-md is 16, space-sm is 8). 12px is space-sm + half space-sm. */
+    bottom: 0.75rem;
+    right: var(--space-md);
     font-size: 0.9em;
     color: var(--text-muted-color);
     background-color: var(--white-color);
-    padding: 3px 8px;
+    padding: 3px var(--space-sm);
     border-radius: 5px;
 }
 
 /* --- Buttons --- */
 button {
-    padding: 14px 30px; /* Larger buttons */
-    border-radius: var(--border-radius);
+    padding: 14px 30px; /* Keep this specific button padding or standardise? 14px is close to space-md (16). 30px is close to space-xl (32). Let's standardize to var(--space-md) var(--space-xl) which is 16px 32px. */
+    padding: var(--space-md) var(--space-xl);
+    border-radius: var(--radius-md);
     border: none;
     font-size: 1.05em;
     font-weight: 600;
@@ -193,7 +220,7 @@ button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: var(--space-sm);
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
@@ -248,17 +275,17 @@ button:disabled {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 15px;
+    padding: 12px var(--space-md);
     background-color: var(--light-bg-color);
-    border-radius: var(--border-radius);
-    margin-bottom: 20px;
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-xl);
     border: 1px solid var(--border-color);
 }
 
 .select-all-wrapper {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-sm);
 }
 
 #selection-counter {
@@ -268,7 +295,8 @@ button:disabled {
 #suggestions-container {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: var(--space-xl); /* 20px -> 32px or 24px (space-lg)? Old was 20px. space-lg (24) is closer. */
+    gap: var(--space-lg);
     min-height: 150px;
 }
 
@@ -281,8 +309,9 @@ button:disabled {
 .suggestion-card {
     background-color: var(--white-color);
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 25px;
+    border-radius: var(--radius-md);
+    padding: 25px; /* 25px -> space-lg (24px) */
+    padding: var(--space-lg);
     transition: transform 0.2s, box-shadow 0.2s;
     cursor: pointer;
 }
@@ -301,8 +330,9 @@ button:disabled {
 .suggestion-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 15px;
+    gap: 12px; /* 12px -> 0.75rem or space-md (16px)? */
+    gap: 0.75rem;
+    margin-bottom: var(--space-md);
 }
 
 .suggestion-icon {
@@ -317,8 +347,9 @@ button:disabled {
 /* --- Diagram Block --- */
 .diagram-placeholder {
     border: 2px dashed var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 40px;
+    border-radius: var(--radius-md);
+    padding: 40px; /* 40px -> space-2xl (48px) or space-xl (32px)? 40px is huge. Let's use space-2xl (48px) for breathing room. */
+    padding: var(--space-2xl);
     text-align: center;
     background-color: var(--white-color);
     transition: background-color 0.3s;
@@ -332,7 +363,7 @@ button:disabled {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: var(--space-xl);
     color: var(--text-muted-color);
 }
 
@@ -353,9 +384,9 @@ button.button-secondary:hover {
 }
 
 #diagram-container {
-    padding: 20px;
+    padding: var(--space-xl);
     background-color: var(--white-color);
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
     min-height: 250px;
     display: flex;
     align-items: center;
@@ -364,16 +395,18 @@ button.button-secondary:hover {
 }
 
 #diagram-toolbar {
-    margin-top: 20px;
+    margin-top: var(--space-xl);
     display: flex;
-    gap: 12px;
+    gap: 12px; /* 0.75rem */
+    gap: 0.75rem;
     justify-content: center;
 }
 
 #diagram-toolbar button {
     background-color: #f1f3f5;
     color: #333;
-    padding: 10px 15px;
+    padding: 10px 15px; /* -> var(--space-sm) var(--space-md) - 8px 16px */
+    padding: var(--space-sm) var(--space-md);
     border: 1px solid var(--border-color);
 }
 
@@ -390,10 +423,12 @@ button.button-secondary:hover {
 
 @media (max-width: 768px) {
     body {
-        padding: 10px;
+        padding: 10px; /* -> space-sm? or space-md? 10px is close to 8px. */
+        padding: var(--space-sm);
     }
     .container {
-        padding: 15px;
+        padding: 15px; /* -> space-md (16px) */
+        padding: var(--space-md);
     }
 }
 
@@ -401,7 +436,8 @@ button.button-secondary:hover {
 .placeholder-text {
     color: var(--text-muted-color);
     text-align: center;
-    padding: 40px 20px;
+    padding: 40px 20px; /* 40px -> space-2xl, 20px -> space-xl? No, 20px is space-lg (24) or space-md (16). Let's use space-2xl space-lg */
+    padding: var(--space-2xl) var(--space-lg);
 }
 
 .loading-overlay {
@@ -415,28 +451,29 @@ button.button-secondary:hover {
     align-items: center;
     justify-content: center;
     z-index: 10;
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
 }
 
 /* --- New Prompt Block Styles --- */
 .prompt-block {
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin-top: var(--space-xl);
+    margin-bottom: var(--space-xl);
 }
 
 .prompt-block label {
-    font-size: 1em; /* Adjusted for consistency */
+    font-size: var(--font-base);
     font-weight: 600;
-    margin-bottom: 10px; /* Adjusted for consistency */
+    margin-bottom: var(--space-sm);
     color: var(--text-color);
 }
 
 #user-prompt {
     width: 100%;
-    padding: 12px;
+    padding: 12px; /* -> 0.75rem */
+    padding: 0.75rem;
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    font-size: 1em;
+    border-radius: var(--radius-md);
+    font-size: var(--font-base);
 }
 
 #diagram-container {
@@ -458,9 +495,10 @@ button.button-secondary:hover {
 .login-form {
     width: 100%;
     max-width: 450px;
-    padding: 2.5rem;
+    padding: 2.5rem; /* -> var(--space-2xl) (48px) is 3rem. 2.5rem is 40px. Let's use space-2xl (48px) or space-xl (32px). 2.5rem is between. Let's stick to system. space-2xl is good. */
+    padding: var(--space-2xl);
     background-color: var(--white-color);
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow);
     text-align: left;
     border: 1px solid var(--border-color);
@@ -468,20 +506,20 @@ button.button-secondary:hover {
 }
 
 .login-form h2 {
-    margin-bottom: 0.5rem;
-    font-size: 1.5rem;
+    margin-bottom: var(--space-sm);
+    font-size: var(--font-2xl);
     font-weight: 600;
 }
 
 .login-form p {
     color: var(--text-muted-color);
-    margin-bottom: 2rem;
-    font-size: 0.95rem;
+    margin-bottom: var(--space-xl);
+    font-size: 0.95rem; /* close to font-base */
 }
 
 .login-form label {
     display: block;
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--space-sm);
     font-weight: 500;
     color: var(--text-color);
     font-size: 0.95rem;
@@ -490,11 +528,12 @@ button.button-secondary:hover {
 .login-form input,
 .login-form select {
     width: 100%;
-    padding: 12px 15px;
-    margin-bottom: 1rem;
+    padding: 12px 15px; /* -> 0.75rem space-md (16px) */
+    padding: 0.75rem var(--space-md);
+    margin-bottom: var(--space-md);
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    font-size: 1rem;
+    border-radius: var(--radius-md);
+    font-size: var(--font-base);
     background-color: #fdfdff;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -507,7 +546,8 @@ button.button-secondary:hover {
 
 .error-message {
     color: #dc3545;
-    margin-top: 15px;
+    margin-top: 15px; /* -> space-md (16px) */
+    margin-top: var(--space-md);
     min-height: 20px;
 }
 
@@ -515,22 +555,26 @@ button.button-secondary:hover {
 #admin-panel {
     width: 100%;
     max-width: 1200px;
-    padding: 2.5rem;
+    padding: 2.5rem; /* -> space-2xl (48px) */
+    padding: var(--space-2xl);
     background-color: var(--white-color);
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow);
     border: 1px solid var(--border-color);
 }
 #admin-panel h2, #admin-panel h3, #admin-panel h4, #admin-panel h5 {
     font-weight: 600;
     margin-top: 0;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.5rem; /* -> space-lg (24px) */
+    margin-bottom: var(--space-lg);
 }
 
 .admin-section {
-    margin-bottom: 2.5rem;
+    margin-bottom: 2.5rem; /* -> space-2xl */
+    margin-bottom: var(--space-2xl);
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 2.5rem;
+    padding-bottom: 2.5rem; /* -> space-2xl */
+    padding-bottom: var(--space-2xl);
 }
 #admin-panel .admin-section:last-child {
     border-bottom: none;
@@ -540,15 +584,17 @@ button.button-secondary:hover {
 
 .admin-tabs {
     border-bottom: 1px solid var(--border-color);
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.5rem; /* -> space-lg */
+    margin-bottom: var(--space-lg);
 }
 
 .tab-link {
     background-color: transparent;
     border: none;
-    padding: 10px 20px;
+    padding: 10px 20px; /* -> space-sm space-xl ? 20px is close to 24px (lg). 10px is close to 8px (sm) or 12px. Let's use space-sm space-lg */
+    padding: var(--space-sm) var(--space-lg);
     cursor: pointer;
-    font-size: 1rem;
+    font-size: var(--font-base);
     margin-right: 5px;
     border-bottom: 2px solid transparent;
     transition: all 0.2s ease;
@@ -570,8 +616,9 @@ button.button-secondary:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px;
-    border-radius: var(--border-radius);
+    padding: 12px; /* -> 0.75rem */
+    padding: 0.75rem;
+    border-radius: var(--radius-md);
     text-decoration: none;
     color: var(--text-color);
     transition: background-color 0.2s;
@@ -583,12 +630,12 @@ button.button-secondary:hover {
 
 /* --- Action Buttons --- */
 #action-buttons {
-    margin-top: 20px;
+    margin-top: var(--space-xl);
     display: flex;
-    gap: 10px;
+    gap: var(--space-sm);
     justify-content: center;
 }
-#action-buttons button {
+#action-buttons button:not(.button-secondary):not(.button-primary) {
     background-color: var(--secondary-color);
     color: var(--white-color);
 }
@@ -598,14 +645,17 @@ button.button-secondary:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 0;
+    padding: 10px 0; /* -> space-sm 0 */
+    padding: var(--space-sm) 0;
     border-bottom: 1px solid var(--border-color);
 }
 .comment {
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 15px;
-    margin-bottom: 15px;
+    border-radius: var(--radius-md);
+    padding: 15px; /* -> space-md (16px) */
+    padding: var(--space-md);
+    margin-bottom: 15px; /* -> space-md */
+    margin-bottom: var(--space-md);
 }
 .comment.admin {
     background-color: #f0f8ff;
@@ -617,10 +667,12 @@ button.button-secondary:hover {
 .comment-form textarea {
     width: 100%;
     min-height: 80px;
-    margin-bottom: 10px;
-    padding: 10px;
+    margin-bottom: 10px; /* -> space-sm */
+    margin-bottom: var(--space-sm);
+    padding: 10px; /* -> space-sm */
+    padding: var(--space-sm);
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
 }
 
 /* --- Modal Styles --- */
@@ -639,11 +691,12 @@ button.button-secondary:hover {
 .modal-content {
     background-color: #fefefe;
     margin: 10% auto;
-    padding: 25px;
+    padding: 25px; /* -> space-lg (24px) */
+    padding: var(--space-lg);
     border: 1px solid #888;
     width: 80%;
     max-width: 500px;
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
     position: relative;
     box-shadow: var(--shadow-lg);
 }
@@ -655,26 +708,31 @@ button.button-secondary:hover {
 .mermaid-editor-content {
     display: grid;
     grid-template-columns: 200px 1fr 1fr; /* 3 columns: Legend, Code, Preview */
-    gap: 20px;
+    gap: var(--space-xl); /* 20px -> 32px is too big maybe? let's stick to space-lg (24) or space-md (16). 20px -> 24px */
+    gap: var(--space-lg);
     height: 60vh;
-    margin: 20px 0;
+    margin: 20px 0; /* -> space-lg 0 */
+    margin: var(--space-lg) 0;
 }
 
 .mermaid-legend {
     background-color: #f8f9fa;
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 15px;
-    font-size: 14px;
+    border-radius: var(--radius-md);
+    padding: 15px; /* -> space-md */
+    padding: var(--space-md);
+    font-size: var(--font-sm);
     overflow-y: auto;
 }
 
 .mermaid-legend h4 {
     margin-top: 0;
-    margin-bottom: 15px;
+    margin-bottom: 15px; /* -> space-md */
+    margin-bottom: var(--space-md);
     font-weight: 600;
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
+    padding-bottom: 10px; /* -> space-sm */
+    padding-bottom: var(--space-sm);
 }
 
 .mermaid-legend ul {
@@ -684,7 +742,8 @@ button.button-secondary:hover {
 }
 
 .mermaid-legend li {
-    margin-bottom: 15px;
+    margin-bottom: 15px; /* -> space-md */
+    margin-bottom: var(--space-md);
 }
 
 .mermaid-legend code {
@@ -701,28 +760,32 @@ button.button-secondary:hover {
     height: 100%;
     resize: none;
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 15px;
+    border-radius: var(--radius-md);
+    padding: 15px; /* -> space-md */
+    padding: var(--space-md);
     font-family: 'Courier New', Courier, monospace;
-    font-size: 14px;
+    font-size: var(--font-sm);
 }
 
 #mermaid-editor-preview {
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
     background-color: var(--light-bg-color);
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: auto;
-    padding: 15px;
+    padding: 15px; /* -> space-md */
+    padding: var(--space-md);
 }
 
 .mermaid-editor-buttons {
     display: flex;
     justify-content: flex-end;
-    gap: 15px;
-    margin-top: 15px;
+    gap: 15px; /* -> space-md */
+    gap: var(--space-md);
+    margin-top: 15px; /* -> space-md */
+    margin-top: var(--space-md);
 }
 
 .modal-content h2 {
@@ -730,25 +793,30 @@ button.button-secondary:hover {
 }
 
 .modal-content .form-group {
-    margin-bottom: 15px;
+    margin-bottom: 15px; /* -> space-md */
+    margin-bottom: var(--space-md);
 }
 
 /* --- Notification System --- */
 .notification-container {
     position: fixed;
-    top: 20px;
-    right: 20px;
+    top: 20px; /* -> space-lg (24) or space-md (16). 20px -> 24px */
+    top: var(--space-lg);
+    right: 20px; /* -> space-lg */
+    right: var(--space-lg);
     z-index: 1050; /* High z-index to appear above other content */
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 10px; /* -> space-sm */
+    gap: var(--space-sm);
 }
 
 .notification {
-    padding: 15px 20px;
-    border-radius: 8px;
+    padding: 15px 20px; /* -> space-md space-lg (16px 24px) */
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-md);
     color: #fff;
-    font-size: 1rem;
+    font-size: var(--font-base);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
     opacity: 0;
     transform: translateX(100%);
@@ -784,9 +852,10 @@ button.button-secondary:hover {
 
 .modal-content input {
     width: 100%;
-    padding: 10px;
+    padding: 10px; /* -> space-sm */
+    padding: var(--space-sm);
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
 }
 
 .close-btn {
@@ -821,12 +890,15 @@ button.button-secondary:hover {
 #chat-selection-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    gap: 1rem; /* -> space-md */
+    gap: var(--space-md);
+    margin-bottom: 1.5rem; /* -> space-lg */
+    margin-bottom: var(--space-lg);
 }
 
 .chat-card {
-    padding: 1.25rem 0.75rem;
+    padding: 1.25rem 0.75rem; /* -> 20px 12px. let's say space-lg space-sm/md */
+    padding: var(--space-lg) 0.75rem;
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     text-align: center;
@@ -852,11 +924,13 @@ button.button-secondary:hover {
 .chat-icon {
     font-size: 2em;
     display: block;
-    margin-bottom: 10px;
+    margin-bottom: 10px; /* -> space-sm */
+    margin-bottom: var(--space-sm);
 }
 
 .chat-status {
-    margin-top: 15px;
+    margin-top: 15px; /* -> space-md */
+    margin-top: var(--space-md);
     font-size: 0.9em;
     display: flex;
     align-items: center;
@@ -883,24 +957,29 @@ button.button-secondary:hover {
 
 /* --- Legend --- */
 .legend {
-    margin-top: 20px;
-    padding: 15px;
+    margin-top: 20px; /* -> space-lg */
+    margin-top: var(--space-lg);
+    padding: 15px; /* -> space-md */
+    padding: var(--space-md);
     background-color: #f8f9fa;
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
 }
 
 /* --- Recording Feedback --- */
 .recording-timer {
     font-weight: 600;
     color: var(--primary-color);
-    margin-left: 8px;
+    margin-left: 8px; /* -> space-sm */
+    margin-left: var(--space-sm);
 }
 
 .partial-transcript {
-    margin-top: 15px;
-    padding: 15px;
+    margin-top: 15px; /* -> space-md */
+    margin-top: var(--space-md);
+    padding: 15px; /* -> space-md */
+    padding: var(--space-md);
     background-color: #f8f9fa;
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
     min-height: 50px;
     color: var(--text-muted-color);
     font-style: italic;
@@ -911,18 +990,22 @@ button.button-secondary:hover {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 15px;
-    margin-bottom: 20px;
+    gap: 15px; /* -> space-md */
+    gap: var(--space-md);
+    margin-bottom: 20px; /* -> space-lg */
+    margin-bottom: var(--space-lg);
 }
 
 .audio-playback {
     display: none;
     width: 100%;
-    margin-top: 10px;
+    margin-top: 10px; /* -> space-sm */
+    margin-top: var(--space-sm);
 }
 .legend h4 {
     margin-top: 0;
-    margin-bottom: 10px;
+    margin-bottom: 10px; /* -> space-sm */
+    margin-bottom: var(--space-sm);
 }
 .legend ul {
     list-style: none;
@@ -932,12 +1015,14 @@ button.button-secondary:hover {
 .legend li {
     display: flex;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 8px; /* -> space-sm (8px) */
+    margin-bottom: var(--space-sm);
 }
 .legend-shape {
     width: 20px;
     height: 20px;
-    margin-right: 10px;
+    margin-right: 10px; /* -> space-sm */
+    margin-right: var(--space-sm);
     border: 1px solid #333;
 }
 .legend-shape.rect {
@@ -958,14 +1043,16 @@ button.button-secondary:hover {
 
 #create-department-form, #create-chat-form {
     display: flex;
-    gap: 1rem;
+    gap: 1rem; /* -> space-md */
+    gap: var(--space-md);
     align-items: center;
 }
 
 #create-department-form {
     display: grid;
     grid-template-columns: 1fr 1fr auto;
-    gap: 1rem;
+    gap: 1rem; /* -> space-md */
+    gap: var(--space-md);
     align-items: center;
 }
 
@@ -982,19 +1069,22 @@ button.button-secondary:hover {
 .admin-main-view {
     display: grid;
     grid-template-columns: 1fr 2fr;
-    gap: 2rem;
+    gap: 2rem; /* -> space-xl */
+    gap: var(--space-xl);
 }
 
 #department-list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.5rem; /* -> space-sm */
+    gap: var(--space-sm);
 }
 
 .department-card {
-    padding: 1rem;
+    padding: 1rem; /* -> space-md */
+    padding: var(--space-md);
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
     cursor: pointer;
     transition: all 0.2s ease-in-out;
     display: flex;
@@ -1015,7 +1105,8 @@ button.button-secondary:hover {
 }
 
 .department-card .edit-dept-btn {
-    padding: 5px 10px;
+    padding: 5px 10px; /* -> 4px 8px = xs sm */
+    padding: var(--space-xs) var(--space-sm);
     font-size: 0.8rem;
     background-color: var(--secondary-color);
     color: var(--white-color);
@@ -1031,12 +1122,15 @@ button.button-secondary:hover {
 #chat-list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
+    gap: 0.5rem; /* -> space-sm */
+    gap: var(--space-sm);
+    margin-bottom: 1.5rem; /* -> space-lg */
+    margin-bottom: var(--space-lg);
 }
 
 .chat-item {
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 1rem; /* -> 0.75 space-md */
+    padding: 0.75rem var(--space-md);
     background-color: #f8f9fa;
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
 }
