@@ -479,6 +479,14 @@ button.button-secondary:hover {
     font-size: 0.95rem;
 }
 
+.login-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-color);
+    font-size: 0.95rem;
+}
+
 .login-form input,
 .login-form select {
     width: 100%;
