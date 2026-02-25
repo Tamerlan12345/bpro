@@ -835,11 +835,11 @@ ${brokenCode}
     }
 
     const statusMap = {
-        draft: { text: 'Черновик', color: 'grey' },
-        pending_review: { text: 'На проверке', color: 'orange' },
-        needs_revision: { text: 'Нужны правки', color: 'red' },
-        completed: { text: 'Завершен', color: 'green' },
-        archived: { text: 'В архиве', color: 'grey' }
+        draft: { text: 'Черновик', color: 'var(--secondary-color)' },
+        pending_review: { text: 'На проверке', color: 'var(--color-warning)' },
+        needs_revision: { text: 'Нужны правки', color: 'var(--color-danger)' },
+        completed: { text: 'Завершен', color: 'var(--color-success)' },
+        archived: { text: 'В архиве', color: 'var(--secondary-color)' }
     };
 
     function getStatusIndicator(status) {
