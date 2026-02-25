@@ -84,6 +84,8 @@ describe('POST /api/chats/:id/versions', () => {
             created_at: new Date().toISOString()
         };
 
+        // Mock ownership check
+        mockQuery.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
         mockQuery.mockResolvedValueOnce({ rows: [mockVersion] });
 
         const response = await agent
@@ -113,6 +115,8 @@ describe('POST /api/chats/:id/versions', () => {
     });
 
     it('should return 500 if database error occurs', async () => {
+        // Mock ownership check to succeed
+        mockQuery.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
         mockQuery.mockRejectedValueOnce(new Error('Database error'));
 
         const response = await agent

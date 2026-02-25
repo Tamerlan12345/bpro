@@ -221,6 +221,27 @@ const validateBody = (schema) => (req, res, next) => {
     }
 };
 
+const checkChatAccess = async (chatId, user, res) => {
+    if (user.role === 'admin') return true;
+    try {
+        const { rows } = await pool.query(
+            `SELECT 1 FROM chats c
+             JOIN departments d ON c.department_id = d.id
+             WHERE c.id = $1 AND d.user_id = $2`,
+            [chatId, user.id]
+        );
+        if (rows.length === 0) {
+            res.status(403).json({ error: 'Forbidden' });
+            return false;
+        }
+        return true;
+    } catch (error) {
+        logger.error(error, `Error checking chat access for user ${user.id} and chat ${chatId}`);
+        res.status(500).json({ error: 'Internal server error' });
+        return false;
+    }
+};
+
 app.post('/api/transcribe', isAuthenticated, uploadAudio, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No audio file uploaded.' });
@@ -354,6 +375,7 @@ app.get('/api/admin/chats/pending', isAuthenticated, isAdmin, async (req, res) =
 
 app.get('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     const { id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
     try {
         const { rows } = await pool.query('SELECT status FROM chat_statuses WHERE chat_id = $1', [id]);
         if (rows.length === 0) return res.status(404).json({ error: 'Status not found' });
@@ -533,6 +555,7 @@ app.delete('/api/chats/:id', isAuthenticated, isAdmin, async (req, res) => {
 
 app.get('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
     const { id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
     try {
         const { rows } = await pool.query('SELECT * FROM process_versions WHERE chat_id = $1 ORDER BY created_at DESC', [id]);
         res.json(rows);
@@ -543,6 +566,7 @@ app.get('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
 
 app.post('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
     const { id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
     const { process_text, mermaid_code } = req.body;
     try {
         const { rows } = await pool.query('INSERT INTO process_versions (chat_id, process_text, mermaid_code) VALUES ($1, $2, $3) RETURNING *', [id, process_text, mermaid_code]);
@@ -555,6 +579,7 @@ app.post('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
 // Get all comments for a chat
 app.get('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     const { id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
     try {
         const { rows } = await pool.query('SELECT * FROM comments WHERE chat_id = $1 ORDER BY created_at ASC', [id]);
         res.json(rows);
@@ -565,6 +590,7 @@ app.get('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
 
 app.post('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     const { id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
     const { text } = req.body;
     const author_role = req.session.user.role;
     try {
@@ -577,6 +603,7 @@ app.post('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
 
 app.get('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
     const { id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
     try {
         const { rows } = await pool.query('SELECT * FROM transcription_data WHERE chat_id = $1', [id]);
         if (rows.length === 0) {
@@ -591,6 +618,7 @@ app.get('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
 
 app.post('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
     const { id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
     const { transcribed_text, final_text, status } = req.body;
 
     if (!transcribed_text && !final_text && !status) {
@@ -619,6 +647,7 @@ app.post('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
 
 app.put('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     const { id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
     const { status } = req.body;
     try {
         const { rows } = await pool.query('UPDATE chat_statuses SET status = $1 WHERE chat_id = $2 RETURNING *', [status, id]);
