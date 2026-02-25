@@ -366,19 +366,39 @@ button.button-secondary:hover {
 #diagram-toolbar {
     margin-top: 20px;
     display: flex;
-    gap: 12px;
+    gap: 8px;
     justify-content: center;
 }
 
 #diagram-toolbar button {
     background-color: #f1f3f5;
     color: #333;
-    padding: 10px 15px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
     border: 1px solid var(--border-color);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
 }
 
 #diagram-toolbar button:hover {
     background-color: #e2e6ea;
+    transform: scale(1.05);
+    border-color: #ced4da;
+}
+
+#diagram-toolbar button:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+#diagram-toolbar button svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2px;
 }
 
 /* --- Responsive Design --- */
