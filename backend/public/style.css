@@ -16,10 +16,19 @@
     --shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 
+    /* Semantic Colors */
+    --color-success: #28a745;
+    --color-danger: #dc3545;
+    --color-warning: #fd7e14;
+    --focus-ring-color: rgba(59, 113, 246, 0.2);
+    --bg-primary-light: #E9EFFF;
+    --bg-surface-secondary: #f1f3f5;
+
     /* Design Tokens */
     /* Spacing */
     --space-xs: 0.25rem;   /* 4px */
     --space-sm: 0.5rem;    /* 8px */
+    --space-smd: 0.75rem;  /* 12px */
     --space-md: 1rem;      /* 16px */
     --space-lg: 1.5rem;    /* 24px */
     --space-xl: 2rem;      /* 32px */
@@ -178,7 +187,7 @@ textarea#process-description {
 textarea#process-description:focus, #user-prompt:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(59, 113, 246, 0.2);
+    box-shadow: 0 0 0 3px var(--focus-ring-color);
 }
 
 .transcription-display-area {
@@ -275,7 +284,7 @@ button:disabled {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px var(--space-md);
+    padding: var(--space-smd) var(--space-md);
     background-color: var(--light-bg-color);
     border-radius: var(--radius-md);
     margin-bottom: var(--space-xl);
@@ -310,7 +319,6 @@ button:disabled {
     background-color: var(--white-color);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    padding: 25px; /* 25px -> space-lg (24px) */
     padding: var(--space-lg);
     transition: transform 0.2s, box-shadow 0.2s;
     cursor: pointer;
@@ -322,7 +330,7 @@ button:disabled {
 }
 
 .suggestion-card.selected {
-    background-color: #E9EFFF;
+    background-color: var(--bg-primary-light);
     border-left: 5px solid var(--primary-color);
     box-shadow: var(--shadow-hover);
 }
@@ -330,8 +338,7 @@ button:disabled {
 .suggestion-header {
     display: flex;
     align-items: center;
-    gap: 12px; /* 12px -> 0.75rem or space-md (16px)? */
-    gap: 0.75rem;
+    gap: var(--space-smd);
     margin-bottom: var(--space-md);
 }
 
@@ -348,7 +355,6 @@ button:disabled {
 .diagram-placeholder {
     border: 2px dashed var(--border-color);
     border-radius: var(--radius-md);
-    padding: 40px; /* 40px -> space-2xl (48px) or space-xl (32px)? 40px is huge. Let's use space-2xl (48px) for breathing room. */
     padding: var(--space-2xl);
     text-align: center;
     background-color: var(--white-color);
@@ -356,7 +362,7 @@ button:disabled {
 }
 
 .diagram-placeholder:hover {
-    background-color: #fdfdff;
+    background-color: var(--light-bg-color);
 }
 
 .diagram-placeholder .placeholder-content {
@@ -397,21 +403,19 @@ button.button-secondary:hover {
 #diagram-toolbar {
     margin-top: var(--space-xl);
     display: flex;
-    gap: 12px; /* 0.75rem */
-    gap: 0.75rem;
+    gap: var(--space-smd);
     justify-content: center;
 }
 
 #diagram-toolbar button {
-    background-color: #f1f3f5;
-    color: #333;
-    padding: 10px 15px; /* -> var(--space-sm) var(--space-md) - 8px 16px */
+    background-color: var(--bg-surface-secondary);
+    color: var(--text-color);
     padding: var(--space-sm) var(--space-md);
     border: 1px solid var(--border-color);
 }
 
 #diagram-toolbar button:hover {
-    background-color: #e2e6ea;
+    background-color: var(--border-color);
 }
 
 /* --- Responsive Design --- */
@@ -436,7 +440,6 @@ button.button-secondary:hover {
 .placeholder-text {
     color: var(--text-muted-color);
     text-align: center;
-    padding: 40px 20px; /* 40px -> space-2xl, 20px -> space-xl? No, 20px is space-lg (24) or space-md (16). Let's use space-2xl space-lg */
     padding: var(--space-2xl) var(--space-lg);
 }
 
@@ -469,8 +472,7 @@ button.button-secondary:hover {
 
 #user-prompt {
     width: 100%;
-    padding: 12px; /* -> 0.75rem */
-    padding: 0.75rem;
+    padding: var(--space-smd);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     font-size: var(--font-base);
@@ -495,7 +497,6 @@ button.button-secondary:hover {
 .login-form {
     width: 100%;
     max-width: 450px;
-    padding: 2.5rem; /* -> var(--space-2xl) (48px) is 3rem. 2.5rem is 40px. Let's use space-2xl (48px) or space-xl (32px). 2.5rem is between. Let's stick to system. space-2xl is good. */
     padding: var(--space-2xl);
     background-color: var(--white-color);
     border-radius: var(--radius-md);
@@ -514,7 +515,7 @@ button.button-secondary:hover {
 .login-form p {
     color: var(--text-muted-color);
     margin-bottom: var(--space-xl);
-    font-size: 0.95rem; /* close to font-base */
+    font-size: var(--font-base);
 }
 
 .login-form label {
@@ -522,31 +523,29 @@ button.button-secondary:hover {
     margin-bottom: var(--space-sm);
     font-weight: 500;
     color: var(--text-color);
-    font-size: 0.95rem;
+    font-size: var(--font-base);
 }
 
 .login-form input,
 .login-form select {
     width: 100%;
-    padding: 12px 15px; /* -> 0.75rem space-md (16px) */
-    padding: 0.75rem var(--space-md);
+    padding: var(--space-smd) var(--space-md);
     margin-bottom: var(--space-md);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     font-size: var(--font-base);
-    background-color: #fdfdff;
+    background-color: var(--bg-surface-secondary);
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .login-form input:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(42, 111, 219, 0.2);
+    box-shadow: 0 0 0 3px var(--focus-ring-color);
 }
 
-.error-message {
-    color: #dc3545;
-    margin-top: 15px; /* -> space-md (16px) */
+p.error-message {
+    color: var(--color-danger);
     margin-top: var(--space-md);
     min-height: 20px;
 }
@@ -555,7 +554,6 @@ button.button-secondary:hover {
 #admin-panel {
     width: 100%;
     max-width: 1200px;
-    padding: 2.5rem; /* -> space-2xl (48px) */
     padding: var(--space-2xl);
     background-color: var(--white-color);
     border-radius: var(--radius-md);
@@ -570,10 +568,8 @@ button.button-secondary:hover {
 }
 
 .admin-section {
-    margin-bottom: 2.5rem; /* -> space-2xl */
     margin-bottom: var(--space-2xl);
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 2.5rem; /* -> space-2xl */
     padding-bottom: var(--space-2xl);
 }
 #admin-panel .admin-section:last-child {
@@ -584,14 +580,12 @@ button.button-secondary:hover {
 
 .admin-tabs {
     border-bottom: 1px solid var(--border-color);
-    margin-bottom: 1.5rem; /* -> space-lg */
     margin-bottom: var(--space-lg);
 }
 
 .tab-link {
     background-color: transparent;
     border: none;
-    padding: 10px 20px; /* -> space-sm space-xl ? 20px is close to 24px (lg). 10px is close to 8px (sm) or 12px. Let's use space-sm space-lg */
     padding: var(--space-sm) var(--space-lg);
     cursor: pointer;
     font-size: var(--font-base);
@@ -616,8 +610,7 @@ button.button-secondary:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px; /* -> 0.75rem */
-    padding: 0.75rem;
+    padding: var(--space-smd);
     border-radius: var(--radius-md);
     text-decoration: none;
     color: var(--text-color);
@@ -645,20 +638,17 @@ button.button-secondary:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 0; /* -> space-sm 0 */
     padding: var(--space-sm) 0;
     border-bottom: 1px solid var(--border-color);
 }
 .comment {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    padding: 15px; /* -> space-md (16px) */
     padding: var(--space-md);
-    margin-bottom: 15px; /* -> space-md */
     margin-bottom: var(--space-md);
 }
 .comment.admin {
-    background-color: #f0f8ff;
+    background-color: var(--bg-surface-secondary);
     border-left: 4px solid var(--primary-color);
 }
 .comment.user {
@@ -667,9 +657,7 @@ button.button-secondary:hover {
 .comment-form textarea {
     width: 100%;
     min-height: 80px;
-    margin-bottom: 10px; /* -> space-sm */
     margin-bottom: var(--space-sm);
-    padding: 10px; /* -> space-sm */
     padding: var(--space-sm);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -708,18 +696,15 @@ button.button-secondary:hover {
 .mermaid-editor-content {
     display: grid;
     grid-template-columns: 200px 1fr 1fr; /* 3 columns: Legend, Code, Preview */
-    gap: var(--space-xl); /* 20px -> 32px is too big maybe? let's stick to space-lg (24) or space-md (16). 20px -> 24px */
     gap: var(--space-lg);
     height: 60vh;
-    margin: 20px 0; /* -> space-lg 0 */
     margin: var(--space-lg) 0;
 }
 
 .mermaid-legend {
-    background-color: #f8f9fa;
+    background-color: var(--light-bg-color);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    padding: 15px; /* -> space-md */
     padding: var(--space-md);
     font-size: var(--font-sm);
     overflow-y: auto;
@@ -727,11 +712,9 @@ button.button-secondary:hover {
 
 .mermaid-legend h4 {
     margin-top: 0;
-    margin-bottom: 15px; /* -> space-md */
     margin-bottom: var(--space-md);
     font-weight: 600;
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px; /* -> space-sm */
     padding-bottom: var(--space-sm);
 }
 
@@ -742,7 +725,6 @@ button.button-secondary:hover {
 }
 
 .mermaid-legend li {
-    margin-bottom: 15px; /* -> space-md */
     margin-bottom: var(--space-md);
 }
 
@@ -761,7 +743,6 @@ button.button-secondary:hover {
     resize: none;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    padding: 15px; /* -> space-md */
     padding: var(--space-md);
     font-family: 'Courier New', Courier, monospace;
     font-size: var(--font-sm);
@@ -775,16 +756,13 @@ button.button-secondary:hover {
     align-items: center;
     justify-content: center;
     overflow: auto;
-    padding: 15px; /* -> space-md */
     padding: var(--space-md);
 }
 
 .mermaid-editor-buttons {
     display: flex;
     justify-content: flex-end;
-    gap: 15px; /* -> space-md */
     gap: var(--space-md);
-    margin-top: 15px; /* -> space-md */
     margin-top: var(--space-md);
 }
 
@@ -793,26 +771,21 @@ button.button-secondary:hover {
 }
 
 .modal-content .form-group {
-    margin-bottom: 15px; /* -> space-md */
     margin-bottom: var(--space-md);
 }
 
 /* --- Notification System --- */
 .notification-container {
     position: fixed;
-    top: 20px; /* -> space-lg (24) or space-md (16). 20px -> 24px */
     top: var(--space-lg);
-    right: 20px; /* -> space-lg */
     right: var(--space-lg);
-    z-index: 1050; /* High z-index to appear above other content */
+    z-index: 1050;
     display: flex;
     flex-direction: column;
-    gap: 10px; /* -> space-sm */
     gap: var(--space-sm);
 }
 
 .notification {
-    padding: 15px 20px; /* -> space-md space-lg (16px 24px) */
     padding: var(--space-md) var(--space-lg);
     border-radius: var(--radius-md);
     color: #fff;
@@ -824,11 +797,11 @@ button.button-secondary:hover {
 }
 
 .notification.success {
-    background-color: #28a745; /* Green */
+    background-color: var(--color-success);
 }
 
 .notification.error {
-    background-color: #dc3545; /* Red */
+    background-color: var(--color-danger);
 }
 
 @keyframes slideIn {
@@ -852,20 +825,19 @@ button.button-secondary:hover {
 
 .modal-content input {
     width: 100%;
-    padding: 10px; /* -> space-sm */
     padding: var(--space-sm);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
 }
 
 .close-btn {
-    color: #aaa;
+    color: var(--text-muted-color);
     float: right;
-    font-size: 28px;
+    font-size: 1.75rem;
     font-weight: bold;
     position: absolute;
-    top: 10px;
-    right: 20px;
+    top: var(--space-sm);
+    right: var(--space-lg);
     background: none;
     border: none;
     padding: 0;
@@ -890,17 +862,14 @@ button.button-secondary:hover {
 #chat-selection-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 1rem; /* -> space-md */
     gap: var(--space-md);
-    margin-bottom: 1.5rem; /* -> space-lg */
     margin-bottom: var(--space-lg);
 }
 
 .chat-card {
-    padding: 1.25rem 0.75rem; /* -> 20px 12px. let's say space-lg space-sm/md */
-    padding: var(--space-lg) 0.75rem;
+    padding: var(--space-lg) var(--space-smd);
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
+    border-radius: var(--radius-md);
     text-align: center;
     cursor: pointer;
     transition: all 0.2s ease-in-out;
@@ -915,7 +884,7 @@ button.button-secondary:hover {
 
 .chat-card.selected {
     border-color: var(--primary-color);
-    background-color: #eaf2fe;
+    background-color: var(--bg-primary-light);
     font-weight: 600;
     box-shadow: var(--shadow);
     transform: translateY(-3px);
@@ -924,14 +893,12 @@ button.button-secondary:hover {
 .chat-icon {
     font-size: 2em;
     display: block;
-    margin-bottom: 10px; /* -> space-sm */
     margin-bottom: var(--space-sm);
 }
 
 .chat-status {
-    margin-top: 15px; /* -> space-md */
     margin-top: var(--space-md);
-    font-size: 0.9em;
+    font-size: var(--font-sm);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -941,7 +908,7 @@ button.button-secondary:hover {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    margin-right: 8px;
+    margin-right: var(--space-sm);
     display: inline-block;
 }
 
@@ -957,11 +924,9 @@ button.button-secondary:hover {
 
 /* --- Legend --- */
 .legend {
-    margin-top: 20px; /* -> space-lg */
     margin-top: var(--space-lg);
-    padding: 15px; /* -> space-md */
     padding: var(--space-md);
-    background-color: #f8f9fa;
+    background-color: var(--light-bg-color);
     border-radius: var(--radius-md);
 }
 
@@ -969,16 +934,13 @@ button.button-secondary:hover {
 .recording-timer {
     font-weight: 600;
     color: var(--primary-color);
-    margin-left: 8px; /* -> space-sm */
     margin-left: var(--space-sm);
 }
 
 .partial-transcript {
-    margin-top: 15px; /* -> space-md */
     margin-top: var(--space-md);
-    padding: 15px; /* -> space-md */
     padding: var(--space-md);
-    background-color: #f8f9fa;
+    background-color: var(--light-bg-color);
     border-radius: var(--radius-md);
     min-height: 50px;
     color: var(--text-muted-color);
@@ -990,21 +952,17 @@ button.button-secondary:hover {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 15px; /* -> space-md */
     gap: var(--space-md);
-    margin-bottom: 20px; /* -> space-lg */
     margin-bottom: var(--space-lg);
 }
 
 .audio-playback {
     display: none;
     width: 100%;
-    margin-top: 10px; /* -> space-sm */
     margin-top: var(--space-sm);
 }
 .legend h4 {
     margin-top: 0;
-    margin-bottom: 10px; /* -> space-sm */
     margin-bottom: var(--space-sm);
 }
 .legend ul {
@@ -1015,15 +973,13 @@ button.button-secondary:hover {
 .legend li {
     display: flex;
     align-items: center;
-    margin-bottom: 8px; /* -> space-sm (8px) */
     margin-bottom: var(--space-sm);
 }
 .legend-shape {
     width: 20px;
     height: 20px;
-    margin-right: 10px; /* -> space-sm */
     margin-right: var(--space-sm);
-    border: 1px solid #333;
+    border: 1px solid var(--text-color);
 }
 .legend-shape.rect {
     background-color: #EFEFEF;
@@ -1043,7 +999,6 @@ button.button-secondary:hover {
 
 #create-department-form, #create-chat-form {
     display: flex;
-    gap: 1rem; /* -> space-md */
     gap: var(--space-md);
     align-items: center;
 }
@@ -1051,7 +1006,6 @@ button.button-secondary:hover {
 #create-department-form {
     display: grid;
     grid-template-columns: 1fr 1fr auto;
-    gap: 1rem; /* -> space-md */
     gap: var(--space-md);
     align-items: center;
 }
@@ -1069,19 +1023,16 @@ button.button-secondary:hover {
 .admin-main-view {
     display: grid;
     grid-template-columns: 1fr 2fr;
-    gap: 2rem; /* -> space-xl */
     gap: var(--space-xl);
 }
 
 #department-list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem; /* -> space-sm */
     gap: var(--space-sm);
 }
 
 .department-card {
-    padding: 1rem; /* -> space-md */
     padding: var(--space-md);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -1093,7 +1044,7 @@ button.button-secondary:hover {
 }
 
 .department-card:hover {
-    background-color: #f8f9fa;
+    background-color: var(--light-bg-color);
     border-left: 3px solid var(--primary-color);
 }
 
@@ -1105,9 +1056,8 @@ button.button-secondary:hover {
 }
 
 .department-card .edit-dept-btn {
-    padding: 5px 10px; /* -> 4px 8px = xs sm */
     padding: var(--space-xs) var(--space-sm);
-    font-size: 0.8rem;
+    font-size: var(--font-xs);
     background-color: var(--secondary-color);
     color: var(--white-color);
     border: 1px solid var(--border-color);
@@ -1122,15 +1072,12 @@ button.button-secondary:hover {
 #chat-list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem; /* -> space-sm */
     gap: var(--space-sm);
-    margin-bottom: 1.5rem; /* -> space-lg */
     margin-bottom: var(--space-lg);
 }
 
 .chat-item {
-    padding: 0.75rem 1rem; /* -> 0.75 space-md */
-    padding: 0.75rem var(--space-md);
-    background-color: #f8f9fa;
+    padding: var(--space-smd) var(--space-md);
+    background-color: var(--light-bg-color);
     border-radius: var(--radius-md);
 }
