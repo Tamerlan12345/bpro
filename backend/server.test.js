@@ -188,6 +188,8 @@ describe('PUT /api/chats/:id/status', () => {
         const newStatus = 'completed';
         const mockUpdatedStatus = { chat_id: CHAT_ID_1, status: newStatus };
 
+        // Mock ownership check
+        mockQuery.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
         mockQuery.mockResolvedValueOnce({ rows: [mockUpdatedStatus] });
 
         const response = await agent
@@ -216,6 +218,8 @@ describe('PUT /api/chats/:id/status', () => {
     });
 
     it('should return 500 if database error occurs', async () => {
+        // Mock ownership check to succeed
+        mockQuery.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
         mockQuery.mockRejectedValueOnce(new Error('Database error'));
 
         const response = await agent
