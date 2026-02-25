@@ -9,3 +9,13 @@
 **Reference:**
 - Test: `backend/tests/transcription_data_save.test.js`
 - Fix: `backend/server.js`
+
+## 2026-02-25 — [API Crash/Robustness]
+
+**Problem:** The `POST /api/auth/login` endpoint crashed with a 500 Internal Server Error when request body fields `name` or `password` were missing. The `pg` library threw a "Bind parameters must not contain undefined" error, and `bcryptjs` threw "data and hash arguments required". This exposed internal errors and created noise in logs.
+
+**Solution:** Implemented a Zod schema `loginSchema` to validate that `name` and `password` are present and non-empty strings. Applied `validateBody(loginSchema)` middleware to the route, ensuring it returns a 400 Bad Request with clear validation errors instead of crashing.
+
+**Reference:**
+- Test: `backend/tests/login_robustness.test.js`
+- Fix: `backend/server.js`

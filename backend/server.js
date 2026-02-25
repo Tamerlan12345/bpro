@@ -209,6 +209,11 @@ const chatSchema = z.object({
     password: z.string().min(1),
 });
 
+const loginSchema = z.object({
+    name: z.string().min(1),
+    password: z.string().min(1)
+});
+
 const validateBody = (schema) => (req, res, next) => {
     try {
         req.body = schema.parse(req.body);
@@ -281,7 +286,7 @@ app.post('/api/transcribe', isAuthenticated, uploadAudio, async (req, res) => {
     }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', validateBody(loginSchema), async (req, res) => {
     const { name, password } = req.body;
     logger.info('Login attempt initiated');
     try {
@@ -766,4 +771,4 @@ const startServer = async () => {
     }
 };
 
-module.exports = { app, startServer, departmentSchema, chatSchema, ensureUsersExist };
+module.exports = { app, startServer, departmentSchema, chatSchema, loginSchema, ensureUsersExist };
