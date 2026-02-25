@@ -637,7 +637,7 @@ app.post('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
                 updated_at = NOW()
             RETURNING *;
         `;
-        const { rows } = await pool.query(query, [id, transcribed_text, final_text, status]);
+        const { rows } = await pool.query(query, [id, transcribed_text ?? null, final_text ?? null, status ?? null]);
         res.status(201).json(rows[0]);
     } catch (error) {
         logger.error(error, `Error creating/updating transcription data for chat ${id}`);
