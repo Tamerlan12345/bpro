@@ -414,6 +414,9 @@ app.post('/api/departments', isAuthenticated, isAdmin, validateBody(departmentSc
     } catch (error) {
         if (error.code === '23505') {
             return res.status(409).json({ error: 'This department name already exists for the selected user.' });
+        } else if (error.code === '23503') {
+            logger.warn(`Failed to create department: Invalid user_id ${user_id}`);
+            return res.status(400).json({ error: 'User not found' });
         }
         logger.error(error, 'Error creating department');
         res.status(500).json({ error: error.message });
@@ -547,6 +550,10 @@ app.post('/api/chats', isAuthenticated, isAdmin, validateBody(chatSchema), async
         const { rows } = await pool.query("SELECT * FROM create_chat_with_status($1, $2, $3)", [department_id, name, hashedPassword]);
         res.status(201).json(rows[0]);
     } catch (error) {
+        if (error.code === '23503') {
+            logger.warn(`Failed to create chat: Invalid department_id ${department_id}`);
+            return res.status(400).json({ error: 'Department not found' });
+        }
         logger.error(error, 'Error creating chat with RPC');
         return res.status(500).json({ error: error.message });
     }
