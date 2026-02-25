@@ -498,6 +498,14 @@ app.get('/api/admin/chats/completed', isAuthenticated, isAdmin, async (req, res)
 app.post('/api/auth/chat', isAuthenticated, async (req, res) => {
     const { department_id, name, password } = req.body;
     try {
+        if (req.session.user.role !== 'admin') {
+            const { rows: deptRows } = await pool.query('SELECT 1 FROM departments WHERE id = $1 AND user_id = $2', [department_id, req.session.user.id]);
+            if (deptRows.length === 0) {
+                logger.warn(`User ${req.session.user.id} attempted to access chat in unauthorized department ${department_id}`);
+                return res.status(403).json({ error: 'Forbidden: You do not have access to this department.' });
+            }
+        }
+
         const { rows } = await pool.query(
             'SELECT id, name, hashed_password FROM chats WHERE department_id = $1 AND name = $2',
             [department_id, name]
