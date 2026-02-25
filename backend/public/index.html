@@ -173,12 +173,12 @@
                         <div id="diagram-container" class="diagram-container" style="display: none;"></div>
                     </div>
                     <div id="diagram-toolbar" class="diagram-toolbar" style="display: none;">
-                        <button id="regenerate-diagram-btn" title="Перегенерировать схему">Перегенерировать</button>
-                        <button id="edit-diagram-btn" title="Редактировать схему" style="display: none;">✏️ Редактировать</button>
-                        <button id="zoom-in-btn" title="Приблизить">+</button>
-                        <button id="zoom-out-btn" title="Отдалить">-</button>
-                        <button id="download-png-btn" title="Скачать PNG">PNG</button>
-                        <button id="download-svg-btn" title="Скачать SVG">SVG</button>
+                        <button id="regenerate-diagram-btn" title="Перегенерировать схему" aria-label="Перегенерировать схему">Перегенерировать</button>
+                        <button id="edit-diagram-btn" title="Редактировать схему" aria-label="Редактировать схему" style="display: none;">✏️ Редактировать</button>
+                        <button id="zoom-in-btn" title="Приблизить" aria-label="Приблизить">+</button>
+                        <button id="zoom-out-btn" title="Отдалить" aria-label="Отдалить">-</button>
+                        <button id="download-png-btn" title="Скачать PNG" aria-label="Скачать PNG">PNG</button>
+                        <button id="download-svg-btn" title="Скачать SVG" aria-label="Скачать SVG">SVG</button>
                     </div>
                 </div>
 
@@ -232,7 +232,7 @@
 
     <div id="transcription-review-modal" class="modal" style="display: none;">
         <div class="modal-content">
-            <span class="close-btn">&times;</span>
+            <button class="close-btn" aria-label="Закрыть">&times;</button>
             <h2>Проверка и обработка транскрибации</h2>
             <p>Здесь вы можете отредактировать текст, полученный после распознавания речи. После финализации этот текст будет использоваться как основа для дальнейшей работы.</p>
             <div class="form-group">
@@ -252,7 +252,7 @@
 
     <div id="mermaid-editor-modal" class="modal" style="display: none;">
         <div class="modal-content large">
-            <span class="close-btn">&times;</span>
+            <button class="close-btn" aria-label="Закрыть">&times;</button>
             <h2>Редактор схемы Mermaid</h2>
             <p>Вносите изменения в код схемы. Диаграмма будет обновляться в реальном времени.</p>
             <div class="mermaid-editor-content">
