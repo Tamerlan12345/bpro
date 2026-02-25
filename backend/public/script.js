@@ -1484,6 +1484,14 @@ ${brokenCode}
     saveTranscriptionProgressBtn.addEventListener('click', () => handleSaveTranscription(false));
     finalizeTranscriptionBtn.addEventListener('click', () => handleSaveTranscription(true));
     processDescriptionInput.addEventListener('input', updateStepCounter);
+    processDescriptionInput.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            if (!saveVersionBtn.disabled) {
+                handleSaveVersion();
+            }
+        }
+    });
     startRecordBtn.addEventListener('click', handleStartRecording);
     stopRecordBtn.addEventListener('click', handleStopRecording);
     listenBtn.addEventListener('click', () => audioPlayback.play());

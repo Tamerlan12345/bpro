@@ -1081,3 +1081,23 @@ p.error-message {
     background-color: var(--light-bg-color);
     border-radius: var(--radius-md);
 }
+
+/* --- Shortcuts --- */
+.shortcut-hint {
+    position: absolute;
+    bottom: 0.75rem;
+    left: var(--space-md);
+    font-size: 0.9em;
+    color: var(--text-muted-color);
+    background-color: var(--white-color);
+    padding: 3px var(--space-sm);
+    border-radius: 5px;
+    pointer-events: none;
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .shortcut-hint {
+        display: block;
+    }
+}
