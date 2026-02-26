@@ -19,6 +19,7 @@
     /* Semantic Colors */
     --color-success: #28a745;
     --color-danger: #dc3545;
+    --danger-hover-color: #bb2d3b;
     --color-warning: #fd7e14;
     --focus-ring-color: rgba(59, 113, 246, 0.2);
     --bg-primary-light: #E9EFFF;
@@ -240,6 +241,17 @@ button.button-primary {
 
 button.button-primary:hover {
     background-color: var(--primary-hover-color);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+}
+
+button.button-danger {
+    background-color: var(--color-danger);
+    color: var(--white-color);
+}
+
+button.button-danger:hover {
+    background-color: var(--danger-hover-color);
     transform: translateY(-3px);
     box-shadow: var(--shadow-hover);
 }
@@ -1090,4 +1102,24 @@ p.error-message {
     padding: var(--space-smd) var(--space-md);
     background-color: var(--light-bg-color);
     border-radius: var(--radius-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+@media (max-width: 768px) {
+    .admin-main-view {
+        grid-template-columns: 1fr;
+    }
+    #create-department-form {
+        grid-template-columns: 1fr;
+    }
+    #create-chat-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    #create-department-form button,
+    #create-chat-form button {
+        width: 100%;
+    }
 }
