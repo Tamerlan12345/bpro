@@ -19,3 +19,13 @@
 **Reference:**
 - Test: `backend/tests/login_robustness.test.js`
 - Fix: `backend/server.js`
+
+## 2026-02-26 — [Security/XSS]
+
+**Problem:** The `POST /api/chats/:id/comments` endpoint allowed storing raw HTML/Script content in the database. The frontend (`backend/public/script.js`) rendered this content using `innerHTML`, leading to a Stored Cross-Site Scripting (XSS) vulnerability. An attacker could inject malicious scripts to execute in other users' browsers.
+
+**Solution:** Implemented an `escapeHtml` function in the backend to sanitize the `text` field before database insertion. This converts special characters (like `<script>`) into HTML entities (like `&lt;script&gt;`), preventing execution while preserving the original content for safe display.
+
+**Reference:**
+- Test: `backend/tests/xss_comments.test.js`
+- Fix: `backend/server.js`

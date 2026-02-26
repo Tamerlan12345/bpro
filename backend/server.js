@@ -59,6 +59,16 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+function escapeHtml(text) {
+  if (!text) return text;
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir);
@@ -614,7 +624,8 @@ app.post('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     const { text } = req.body;
     const author_role = req.session.user.role;
     try {
-        const { rows } = await pool.query('INSERT INTO comments (chat_id, author_role, text) VALUES ($1, $2, $3) RETURNING *', [id, author_role, text]);
+        const sanitizedText = escapeHtml(text);
+        const { rows } = await pool.query('INSERT INTO comments (chat_id, author_role, text) VALUES ($1, $2, $3) RETURNING *', [id, author_role, sanitizedText]);
         res.status(201).json(rows[0]);
     } catch (error) {
         res.status(500).json({ error: error.message });
