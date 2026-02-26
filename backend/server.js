@@ -59,6 +59,12 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // Limit each IP to 10 requests per windowMs
+    message: { error: "Too many login attempts, please try again later." }
+});
+
 function escapeHtml(text) {
   if (!text) return text;
   return text
@@ -224,6 +230,29 @@ const loginSchema = z.object({
     password: z.string().min(1)
 });
 
+const generateSchema = z.object({
+    prompt: z.string().min(1).max(10000)
+});
+
+const versionSchema = z.object({
+    process_text: z.string().optional(),
+    mermaid_code: z.string().optional()
+});
+
+const commentSchema = z.object({
+    text: z.string().min(1).max(5000)
+});
+
+const statusSchema = z.object({
+    status: z.enum(['draft', 'pending_review', 'needs_revision', 'completed', 'archived'])
+});
+
+const authChatSchema = z.object({
+    department_id: z.string().uuid().or(z.string()),
+    name: z.string().min(1),
+    password: z.string().min(1)
+});
+
 const validateBody = (schema) => (req, res, next) => {
     try {
         req.body = schema.parse(req.body);
@@ -296,7 +325,7 @@ app.post('/api/transcribe', isAuthenticated, uploadAudio, async (req, res) => {
     }
 });
 
-app.post('/api/auth/login', validateBody(loginSchema), async (req, res) => {
+app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, res) => {
     const { name, password } = req.body;
     logger.info('Login attempt initiated');
     try {
@@ -508,7 +537,7 @@ app.get('/api/admin/chats/completed', isAuthenticated, isAdmin, async (req, res)
     }
 });
 
-app.post('/api/auth/chat', isAuthenticated, async (req, res) => {
+app.post('/api/auth/chat', isAuthenticated, authLimiter, validateBody(authChatSchema), async (req, res) => {
     const { department_id, name, password } = req.body;
     try {
         if (req.session.user.role !== 'admin') {
@@ -594,7 +623,7 @@ app.get('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
     }
 });
 
-app.post('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
+app.post('/api/chats/:id/versions', isAuthenticated, validateBody(versionSchema), async (req, res) => {
     const { id } = req.params;
     if (!(await checkChatAccess(id, req.session.user, res))) return;
     const { process_text, mermaid_code } = req.body;
@@ -618,7 +647,7 @@ app.get('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
     }
 });
 
-app.post('/api/chats/:id/comments', isAuthenticated, async (req, res) => {
+app.post('/api/chats/:id/comments', isAuthenticated, validateBody(commentSchema), async (req, res) => {
     const { id } = req.params;
     if (!(await checkChatAccess(id, req.session.user, res))) return;
     const { text } = req.body;
@@ -676,7 +705,7 @@ app.post('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
     }
 });
 
-app.put('/api/chats/:id/status', isAuthenticated, async (req, res) => {
+app.put('/api/chats/:id/status', isAuthenticated, validateBody(statusSchema), async (req, res) => {
     const { id } = req.params;
     if (!(await checkChatAccess(id, req.session.user, res))) return;
     const { status } = req.body;
@@ -688,7 +717,7 @@ app.put('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     }
 });
 
-app.post('/api/generate', isAuthenticated, async (req, res) => {
+app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (req, res) => {
   const { prompt } = req.body;
   const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
