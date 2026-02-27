@@ -1048,7 +1048,7 @@ p.error-message {
     gap: var(--space-xl);
 }
 
-#department-list {
+#department-list, #department-selection-container {
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
@@ -1061,8 +1061,20 @@ p.error-message {
     cursor: pointer;
     transition: all 0.2s ease-in-out;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
+    gap: var(--space-md);
+}
+
+.department-card button {
+    margin-left: auto;
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-sm);
+}
+
+.chat-item button {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-sm);
 }
 
 .department-card:hover {
