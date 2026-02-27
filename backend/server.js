@@ -329,7 +329,7 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
     const { name, password } = req.body;
     logger.info('Login attempt initiated');
     try {
-        const result = await pool.query('SELECT id, name, hashed_password FROM users WHERE name = $1', [name]);
+        const result = await pool.query('SELECT id, name, hashed_password, role FROM users WHERE name = $1', [name]);
         const user = result.rows[0];
         if (!user) {
             logger.info('Login failed: User not found.');
@@ -340,7 +340,7 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
             logger.info(`Login failed for user: ${user.name}. Invalid password.`);
             return res.status(401).json({ error: 'Invalid username or password' });
         }
-        const role = user.name === 'admin' ? 'admin' : 'user';
+        const role = user.role;
         logger.info(`Login successful for user: ${user.name}, role: ${role}`);
         req.session.user = { id: user.id, name: user.name, role: role };
         res.json({ id: user.id, name: user.name, role: role });
@@ -744,16 +744,23 @@ app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (
 const BCRYPT_SALT_ROUNDS = 10;
 async function ensureUsersExist(pool) {
     try {
-        let { rows: adminRows } = await pool.query("SELECT id FROM users WHERE name = 'admin'");
+        let { rows: adminRows } = await pool.query("SELECT id, role FROM users WHERE name = 'admin'");
         if (adminRows.length === 0) {
             if (process.env.ADMIN_INITIAL_PASSWORD) {
                 logger.info('Admin user not found, creating it...');
                 const hashedPassword = await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD, BCRYPT_SALT_ROUNDS);
-                await pool.query("INSERT INTO users (name, hashed_password) VALUES ('admin', $1)", [hashedPassword]);
+                await pool.query("INSERT INTO users (name, hashed_password, role) VALUES ('admin', $1, 'admin')", [hashedPassword]);
                 logger.info('Admin user created.');
             } else {
                 logger.warn('ADMIN_INITIAL_PASSWORD not set. Skipping admin user creation.');
             }
+        } else {
+             // Self-healing: Ensure admin user has admin role
+             if (adminRows[0].role !== 'admin') {
+                 logger.warn('Admin user found with incorrect role. Fixing...');
+                 await pool.query("UPDATE users SET role = 'admin' WHERE id = $1", [adminRows[0].id]);
+                 logger.info('Admin role corrected.');
+             }
         }
         let { rows: userRows } = await pool.query("SELECT id FROM users WHERE name = 'user'");
         if (userRows.length === 0) {
