@@ -1026,10 +1026,32 @@ p.error-message {
 }
 
 #create-department-form {
-    display: grid;
-    grid-template-columns: 1fr 1fr auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
     gap: var(--space-md);
-    align-items: center;
+}
+
+#create-department-form .form-group {
+    flex-grow: 1;
+    min-width: 200px;
+    margin-bottom: 0;
+}
+
+#create-department-form select {
+    width: 100%;
+    padding: var(--space-smd) var(--space-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: var(--font-base);
+    background-color: var(--bg-surface-secondary);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#create-department-form select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--focus-ring-color);
 }
 
 
