@@ -22,6 +22,7 @@
     "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.5",
     "csurf": "^1.11.0",
+    "diff": "^8.0.3",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
@@ -36,6 +37,7 @@
     "pino-http": "^11.0.0",
     "playwright": "^1.58.2",
     "ws": "^8.18.3",
+    "xmlbuilder2": "^4.0.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatError = document.getElementById('chat-error');
     const logoutBtn = document.getElementById('logout-btn');
 
-    const mainContainer = document.querySelector('.container');
+    const mainAppContainer = document.querySelector('.main-app-container');
     const chatNameHeader = document.getElementById('chat-name-header');
     const processDescriptionInput = document.getElementById('process-description');
     const improveBtn = document.getElementById('improve-btn');
@@ -48,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const recordingIndicator = document.getElementById('recording-indicator');
     const recordingTimer = document.getElementById('recording-timer');
     const transcriptionDisplay = document.getElementById('transcription-display');
-    const transcriptionTimer = document.getElementById('transcription-timer');
     const partialTranscriptDisplay = document.getElementById('partial-transcript-display');
     const versionHistoryContainer = document.getElementById('version-history-container');
     const commentsContainer = document.getElementById('comments-container');
@@ -62,7 +61,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectionCounter = document.getElementById('selection-counter');
     const applyImprovementsBtn = document.getElementById('apply-improvements-btn');
     const diagramPlaceholder = document.getElementById('diagram-placeholder');
-    const placeholderContent = document.querySelector('.placeholder-content');
     const renderDiagramBtn = document.getElementById('render-diagram-btn');
     const regenerateDiagramBtn = document.getElementById('regenerate-diagram-btn');
     const diagramContainer = document.getElementById('diagram-container');
@@ -71,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomOutBtn = document.getElementById('zoom-out-btn');
     const downloadPngBtn = document.getElementById('download-png-btn');
     const downloadSvgBtn = document.getElementById('download-svg-btn');
-    const resultsBlock = document.querySelector('.results-block');
+    const downloadBpmnBtn = document.getElementById('download-bpmn-btn');
     const actionButtons = document.getElementById('action-buttons');
     const saveVersionBtn = document.getElementById('save-version-btn');
     const saveRawVersionBtn = document.getElementById('save-raw-version-btn');
@@ -103,30 +101,74 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const transcriptionReviewModal = document.getElementById('transcription-review-modal');
     const transcriptionTextArea = document.getElementById('transcription-text-area');
-    const saveTranscriptionProgressBtn = document.getElementById('save-transcription-progress-btn');
     const finalizeTranscriptionBtn = document.getElementById('finalize-transcription-btn');
-    const transcriptionModalButtons = document.getElementById('transcription-modal-buttons');
-    const transcriptionFinalizedView = document.getElementById('transcription-finalized-view');
-    const finalizedTextDisplay = transcriptionReviewModal.querySelector('.finalized-text-display');
     const closeTranscriptionModalBtn = transcriptionReviewModal.querySelector('.close-btn');
 
-    const mermaidEditorModal = document.getElementById('mermaid-editor-modal');
-    const editDiagramBtn = document.getElementById('edit-diagram-btn');
-    const mermaidEditorTextarea = document.getElementById('mermaid-editor-textarea');
-    const mermaidEditorPreview = document.getElementById('mermaid-editor-preview');
-    const saveMermaidChangesBtn = document.getElementById('save-mermaid-changes-btn');
-    const cancelMermaidEditBtn = document.getElementById('cancel-mermaid-edit-btn');
-    const closeMermaidEditorBtn = mermaidEditorModal.querySelector('.close-btn');
+    const visualEditorModal = document.getElementById('visual-editor-modal');
+    const drawioIframe = document.getElementById('drawio-iframe');
+    const closeVisualEditorBtn = visualEditorModal.querySelector('.close-btn');
 
     const notificationContainer = document.getElementById('notification-container');
 
+    // Wizard Tabs
+    const tabCollectionBtn = document.getElementById('tab-collection-btn');
+    const tabAnalysisBtn = document.getElementById('tab-analysis-btn');
+    const tabDiagramBtn = document.getElementById('tab-diagram-btn');
+    const tabHistoryBtn = document.getElementById('tab-history-btn');
+    const tabCollectionPane = document.getElementById('tab-collection');
+    const tabAnalysisPane = document.getElementById('tab-analysis');
+    const tabDiagramPane = document.getElementById('tab-diagram');
+    const tabHistoryPane = document.getElementById('tab-history');
+
+    const nextToAnalysisBtn = document.getElementById('next-to-analysis-btn');
+    const backToCollectionBtn = document.getElementById('back-to-collection-btn');
+    const nextToDiagramBtn = document.getElementById('next-to-diagram-btn');
+
+    function switchWizardTab(tabId) {
+        // Hide all panes
+        [tabCollectionPane, tabAnalysisPane, tabDiagramPane, tabHistoryPane].forEach(pane => {
+            if (pane) pane.style.display = 'none';
+        });
+        // Deactivate all buttons
+        [tabCollectionBtn, tabAnalysisBtn, tabDiagramBtn, tabHistoryBtn].forEach(btn => {
+            if (btn) btn.classList.remove('active');
+        });
+
+        // Show active
+        if (tabId === 'collection') {
+            tabCollectionPane.style.display = 'block';
+            tabCollectionBtn.classList.add('active');
+        } else if (tabId === 'analysis') {
+            tabAnalysisPane.style.display = 'block';
+            tabAnalysisBtn.classList.add('active');
+        } else if (tabId === 'diagram') {
+            tabDiagramPane.style.display = 'block';
+            tabDiagramBtn.classList.add('active');
+        } else if (tabId === 'history') {
+            tabHistoryPane.style.display = 'block';
+            tabHistoryBtn.classList.add('active');
+        }
+    }
+
+    if (tabCollectionBtn) tabCollectionBtn.addEventListener('click', () => switchWizardTab('collection'));
+    if (tabAnalysisBtn) tabAnalysisBtn.addEventListener('click', () => switchWizardTab('analysis'));
+    if (tabDiagramBtn) tabDiagramBtn.addEventListener('click', () => switchWizardTab('diagram'));
+    if (tabHistoryBtn) tabHistoryBtn.addEventListener('click', () => switchWizardTab('history'));
+
+    if (nextToAnalysisBtn) nextToAnalysisBtn.addEventListener('click', () => switchWizardTab('analysis'));
+    if (backToCollectionBtn) backToCollectionBtn.addEventListener('click', () => switchWizardTab('collection'));
+    if (nextToDiagramBtn) nextToDiagramBtn.addEventListener('click', () => switchWizardTab('diagram'));
 
     function showNotification(message, type = 'success') {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.textContent = message;
         notificationContainer.appendChild(notification);
-        setTimeout(() => notification.remove(), 5000);
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(20px)';
+            setTimeout(() => notification.remove(), 300);
+        }, 5000);
     }
 
     async function fetchCsrfToken() {
@@ -165,11 +207,29 @@ document.addEventListener('DOMContentLoaded', () => {
             button.dataset.originalText = button.innerHTML;
         }
         button.disabled = isLoading;
-        button.innerHTML = isLoading ? `<span class="spinner"></span> ${loadingText}` : button.dataset.originalText;
+        if (isLoading) {
+            button.innerHTML = `<span class="spinner"></span> ${loadingText}`;
+            button.classList.add('loading');
+        } else {
+            button.innerHTML = button.dataset.originalText;
+            button.classList.remove('loading');
+        }
     }
 
 
-    mermaid.initialize({ startOnLoad: false, theme: 'base', fontFamily: 'inherit', flowchart: { nodeSpacing: 50, rankSpacing: 60, curve: 'stepBefore' }, themeVariables: { primaryColor: '#FFFFFF', primaryTextColor: '#212529', primaryBorderColor: '#333333', lineColor: '#333333' } });
+    mermaid.initialize({ 
+        startOnLoad: false, 
+        theme: 'dark', 
+        fontFamily: 'Outfit',
+        themeVariables: { 
+            primaryColor: '#6366f1', 
+            primaryTextColor: '#f8fafc', 
+            primaryBorderColor: '#8b5cf6', 
+            lineColor: '#94a3b8',
+            secondaryColor: '#0f172a',
+            tertiaryColor: '#1e293b'
+        } 
+    });
 
     async function renderDiagram(mermaidCode, container = diagramContainer, isRetry = false) {
         container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
@@ -212,49 +272,85 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    let mermaidRenderTimeout;
-    function handleMermaidEditorInput() {
-        clearTimeout(mermaidRenderTimeout);
-        mermaidRenderTimeout = setTimeout(() => {
-            const code = mermaidEditorTextarea.value;
-            renderDiagram(code, mermaidEditorPreview);
-        }, 300); // Debounce for 300ms
-    }
+    let drawioInitialized = false;
 
-    function openMermaidEditor() {
-        const latestVersion = chatVersions[0];
-        if (!latestVersion || !latestVersion.mermaid_code) {
-            showNotification("Нет схемы для редактирования.", "error");
-            return;
+    window.addEventListener('message', function(evt) {
+        if (evt.data.length > 0) {
+            try {
+                const msg = JSON.parse(evt.data);
+                if (msg.event === 'init') {
+                    drawioInitialized = true;
+                    // We load the XML when the modal is opened
+                } else if (msg.event === 'save') {
+                    handleSaveVisualChanges(msg.xml);
+                } else if (msg.event === 'exit') {
+                    closeVisualEditor();
+                }
+            } catch (e) {
+                console.error('Error parsing drawio message:', e);
+            }
         }
-        mermaidEditorTextarea.value = latestVersion.mermaid_code;
-        mermaidEditorModal.style.display = 'block';
-        renderDiagram(latestVersion.mermaid_code, mermaidEditorPreview);
+    });
+
+    function openVisualEditor() {
+        visualEditorModal.style.display = 'block';
+        const latestVersion = chatVersions[0];
+        // Note: For a robust implementation, we should store Draw.io XML in the DB.
+        // For now, if we don't have XML, we might start empty or try to convert Mermaid,
+        // but converting Mermaid to Draw.io graph model client-side is complex.
+        // As a baseline, we'll start with an empty diagram or a simple base element
+        // if mermaid_code exists but drawio_xml doesn't (assuming drawio_xml column is planned/present).
+        // Since we only have mermaid_code in this setup, let's load an empty graph.
+        
+        let xmlData = '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>';
+        if (latestVersion && latestVersion.mermaid_code && latestVersion.mermaid_code.includes('mxGraphModel')) {
+             xmlData = latestVersion.mermaid_code; // If we hijacked the mermaid_code column to store XML
+        }
+
+        if (drawioInitialized && drawioIframe.contentWindow) {
+            drawioIframe.contentWindow.postMessage(JSON.stringify({action: 'load', autosave: 1, xml: xmlData}), '*');
+        } else {
+            // Need to wait for init if first open
+            setTimeout(() => {
+                if (drawioInitialized && drawioIframe.contentWindow) {
+                    drawioIframe.contentWindow.postMessage(JSON.stringify({action: 'load', autosave: 1, xml: xmlData}), '*');
+                }
+            }, 1000); // 1s fallback
+        }
     }
 
-    function closeMermaidEditor() {
-        mermaidEditorModal.style.display = 'none';
+    function closeVisualEditor() {
+        visualEditorModal.style.display = 'none';
     }
 
-    async function handleSaveMermaidChanges() {
-        const mermaid_code = mermaidEditorTextarea.value;
-        const process_text = processDescriptionInput.value; // Keep the existing text description
-
-        setButtonLoading(saveMermaidChangesBtn, true, 'Сохранение...');
+    async function handleSaveVisualChanges(xmlData) {
+        const process_text = processDescriptionInput.value;
+        const parent_version_id = chatVersions.length > 0 ? chatVersions[0].id : null;
+        const change_log = 'Изменение визуальной схемы (Draw.io)';
+        setButtonLoading(editDiagramBtn, true, 'Сохранение...');
         try {
+            // We use mermaid_code column to store the XML temporarily until a schema migration adds a drawio_xml column,
+            // OR if the backend saves it as mermaid_code.
             await fetchWithAuth(`/api/chats/${chatId}/versions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ process_text, mermaid_code })
+                body: JSON.stringify({ process_text, mermaid_code: xmlData, parent_version_id, change_log })
             });
-            showNotification("Изменения в схеме успешно сохранены.", "success");
+            showNotification("Схема успешно сохранена.", "success");
             await loadChatData();
-            closeMermaidEditor();
+            closeVisualEditor();
         } catch (error) {
             showNotification(`Ошибка сохранения схемы: ${error.message}`, "error");
         } finally {
-            setButtonLoading(saveMermaidChangesBtn, false);
+            setButtonLoading(editDiagramBtn, false);
         }
+    }
+
+    if(editDiagramBtn) {
+        editDiagramBtn.addEventListener('click', openVisualEditor);
+    }
+    if(closeVisualEditorBtn) {
+        closeVisualEditorBtn.addEventListener('click', closeVisualEditor);
     }
 
     function zoomDiagram(factor) {
@@ -266,11 +362,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function downloadDiagram(format) {
-        const svgElement = diagramContainer.querySelector('svg');
-        if (!svgElement) {
-            alert("Сначала сгенерируйте схему.");
+        if (!chatVersions || chatVersions.length === 0) {
+            alert("Нет сохраненной версии схемы для экспорта.");
             return;
         }
+
+        if (format === 'bpmn') {
+            const versionId = chatVersions[0].id;
+            window.location.href = `/api/chats/${chatId}/versions/${versionId}/export/bpmn`;
+            return;
+        }
+
+        const svgElement = diagramContainer.querySelector('svg');
+        if (!svgElement && format !== 'bpmn') {
+            alert("Сначала сгенерируйте и отобразите схему.");
+            return;
+        }
+        
         if (format === 'svg') {
             const svgHeader = '<?xml version="1.0" standalone="no"?>\r\n';
             const svgData = svgHeader + new XMLSerializer().serializeToString(svgElement);
@@ -579,7 +687,7 @@ ${brokenCode}
 
     function showMainApp(chatName) {
         authWrapper.style.display = 'none';
-        mainContainer.style.display = 'block';
+        mainAppContainer.style.display = 'block';
         chatNameHeader.textContent = `Чат: ${chatName}`;
         updateStepCounter();
         loadChatData();
@@ -592,7 +700,7 @@ ${brokenCode}
             if (data.user) {
                 sessionUser = data.user;
                 logoutBtn.style.display = 'block';
-                authWrapper.style.display = 'flex'; // Keep the wrapper visible
+                authWrapper.style.display = 'flex';
                 if (sessionUser.role === 'admin') {
                     loginContainer.style.display = 'none';
                     adminPanel.style.display = 'block';
@@ -605,7 +713,7 @@ ${brokenCode}
                 }
             } else {
                 authWrapper.style.display = 'flex';
-                mainContainer.style.display = 'none';
+                mainAppContainer.style.display = 'none';
                 loginContainer.style.display = 'block';
                 userLogin.style.display = 'block';
                 departmentSelection.style.display = 'none';
@@ -614,7 +722,7 @@ ${brokenCode}
             }
         } catch (error) {
             authWrapper.style.display = 'flex';
-            mainContainer.style.display = 'none';
+            mainAppContainer.style.display = 'none';
             loginContainer.style.display = 'block';
             userLogin.style.display = 'block';
             departmentSelection.style.display = 'none';
@@ -630,7 +738,7 @@ ${brokenCode}
                 fetchWithAuth(`/api/chats/${chatId}/versions`),
                 fetchWithAuth(`/api/chats/${chatId}/comments`),
                 fetchWithAuth(`/api/chats/${chatId}/status`),
-                fetchWithAuth(`/api/chats/${chatId}/transcription`).catch(err => null) // Allow it to fail if no transcription exists
+                fetchWithAuth(`/api/chats/${chatId}/transcription`).catch(err => null)
             ]);
             chatVersions = await versionsResponse.json();
             const comments = await commentsResponse.json();
@@ -647,7 +755,6 @@ ${brokenCode}
             if (chatVersions.length > 0) {
                 await displayVersion(chatVersions[0]);
             } else if (transcriptionData && transcriptionData.status === 'finalized') {
-                // Otherwise, if no versions exist but a transcript does, use it as the initial value for Field 2
                 processDescriptionInput.value = transcriptionData.final_text;
                 updateStepCounter();
             } else {
@@ -656,24 +763,83 @@ ${brokenCode}
 
             updateInterfaceForStatus(status, sessionUser.role);
         } catch (error) {
-            showNotification(`Failed to load chat data: ${error.message}. Your session may have expired.`, 'error');
-            setTimeout(() => window.location.reload(), 5000);
+            showNotification(`Failed to load chat data: ${error.message}`, 'error');
         }
     }
 
     function renderVersions(versions) {
-        versionHistoryContainer.innerHTML = versions.map(v => `
-            <div class="version-item" data-version-id="${v.id}">
+        versionHistoryContainer.innerHTML = versions.map((v, index) => {
+            const nextVersion = versions[index + 1]; // Older version (versions is sorted newest first usually)
+            const hasPrev = !!nextVersion;
+            return `
+            <div class="version-item" data-version-id="${v.id}" data-prev-id="${hasPrev ? nextVersion.id : ''}">
                 <span>Версия от ${new Date(v.created_at).toLocaleString()}</span>
-                <button>Посмотреть</button>
-            </div>`).join('') || '<p>Нет сохраненных версий.</p>';
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end; width: 100%;">
+                    <button class="button-secondary view-btn">Посмотреть</button>
+                    ${hasPrev ? '<button class="button-secondary diff-btn">Сравнить</button>' : ''}
+                </div>
+            </div>`;
+        }).join('') || '<p class="empty-state">Нет сохраненных версий.</p>';
+        
+        versionHistoryContainer.querySelectorAll('.view-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const versionId = e.target.closest('.version-item').dataset.versionId;
+                const version = chatVersions.find(v => v.id == versionId);
+                displayVersion(version);
+            });
+        });
+
+        versionHistoryContainer.querySelectorAll('.diff-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const item = e.target.closest('.version-item');
+                const currId = item.dataset.versionId;
+                const prevId = item.dataset.prevId;
+                const currV = chatVersions.find(v => v.id == currId);
+                const prevV = chatVersions.find(v => v.id == prevId);
+                if(currV && prevV) {
+                    showDiff(prevV.process_text, currV.process_text);
+                }
+            });
+        });
+    }
+
+    function showDiff(oldText, newText) {
+        if (!window.Diff) {
+            showNotification("Библиотека Diff не загружена.", "error");
+            return;
+        }
+        const diff = Diff.diffWords(oldText, newText);
+        const diffContainer = document.getElementById('version-diff-container');
+        diffContainer.style.display = 'block';
+        
+        diffContainer.innerHTML = '<h4>Сравнение текста:</h4><div class="diff-content" style="white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5; color: #cbd5e1;"></div>';
+        const displayEl = diffContainer.querySelector('.diff-content');
+        
+        const fragment = document.createDocumentFragment();
+
+        diff.forEach((part) => {
+            const span = document.createElement('span');
+            span.appendChild(document.createTextNode(part.value));
+            if (part.added) {
+                span.style.backgroundColor = 'rgba(34, 197, 94, 0.2)'; // Green
+                span.style.color = '#4ade80';
+                span.style.textDecoration = 'none';
+            } else if (part.removed) {
+                span.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'; // Red
+                span.style.color = '#f87171';
+                span.style.textDecoration = 'line-through';
+            }
+            fragment.appendChild(span);
+        });
+
+        displayEl.appendChild(fragment);
     }
 
     async function displayVersion(version) {
         if (!version) {
             processDescriptionInput.value = '';
             updateStepCounter();
-            placeholderContent.style.display = 'flex';
+            diagramPlaceholder.style.display = 'flex';
             diagramContainer.innerHTML = '';
             diagramContainer.style.display = 'none';
             diagramToolbar.style.display = 'none';
@@ -683,12 +849,20 @@ ${brokenCode}
         processDescriptionInput.value = version.process_text;
         updateStepCounter();
         if (version.mermaid_code && version.mermaid_code.trim() !== '') {
-            placeholderContent.style.display = 'none';
+            diagramPlaceholder.style.display = 'none';
             diagramContainer.style.display = 'flex';
-            diagramContainer.innerHTML = '';
-            await renderDiagram(version.mermaid_code);
+            if (version.mermaid_code.includes('mxGraphModel')) {
+               diagramContainer.innerHTML = '<div class="info-text">Схема сохранена в формате Draw.io. Нажмите "Редактировать", чтобы просмотреть.</div>';
+               diagramToolbar.style.display = 'flex';
+               renderDiagramBtn.style.display = 'none';
+               if (sessionUser && sessionUser.role === 'admin') {
+                   editDiagramBtn.style.display = 'inline-block';
+               }
+            } else {
+               await renderDiagram(version.mermaid_code);
+            }
         } else {
-            placeholderContent.style.display = 'flex';
+            diagramPlaceholder.style.display = 'flex';
             diagramContainer.innerHTML = '';
             diagramContainer.style.display = 'none';
             diagramToolbar.style.display = 'none';
@@ -722,10 +896,13 @@ ${brokenCode}
 
             processDescriptionInput.value = standardDescription; // Update the text area
 
+            const parent_version_id = chatVersions.length > 0 ? chatVersions[0].id : null;
+            const change_log = 'Оптимизация ИИ';
+
             await fetchWithAuth(`/api/chats/${chatId}/versions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ process_text: standardDescription, mermaid_code: mermaidCode })
+                body: JSON.stringify({ process_text: standardDescription, mermaid_code: mermaidCode, parent_version_id, change_log })
             });
             showNotification("Версия успешно сохранена.", "success");
 
@@ -734,6 +911,33 @@ ${brokenCode}
             showNotification(`Ошибка сохранения: ${error.message}`, "error");
         } finally {
             setButtonLoading(button, false);
+        }
+    }
+
+    async function handleSaveRawVersion(button = saveRawVersionBtn) {
+        const process_text = processDescriptionInput.value;
+        if (!process_text.trim()) {
+            showNotification("Нельзя сохранить пустую версию.", "error");
+            return;
+        }
+
+        const mermaid_code = chatVersions.length > 0 ? chatVersions[0].mermaid_code : '';
+        const parent_version_id = chatVersions.length > 0 ? chatVersions[0].id : null;
+        const change_log = 'Ручное редактирование текста (черновик)';
+
+        if(button) setButtonLoading(button, true, 'Сохранение...');
+        try {
+            await fetchWithAuth(`/api/chats/${chatId}/versions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ process_text, mermaid_code, parent_version_id, change_log })
+            });
+            showNotification("Черновик успешно сохранен.", "success");
+            await loadChatData();
+        } catch (error) {
+            showNotification(`Ошибка сохранения: ${error.message}`, "error");
+        } finally {
+            if(button) setButtonLoading(button, false);
         }
     }
 
@@ -1431,7 +1635,7 @@ ${brokenCode}
         suggestionsContainer.innerHTML = '';
         suggestionsControls.style.display = 'none';
         selectAllCheckbox.checked = false;
-        showNotification("Улучшения добавлены в описание.", "success");
+        showNotification("Улучшения добавлены в описание. Не забудьте 'Сохранить (AI)' чтобы применить их в схему.", "success");
     }
 
     function openEditDepartmentModal(id, name) {
@@ -1512,6 +1716,7 @@ ${brokenCode}
     versionHistoryContainer.addEventListener('click', async (e) => { if (e.target.tagName === 'BUTTON') { const versionId = e.target.parentElement.dataset.versionId; const selectedVersion = chatVersions.find(v => v.id == versionId); if (selectedVersion) await displayVersion(selectedVersion); } });
     downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
     downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
+    if (downloadBpmnBtn) downloadBpmnBtn.addEventListener('click', () => downloadDiagram('bpmn'));
 
     renderDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
     regenerateDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));

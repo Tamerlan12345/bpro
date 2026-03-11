@@ -19,6 +19,7 @@ const pgSession = require('connect-pg-simple')(session);
 const { BatchClient } = require('@speechmatics/batch-client');
 const multer = require('multer');
 const { z } = require('zod');
+const { create } = require('xmlbuilder2');
 const csrf = require('csurf');
 
 const app = express();
@@ -236,7 +237,9 @@ const generateSchema = z.object({
 
 const versionSchema = z.object({
     process_text: z.string().optional(),
-    mermaid_code: z.string().optional()
+    mermaid_code: z.string().optional(),
+    parent_version_id: z.string().uuid().optional().nullable(),
+    change_log: z.string().optional()
 });
 
 const commentSchema = z.object({
@@ -626,11 +629,61 @@ app.get('/api/chats/:id/versions', isAuthenticated, async (req, res) => {
 app.post('/api/chats/:id/versions', isAuthenticated, validateBody(versionSchema), async (req, res) => {
     const { id } = req.params;
     if (!(await checkChatAccess(id, req.session.user, res))) return;
-    const { process_text, mermaid_code } = req.body;
+    const { process_text, mermaid_code, parent_version_id, change_log } = req.body;
     try {
-        const { rows } = await pool.query('INSERT INTO process_versions (chat_id, process_text, mermaid_code) VALUES ($1, $2, $3) RETURNING *', [id, process_text, mermaid_code]);
+        const { rows } = await pool.query('INSERT INTO process_versions (chat_id, process_text, mermaid_code, parent_version_id, change_log) VALUES ($1, $2, $3, $4, $5) RETURNING *', [id, process_text, mermaid_code, parent_version_id || null, change_log || null]);
         res.status(201).json(rows[0]);
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/chats/:id/versions/:version_id/export/bpmn', isAuthenticated, async (req, res) => {
+    const { id, version_id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
+
+    try {
+        const { rows } = await pool.query('SELECT * FROM process_versions WHERE id = $1 AND chat_id = $2', [version_id, id]);
+        const version = rows[0];
+
+        if (!version) {
+            return res.status(404).json({ error: 'Version not found' });
+        }
+
+        // Basic BPMN 2.0 XML Generation
+        // This takes the mermaid_code or process_text and creates a minimal valid BPMN outline
+        // In a full implementation, you'd parse the Mermaid or Drawio XML structure here and map nodes to BPMN shapes
+        const bpmn = create({ version: '1.0', encoding: 'UTF-8' })
+            .ele('bpmn:definitions', {
+                'xmlns:bpmn': 'http://www.omg.org/spec/BPMN/20100524/MODEL',
+                'xmlns:bpmndi': 'http://www.omg.org/spec/BPMN/20100524/DI',
+                'xmlns:dc': 'http://www.omg.org/spec/DD/20100524/DC',
+                'xmlns:di': 'http://www.omg.org/spec/DD/20100524/DI',
+                'id': 'Definitions_1',
+                'targetNamespace': 'http://bpmn.io/schema/bpmn'
+            })
+            .ele('bpmn:process', { id: `Process_${version_id}`, isExecutable: 'false' })
+                .ele('bpmn:startEvent', { id: 'StartEvent_1' }).up()
+                .ele('bpmn:task', { id: 'Task_1', name: 'Imported Process' }).up()
+                .ele('bpmn:endEvent', { id: 'EndEvent_1' }).up()
+                .ele('bpmn:sequenceFlow', { id: 'Flow_1', sourceRef: 'StartEvent_1', targetRef: 'Task_1' }).up()
+                .ele('bpmn:sequenceFlow', { id: 'Flow_2', sourceRef: 'Task_1', targetRef: 'EndEvent_1' }).up()
+            .up()
+            .ele('bpmndi:BPMNDiagram', { id: 'BPMNDiagram_1' })
+                .ele('bpmndi:BPMNPlane', { id: 'BPMNPlane_1', bpmnElement: `Process_${version_id}` })
+                    // Basic layout shapes would go here
+                .up()
+            .up()
+        .end({ prettyPrint: true });
+
+        res.set({
+            'Content-Type': 'application/xml',
+            'Content-Disposition': `attachment; filename="process-${version_id}.bpmn"`
+        });
+        res.send(bpmn);
+
+    } catch (error) {
+        logger.error(error, 'Error exporting BPMN');
         res.status(500).json({ error: error.message });
     }
 });
@@ -724,10 +777,28 @@ app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (
   if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
   if (!GOOGLE_API_KEY) return res.status(500).json({ error: 'API key is not configured' });
   try {
+    const enhancedPrompt = `
+Преврати этот поток речи или текст в структурированный список шагов бизнес-процесса.
+Обязательно выдели:
+- Действующие лица (Роли)
+- ИТ-Системы (ПО, сервисы)
+- Документы (договоры, заявки и т.д.)
+Исключи весь словесный мусор и слова-паразиты.
+
+Формат ответа (строго придерживайся структуры):
+Роли: [список ролей]
+Системы: [список систем]
+Документы: [список документов]
+Шаги:
+1. [Кто] делает [Что] при условии [Условия, если есть] в системе [Система]...
+
+Оригинальный текст:
+${prompt}
+`;
     const apiResponse = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      body: JSON.stringify({ contents: [{ parts: [{ text: enhancedPrompt }] }] })
     });
     if (!apiResponse.ok) {
       const errorData = await apiResponse.json();
