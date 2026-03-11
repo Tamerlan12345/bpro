@@ -139,7 +139,7 @@ header p {
 
 .main-content {
     display: grid;
-    grid-template-columns: 1fr 400px;
+    grid-template-columns: 1fr;
     gap: var(--space-2xl);
 }
 
@@ -390,6 +390,7 @@ button:disabled {
     margin-bottom: var(--space-lg);
     border-bottom: 1px solid var(--border-glass);
     padding-bottom: var(--space-sm);
+    flex-wrap: wrap;
 }
 
 .tab-link {
@@ -455,7 +456,20 @@ button:disabled {
 }
 
 .modal-content.large {
-    max-width: 1200px;
+    width: 95vw;
+    height: 95vh;
+    max-width: 1600px;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-md);
+    position: relative;
+}
+
+.modal-content.large .close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
 }
 
 .mermaid-editor-content {
@@ -504,6 +518,11 @@ button:disabled {
 }
 
 @media (max-width: 768px) {
+    :root {
+        --space-xl: 1rem;
+        --space-2xl: 1.5rem;
+    }
+
     header h1 {
         font-size: 2.5rem;
     }
@@ -514,4 +533,45 @@ button:disabled {
         grid-template-columns: 1fr;
         height: auto;
     }
+
+    #action-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    #action-buttons button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    input, textarea {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .audio-recorder-block {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+}
+
+/* Desktop grid for Admin panel */
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-xl);
+}
+
+/* Wizard header alignment */
+.wizard-header {
+    display: flex;
+    gap: var(--space-md);
+    margin-bottom: var(--space-xl);
+    border-bottom: 1px solid var(--border-glass);
+    padding-bottom: var(--space-md);
+    flex-wrap: wrap;
+}
+
+.ml-auto {
+    margin-left: auto;
 }

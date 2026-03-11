@@ -54,7 +54,7 @@
                 </div>
             </div>
 
-            <        <div class="admin-grid">
+            <div class="admin-grid">
             <div class="admin-section">
                 <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg> Новый департамент</h3>
                 <div id="create-department-form" class="orbit-form">
@@ -112,7 +112,6 @@
                 <ul id="completed-list"></ul>
             </div>
         </div>
-    </div>
 </main>
 </div>
 
@@ -139,11 +138,11 @@
     </header>
 
     <main class="main-content">
-        <div class="wizard-header" style="display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 1rem;">
+        <div class="wizard-header">
             <button id="tab-collection-btn" class="tab-link active">1. Сбор информации</button>
             <button id="tab-analysis-btn" class="tab-link">2. AI-анализ</button>
             <button id="tab-diagram-btn" class="tab-link">3. Диаграмма процесса</button>
-            <button id="tab-history-btn" class="tab-link" style="margin-left: auto;">🕒 История изменений</button>
+            <button id="tab-history-btn" class="tab-link ml-auto">🕒 История изменений</button>
         </div>
 
         <div class="wizard-content">
@@ -167,6 +166,14 @@
                     <button id="next-to-analysis-btn" class="button-primary">Далее: Анализ &rarr;</button>
                 </div>
             </div>
+
+                        </div>
+            <div id="transcription-finalized-view" style="display: none;">
+                <h4>Текст финализирован</h4>
+                <div class="finalized-text-display"></div>
+            </div>
+        </div>
+    </div>
 
             <!-- TAB 2: AI Analysis -->
             <div id="tab-analysis" class="tab-pane" style="display: none;">
@@ -251,7 +258,7 @@
 </div>
 
     <div id="visual-editor-modal" class="modal" style="display: none;">
-        <div class="modal-content large" style="width: 95vw; height: 95vh; max-width: 1600px;">
+        <div class="modal-content large">
             <button class="close-btn" aria-label="Закрыть">&times;</button>
             <h2>Визуальный редактор схемы (Draw.io)</h2>
             <div class="visual-editor-content" style="width: 100%; height: calc(100% - 60px);">
@@ -259,12 +266,6 @@
             </div>
         </div>
     </div>
-            </div>
-            <div id="transcription-finalized-view" style="display: none;">
-                <h4>Текст финализирован</h4>
-                <div class="finalized-text-display"></div>
-            </div>
-        </div>
-    </div>
+
 </body>
 </html>
