@@ -10,14 +10,18 @@ const fs = require('fs');
       await page.goto('http://localhost:3000/');
       console.log('Page loaded successfully');
 
+      // Wait for app header
+      await page.waitForSelector('.app-header');
+      console.log('Header found');
+
       // Attempt login
       await page.fill('#user-name', 'user');
       await page.fill('#user-password', 'userpassword');
       await page.click('#user-login-btn');
       console.log('Login clicked');
 
-      // Wait for app header
-      await page.waitForTimeout(2000);
+      // Wait for something to appear after login (department selection or chat login)
+      await page.waitForTimeout(1000);
 
       // Take screenshots
       await page.setViewportSize({ width: 1920, height: 1080 });

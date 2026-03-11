@@ -97,7 +97,7 @@ describe('POST /api/chats/:id/versions', () => {
         expect(response.body).toEqual(mockVersion);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringMatching(/INSERT INTO process_versions/),
-            [CHAT_ID, payload.process_text, payload.mermaid_code]
+            [CHAT_ID, payload.process_text, payload.mermaid_code, null, null]
         );
     });
 

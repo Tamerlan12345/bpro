@@ -1,0 +1,352 @@
+<html>
+  <head>
+    <title>
+    </title>
+    <script>
+    </script>
+    <script>
+    </script>
+  </head>
+  <body>
+    <div class="auth-wrapper">
+      <header class="app-header">
+        <h1>
+          <a>
+          </a>
+        </h1>
+        <button id="logout-btn" class="button-secondary">
+          <svg>
+          </svg>
+        </button>
+      </header>
+      <main>
+        <div id="login-container" class="login-container">
+          <div id="user-login" class="login-form">
+            <h2>
+            </h2>
+            <p>
+            </p>
+            <div class="form-group">
+              <label>
+              </label>
+            </div>
+            <div class="form-group">
+              <label>
+              </label>
+            </div>
+            <button id="user-login-btn" class="button-primary">
+            </button>
+            <p id="user-error" class="error-message">
+            </p>
+          </div>
+          <div id="department-selection" class="login-form">
+            <h2>
+            </h2>
+            <p>
+            </p>
+            <div id="department-selection-container">
+            </div>
+            <p id="department-selection-error" class="error-message">
+            </p>
+          </div>
+          <div id="chat-login" class="login-form">
+            <h2>
+            </h2>
+            <p>
+            </p>
+            <div id="chat-selection-container" class="selection-grid">
+            </div>
+            <div class="form-group">
+              <label>
+              </label>
+            </div>
+            <button id="chat-login-btn" class="button-primary">
+            </button>
+            <p id="chat-error" class="error-message">
+            </p>
+          </div>
+        </div>
+        <div class="admin-grid">
+          <div class="admin-section">
+            <h3>
+              <svg>
+              </svg>
+            </h3>
+            <div id="create-department-form" class="orbit-form">
+              <div class="form-group">
+                <label>
+                </label>
+                <select id="user-for-new-department">
+                </select>
+              </div>
+              <div class="form-group">
+                <label>
+                </label>
+              </div>
+              <div class="form-group">
+                <label>
+                </label>
+              </div>
+              <button id="create-department-btn" class="button-primary">
+              </button>
+            </div>
+          </div>
+          <div class="admin-section">
+            <h3>
+              <svg>
+              </svg>
+            </h3>
+            <div class="admin-main-view">
+              <div id="department-list-container">
+                <h4>
+                </h4>
+                <div id="department-list" class="scroll-area">
+                </div>
+              </div>
+              <div id="chat-list-container">
+                <h4 id="chat-list-header">
+                </h4>
+                <div id="chat-list" class="scroll-area">
+                </div>
+                <div id="create-chat-form" class="orbit-form-compact">
+                  <h5>
+                    <span id="selected-department-name">
+                    </span>
+                  </h5>
+                  <button id="create-chat-btn" class="button-primary">
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="admin-section full-width">
+          <h3>
+            <svg>
+            </svg>
+          </h3>
+          <div class="admin-tabs">
+            <button id="in-review-tab" class="tab-link active">
+            </button>
+            <button id="pending-tab" class="tab-link">
+            </button>
+            <button id="completed-tab" class="tab-link">
+            </button>
+          </div>
+          <div id="in-review" class="tab-content orbit-list">
+            <ul id="in-review-list">
+            </ul>
+          </div>
+          <div id="pending" class="tab-content orbit-list">
+            <ul id="pending-list">
+            </ul>
+          </div>
+          <div id="completed" class="tab-content orbit-list">
+            <ul id="completed-list">
+            </ul>
+          </div>
+        </div>
+      </main>
+    </div>
+    <div class="container main-app-container">
+      <header class="app-main-header">
+        <button id="back-to-admin-btn" class="button-secondary btn-icon-only">
+          <svg>
+          </svg>
+        </button>
+        <div class="header-content">
+          <h1 id="chat-name-header">
+          </h1>
+          <p>
+          </p>
+        </div>
+        <div id="action-buttons" class="header-actions">
+          <button id="save-version-btn" class="button-primary">
+            <svg>
+            </svg>
+          </button>
+          <button id="save-raw-version-btn" class="button-secondary">
+          </button>
+          <button id="send-review-btn" class="button-primary glow">
+          </button>
+          <button id="send-revision-btn" class="button-secondary">
+          </button>
+          <button id="complete-btn" class="button-primary">
+          </button>
+          <button id="archive-btn" class="button-secondary">
+          </button>
+        </div>
+      </header>
+      <main class="main-content">
+        <div class="wizard-header">
+          <button id="tab-collection-btn" class="tab-link active">
+          </button>
+          <button id="tab-analysis-btn" class="tab-link">
+          </button>
+          <button id="tab-diagram-btn" class="tab-link">
+          </button>
+          <button id="tab-history-btn" class="tab-link">
+          </button>
+        </div>
+        <div class="wizard-content">
+          <div id="tab-collection" class="tab-pane active">
+            <div class="input-block glass-card full-width">
+              <div class="input-block glass-card">
+                <label>
+                  <svg>
+                  </svg>
+                </label>
+                <div class="audio-recorder-block">
+                  <button id="start-record-btn" class="button-secondary pulse-interaction">
+                  </button>
+                  <button id="stop-record-btn" class="button-danger">
+                  </button>
+                  <button id="listen-btn" class="button-secondary">
+                  </button>
+                  <button id="process-btn" class="button-primary">
+                  </button>
+                  <button id="rerecord-btn" class="button-secondary">
+                  </button>
+                  <span id="recording-indicator">
+                    <span id="recording-timer">
+                    </span>
+                  </span>
+                  <audio id="audio-playback" class="audio-playback">
+                  </audio>
+                </div>
+                <div id="transcription-display" class="transcription-area">
+                </div>
+                <div id="partial-transcript-display" class="partial-transcript">
+                </div>
+                <div>
+                  <button id="next-to-analysis-btn" class="button-primary">
+                  </button>
+                </div>
+              </div>
+              <div id="tab-analysis" class="tab-pane">
+                <div class="input-block glass-card full-width">
+                  <label>
+                    <svg>
+                    </svg>
+                  </label>
+                  <div class="textarea-wrapper">
+                    <textarea id="process-description">
+                    </textarea>
+                    <div id="step-counter" class="step-badge">
+                    </div>
+                  </div>
+                  <div class="prompt-block">
+                    <label>
+                    </label>
+                  </div>
+                  <button id="improve-btn" class="button-primary full-width">
+                  </button>
+                  <div>
+                    <button id="back-to-collection-btn" class="button-secondary">
+                    </button>
+                    <button id="next-to-diagram-btn" class="button-primary">
+                    </button>
+                  </div>
+                </div>
+                <div id="tab-diagram" class="tab-pane">
+                  <div class="diagram-block glass-card full-width">
+                    <h3>
+                      <svg>
+                      </svg>
+                    </h3>
+                    <div id="diagram-placeholder" class="diagram-placeholder">
+                      <div class="placeholder-content">
+                        <p>
+                        </p>
+                        <button id="render-diagram-btn" class="button-secondary">
+                        </button>
+                      </div>
+                      <div id="diagram-container">
+                      </div>
+                    </div>
+                    <div id="diagram-toolbar" class="diagram-toolbar">
+                      <button id="regenerate-diagram-btn" class="btn-tool">
+                      </button>
+                      <button id="edit-diagram-btn" class="btn-tool">
+                      </button>
+                      <button id="zoom-in-btn" class="btn-tool">
+                      </button>
+                      <button id="zoom-out-btn" class="btn-tool">
+                      </button>
+                      <button id="download-png-btn" class="btn-tool">
+                      </button>
+                      <button id="download-svg-btn" class="btn-tool">
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div id="tab-history" class="tab-pane">
+                  <div class="version-history-block glass-card full-width">
+                    <h3>
+                    </h3>
+                    <div id="version-diff-container" class="diff-container">
+                    </div>
+                    <div id="version-history-container" class="history-list">
+                    </div>
+                  </div>
+                  <div class="comments-block glass-card full-width">
+                    <h3>
+                    </h3>
+                    <div id="comments-container" class="comments-scroll">
+                    </div>
+                    <div class="comment-input-group">
+                      <textarea id="comment-input">
+                      </textarea>
+                      <button id="add-comment-btn" class="button-primary">
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <div id="notification-container" class="notification-container">
+    </div>
+    <script>
+    </script>
+    <script>
+    </script>
+    <div id="transcription-review-modal" class="modal">
+      <div class="modal-content">
+        <button class="close-btn">
+        </button>
+        <h2>
+        </h2>
+        <div class="form-group">
+          <textarea id="transcription-text-area">
+          </textarea>
+        </div>
+        <div class="modal-actions">
+          <button id="finalize-transcription-btn" class="button-primary">
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="visual-editor-modal" class="modal">
+      <div class="modal-content large">
+        <button class="close-btn">
+        </button>
+        <h2>
+        </h2>
+        <div class="visual-editor-content">
+          <iframe id="drawio-iframe">
+          </iframe>
+        </div>
+      </div>
+    </div>
+    <div id="transcription-finalized-view">
+      <h4>
+      </h4>
+      <div class="finalized-text-display">
+      </div>
+    </div>
+  </body>
+</html>
