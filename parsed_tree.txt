@@ -185,123 +185,127 @@
           </button>
           <button id="tab-diagram-btn" class="tab-link">
           </button>
-          <button id="tab-history-btn" class="tab-link">
+          <button id="tab-history-btn" class="tab-link ml-auto">
           </button>
         </div>
         <div class="wizard-content">
           <div id="tab-collection" class="tab-pane active">
             <div class="input-block glass-card full-width">
-              <div class="input-block glass-card">
-                <label>
-                  <svg>
-                  </svg>
-                </label>
-                <div class="audio-recorder-block">
-                  <button id="start-record-btn" class="button-secondary pulse-interaction">
-                  </button>
-                  <button id="stop-record-btn" class="button-danger">
-                  </button>
-                  <button id="listen-btn" class="button-secondary">
-                  </button>
-                  <button id="process-btn" class="button-primary">
-                  </button>
-                  <button id="rerecord-btn" class="button-secondary">
-                  </button>
-                  <span id="recording-indicator">
-                    <span id="recording-timer">
-                    </span>
+              <label>
+                <svg>
+                </svg>
+              </label>
+              <div class="audio-recorder-block">
+                <button id="start-record-btn" class="button-secondary pulse-interaction">
+                </button>
+                <button id="stop-record-btn" class="button-danger">
+                </button>
+                <button id="listen-btn" class="button-secondary">
+                </button>
+                <button id="process-btn" class="button-primary">
+                </button>
+                <button id="rerecord-btn" class="button-secondary">
+                </button>
+                <span id="recording-indicator">
+                  <span id="recording-timer">
                   </span>
-                  <audio id="audio-playback" class="audio-playback">
-                  </audio>
-                </div>
-                <div id="transcription-display" class="transcription-area">
-                </div>
-                <div id="partial-transcript-display" class="partial-transcript">
-                </div>
-                <div>
-                  <button id="next-to-analysis-btn" class="button-primary">
-                  </button>
+                </span>
+                <audio id="audio-playback" class="audio-playback">
+                </audio>
+              </div>
+              <div id="transcription-display" class="transcription-area">
+              </div>
+              <div id="partial-transcript-display" class="partial-transcript">
+              </div>
+              <div>
+                <button id="next-to-analysis-btn" class="button-primary">
+                </button>
+              </div>
+            </div>
+            <div id="transcription-finalized-view">
+              <h4>
+              </h4>
+              <div class="finalized-text-display">
+              </div>
+            </div>
+          </div>
+          <div id="tab-analysis" class="tab-pane">
+            <div class="input-block glass-card full-width">
+              <label>
+                <svg>
+                </svg>
+              </label>
+              <div class="textarea-wrapper">
+                <textarea id="process-description">
+                </textarea>
+                <div id="step-counter" class="step-badge">
                 </div>
               </div>
-              <div id="tab-analysis" class="tab-pane">
-                <div class="input-block glass-card full-width">
-                  <label>
-                    <svg>
-                    </svg>
-                  </label>
-                  <div class="textarea-wrapper">
-                    <textarea id="process-description">
-                    </textarea>
-                    <div id="step-counter" class="step-badge">
-                    </div>
-                  </div>
-                  <div class="prompt-block">
-                    <label>
-                    </label>
-                  </div>
-                  <button id="improve-btn" class="button-primary full-width">
+              <div class="prompt-block">
+                <label>
+                </label>
+              </div>
+              <button id="improve-btn" class="button-primary full-width">
+              </button>
+              <div>
+                <button id="back-to-collection-btn" class="button-secondary">
+                </button>
+                <button id="next-to-diagram-btn" class="button-primary">
+                </button>
+              </div>
+            </div>
+          </div>
+          <div id="tab-diagram" class="tab-pane">
+            <div class="diagram-block glass-card full-width">
+              <h3>
+                <svg>
+                </svg>
+              </h3>
+              <div id="diagram-placeholder" class="diagram-placeholder">
+                <div class="placeholder-content">
+                  <p>
+                  </p>
+                  <button id="render-diagram-btn" class="button-secondary">
                   </button>
-                  <div>
-                    <button id="back-to-collection-btn" class="button-secondary">
-                    </button>
-                    <button id="next-to-diagram-btn" class="button-primary">
-                    </button>
-                  </div>
                 </div>
-                <div id="tab-diagram" class="tab-pane">
-                  <div class="diagram-block glass-card full-width">
-                    <h3>
-                      <svg>
-                      </svg>
-                    </h3>
-                    <div id="diagram-placeholder" class="diagram-placeholder">
-                      <div class="placeholder-content">
-                        <p>
-                        </p>
-                        <button id="render-diagram-btn" class="button-secondary">
-                        </button>
-                      </div>
-                      <div id="diagram-container">
-                      </div>
-                    </div>
-                    <div id="diagram-toolbar" class="diagram-toolbar">
-                      <button id="regenerate-diagram-btn" class="btn-tool">
-                      </button>
-                      <button id="edit-diagram-btn" class="btn-tool">
-                      </button>
-                      <button id="zoom-in-btn" class="btn-tool">
-                      </button>
-                      <button id="zoom-out-btn" class="btn-tool">
-                      </button>
-                      <button id="download-png-btn" class="btn-tool">
-                      </button>
-                      <button id="download-svg-btn" class="btn-tool">
-                      </button>
-                    </div>
-                  </div>
+                <div id="diagram-container">
                 </div>
-                <div id="tab-history" class="tab-pane">
-                  <div class="version-history-block glass-card full-width">
-                    <h3>
-                    </h3>
-                    <div id="version-diff-container" class="diff-container">
-                    </div>
-                    <div id="version-history-container" class="history-list">
-                    </div>
-                  </div>
-                  <div class="comments-block glass-card full-width">
-                    <h3>
-                    </h3>
-                    <div id="comments-container" class="comments-scroll">
-                    </div>
-                    <div class="comment-input-group">
-                      <textarea id="comment-input">
-                      </textarea>
-                      <button id="add-comment-btn" class="button-primary">
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              </div>
+              <div id="diagram-toolbar" class="diagram-toolbar">
+                <button id="regenerate-diagram-btn" class="btn-tool">
+                </button>
+                <button id="edit-diagram-btn" class="btn-tool">
+                </button>
+                <button id="zoom-in-btn" class="btn-tool">
+                </button>
+                <button id="zoom-out-btn" class="btn-tool">
+                </button>
+                <button id="download-png-btn" class="btn-tool">
+                </button>
+                <button id="download-svg-btn" class="btn-tool">
+                </button>
+              </div>
+            </div>
+          </div>
+          <div id="tab-history" class="tab-pane">
+            <div class="version-history-block glass-card full-width">
+              <h3>
+              </h3>
+              <div id="version-diff-container" class="diff-container">
+              </div>
+              <div id="version-history-container" class="history-list">
+              </div>
+            </div>
+            <div class="comments-block glass-card full-width">
+              <h3>
+              </h3>
+              <div id="comments-container" class="comments-scroll">
+              </div>
+              <div class="comment-input-group">
+                <textarea id="comment-input">
+                </textarea>
+                <button id="add-comment-btn" class="button-primary">
+                </button>
               </div>
             </div>
           </div>
@@ -340,12 +344,6 @@
           <iframe id="drawio-iframe">
           </iframe>
         </div>
-      </div>
-    </div>
-    <div id="transcription-finalized-view">
-      <h4>
-      </h4>
-      <div class="finalized-text-display">
       </div>
     </div>
   </body>

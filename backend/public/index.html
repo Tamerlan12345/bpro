@@ -149,95 +149,92 @@
             <!-- TAB 1: Collection -->
             <div id="tab-collection" class="tab-pane active" style="display: block;">
                 <div class="input-block glass-card full-width">
-            <div class="input-block glass-card">
-                <label><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Голосовой ввод / Транскрибация</label>
-                <div class="audio-recorder-block">
-                    <button id="start-record-btn" class="button-secondary pulse-interaction">🎙️ Запись</button>
-                    <button id="stop-record-btn" class="button-danger" style="display: none;">⏹️ Стоп</button>
-                    <button id="listen-btn" class="button-secondary" style="display: none;">🎧 Слушать</button>
-                    <button id="process-btn" class="button-primary" style="display: none;">Обработать</button>
-                    <button id="rerecord-btn" class="button-secondary" style="display: none;">🔄 Заново</button>
-                    <span id="recording-indicator" style="display: none;">🔴 REC <span id="recording-timer">00:00</span></span>
-                    <audio id="audio-playback" controls class="audio-playback" style="display: none;"></audio>
+                    <label><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Голосовой ввод / Транскрибация</label>
+                    <div class="audio-recorder-block">
+                        <button id="start-record-btn" class="button-secondary pulse-interaction">🎙️ Запись</button>
+                        <button id="stop-record-btn" class="button-danger" style="display: none;">⏹️ Стоп</button>
+                        <button id="listen-btn" class="button-secondary" style="display: none;">🎧 Слушать</button>
+                        <button id="process-btn" class="button-primary" style="display: none;">Обработать</button>
+                        <button id="rerecord-btn" class="button-secondary" style="display: none;">🔄 Заново</button>
+                        <span id="recording-indicator" style="display: none;">🔴 REC <span id="recording-timer">00:00</span></span>
+                        <audio id="audio-playback" controls class="audio-playback" style="display: none;"></audio>
+                    </div>
+                    <div id="transcription-display" class="transcription-area"></div>
+                    <div id="partial-transcript-display" class="partial-transcript"></div>
+                    <div style="margin-top: 2rem; text-align: right;">
+                        <button id="next-to-analysis-btn" class="button-primary">Далее: Анализ &rarr;</button>
+                    </div>
                 </div>
-                <div id="transcription-display" class="transcription-area"></div>
-                <div id="partial-transcript-display" class="partial-transcript"></div>
-                <div style="margin-top: 2rem; text-align: right;">
-                    <button id="next-to-analysis-btn" class="button-primary">Далее: Анализ &rarr;</button>
+                <div id="transcription-finalized-view" style="display: none;">
+                    <h4>Текст финализирован</h4>
+                    <div class="finalized-text-display"></div>
                 </div>
             </div>
-
-                        </div>
-            <div id="transcription-finalized-view" style="display: none;">
-                <h4>Текст финализирован</h4>
-                <div class="finalized-text-display"></div>
-            </div>
-        </div>
-    </div>
 
             <!-- TAB 2: AI Analysis -->
             <div id="tab-analysis" class="tab-pane" style="display: none;">
                 <div class="input-block glass-card full-width">
-                <label><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Описание бизнес-процесса</label>
-                <div class="textarea-wrapper">
-                    <textarea id="process-description" rows="10" placeholder="Опишите шаги..."></textarea>
-                    <div id="step-counter" class="step-badge">0 шагов</div>
-                </div>
-                <div class="prompt-block">
-                    <label>Инструкции для Orbit AI</label>
-                    <input type="text" id="user-prompt" placeholder="Напр: акцент на безопасности...">
-                </div>
-                <button id="improve-btn" class="button-primary full-width">
-                    ✨ Оптимизировать процесс
-                </button>
-                <div style="margin-top: 2rem; text-align: right; display: flex; justify-content: space-between;">
-                    <button id="back-to-collection-btn" class="button-secondary">&larr; Назад</button>
-                    <button id="next-to-diagram-btn" class="button-primary">Далее: Архитектура &rarr;</button>
-                </div>
-            </div>
-
-                <!-- TAB 3: Diagram Editor -->
-                <div id="tab-diagram" class="tab-pane" style="display: none;">
-                    <div class="diagram-block glass-card full-width" style="height: 70vh;">
-                        <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path d="M12 9v6"/><path d="M9 12h6"/></svg> Визуализация Orbit</h3>
-                        <div id="diagram-placeholder" class="diagram-placeholder">
-                            <div class="placeholder-content">
-                                <p>Интерактивная схема будет построена здесь</p>
-                                <button id="render-diagram-btn" class="button-secondary">Создать схему</button>
-                            </div>
-                            <div id="diagram-container" style="display: none;"></div>
-                        </div>
-                        <div id="diagram-toolbar" class="diagram-toolbar" style="display: none;">
-                            <button id="regenerate-diagram-btn" class="btn-tool">🔄</button>
-                            <button id="edit-diagram-btn" class="btn-tool" style="display: none;">✏️</button>
-                            <button id="zoom-in-btn" class="btn-tool">+</button>
-                            <button id="zoom-out-btn" class="btn-tool">-</button>
-                            <button id="download-png-btn" class="btn-tool">PNG</button>
-                            <button id="download-svg-btn" class="btn-tool">SVG</button>
-                        </div>
+                    <label><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Описание бизнес-процесса</label>
+                    <div class="textarea-wrapper">
+                        <textarea id="process-description" rows="10" placeholder="Опишите шаги..."></textarea>
+                        <div id="step-counter" class="step-badge">0 шагов</div>
                     </div>
-                </div>
-
-                <!-- TAB 4: History & Diff -->
-                <div id="tab-history" class="tab-pane" style="display: none;">
-                    <div class="version-history-block glass-card full-width">
-                        <h3>🕒 История изменений</h3>
-                        <div id="version-diff-container" class="diff-container" style="display:none; background: #1e1e1e; padding: 1rem; margin-bottom: 1rem; border-radius: 8px;"></div>
-                        <div id="version-history-container" class="history-list"></div>
+                    <div class="prompt-block">
+                        <label>Инструкции для Orbit AI</label>
+                        <input type="text" id="user-prompt" placeholder="Напр: акцент на безопасности...">
                     </div>
-                    
-                    <div class="comments-block glass-card full-width" style="margin-top: 1rem;">
-                        <h3>💬 Коллаборация</h3>
-                        <div id="comments-container" class="comments-scroll"></div>
-                        <div class="comment-input-group">
-                            <textarea id="comment-input" placeholder="Важное замечание..."></textarea>
-                            <button id="add-comment-btn" class="button-primary">Отправить</button>
-                        </div>
+                    <button id="improve-btn" class="button-primary full-width">
+                        ✨ Оптимизировать процесс
+                    </button>
+                    <div style="margin-top: 2rem; text-align: right; display: flex; justify-content: space-between;">
+                        <button id="back-to-collection-btn" class="button-secondary">&larr; Назад</button>
+                        <button id="next-to-diagram-btn" class="button-primary">Далее: Архитектура &rarr;</button>
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
+
+            <!-- TAB 3: Diagram Editor -->
+            <div id="tab-diagram" class="tab-pane" style="display: none;">
+                <div class="diagram-block glass-card full-width" style="height: 70vh;">
+                    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path d="M12 9v6"/><path d="M9 12h6"/></svg> Визуализация Orbit</h3>
+                    <div id="diagram-placeholder" class="diagram-placeholder">
+                        <div class="placeholder-content">
+                            <p>Интерактивная схема будет построена здесь</p>
+                            <button id="render-diagram-btn" class="button-secondary">Создать схему</button>
+                        </div>
+                        <div id="diagram-container" style="display: none;"></div>
+                    </div>
+                    <div id="diagram-toolbar" class="diagram-toolbar" style="display: none;">
+                        <button id="regenerate-diagram-btn" class="btn-tool">🔄</button>
+                        <button id="edit-diagram-btn" class="btn-tool" style="display: none;">✏️</button>
+                        <button id="zoom-in-btn" class="btn-tool">+</button>
+                        <button id="zoom-out-btn" class="btn-tool">-</button>
+                        <button id="download-png-btn" class="btn-tool">PNG</button>
+                        <button id="download-svg-btn" class="btn-tool">SVG</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: History & Diff -->
+            <div id="tab-history" class="tab-pane" style="display: none;">
+                <div class="version-history-block glass-card full-width">
+                    <h3>🕒 История изменений</h3>
+                    <div id="version-diff-container" class="diff-container" style="display:none; background: #1e1e1e; padding: 1rem; margin-bottom: 1rem; border-radius: 8px;"></div>
+                    <div id="version-history-container" class="history-list"></div>
+                </div>
+
+                <div class="comments-block glass-card full-width" style="margin-top: 1rem;">
+                    <h3>💬 Коллаборация</h3>
+                    <div id="comments-container" class="comments-scroll"></div>
+                    <div class="comment-input-group">
+                        <textarea id="comment-input" placeholder="Важное замечание..."></textarea>
+                        <button id="add-comment-btn" class="button-primary">Отправить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
 
     <div id="notification-container" class="notification-container"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/7.0.0/diff.min.js"></script>

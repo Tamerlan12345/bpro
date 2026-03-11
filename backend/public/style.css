@@ -291,6 +291,23 @@ button:disabled {
     transform: translateX(5px);
 }
 
+.chat-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm);
+    border-bottom: 1px solid var(--border-glass);
+    transition: var(--transition-smooth);
+}
+
+.chat-item:hover {
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.delete-chat-btn, .delete-department-btn {
+    margin-left: auto;
+}
+
 .department-card.selected, .chat-card.selected {
     background: var(--accent-indigo-glow);
     border-color: var(--accent-indigo);
@@ -369,6 +386,33 @@ button:disabled {
     overflow: hidden;
 }
 
+.diagram-toolbar {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.diagram-toolbar .btn-tool {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-glass-bright);
+    color: var(--text-primary);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.diagram-toolbar .btn-tool:hover {
+    background: var(--accent-indigo);
+    border-color: var(--accent-indigo-glow);
+}
+
 /* --- Admin Panel Fixes --- */
 #admin-panel {
     display: flex;
@@ -384,6 +428,15 @@ button:disabled {
 }
 
 /* --- Action Buttons & Tabs --- */
+.admin-main-view {
+    display: flex;
+    gap: var(--space-xl);
+}
+
+.admin-main-view > div {
+    flex: 1;
+}
+
 .admin-tabs {
     display: flex;
     gap: var(--space-md);
@@ -544,7 +597,7 @@ button:disabled {
         justify-content: center;
     }
 
-    input, textarea {
+    input, textarea, select {
         width: 100%;
         max-width: 100%;
     }
@@ -552,6 +605,15 @@ button:disabled {
     .audio-recorder-block {
         flex-wrap: wrap;
         justify-content: flex-start;
+    }
+
+    .admin-main-view {
+        flex-direction: column;
+        gap: var(--space-lg);
+    }
+
+    .admin-grid {
+        grid-template-columns: 1fr;
     }
 }
 
