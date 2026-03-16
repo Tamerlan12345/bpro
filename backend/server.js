@@ -337,7 +337,7 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
     const { email, password } = req.body;
     logger.info(`Login attempt initiated for email: ${email}`);
     try {
-        const result = await pool.query('SELECT id, name, full_name, role, hashed_password FROM users WHERE email = $1', [email]);
+        const result = await pool.query('SELECT id, name, full_name, role, hashed_password FROM users WHERE LOWER(email) = LOWER($1)', [email]);
         const user = result.rows[0];
         if (!user) {
             logger.info(`Login failed: User with email ${email} not found.`);
@@ -443,7 +443,6 @@ app.get('/api/admin/users', isAuthenticated, isAdmin, async (req, res) => {
             SELECT u.id, u.name, u.full_name, u.email, u.role, d.name as department_name 
             FROM users u
             LEFT JOIN departments d ON u.department_id = d.id
-            ORDER BY u.created_at DESC
         `;
         const { rows } = await pool.query(query);
         res.json(rows);

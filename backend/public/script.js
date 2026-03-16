@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const authWrapper = document.querySelector('.auth-wrapper');
     const loginContainer = document.getElementById('login-container');
+    const userLogin = document.getElementById('user-login');
     const userEmailInput = document.getElementById('user-email');
     const userPasswordInput = document.getElementById('user-password');
     const userLoginBtn = document.getElementById('user-login-btn');
@@ -473,7 +474,7 @@ ${brokenCode}
                 adminPanel.style.display = 'block';
                 await loadAdminPanel();
             } else {
-                userLogin.style.display = 'none';
+                if (userLogin) userLogin.style.display = 'none';
                 departmentSelection.style.display = 'block';
                 await loadDepartmentsForSelection();
             }
@@ -606,7 +607,7 @@ ${brokenCode}
                     await loadAdminPanel();
                 } else {
                     loginContainer.style.display = 'none';
-                    userLogin.style.display = 'none';
+                    if (userLogin) userLogin.style.display = 'none';
                     departmentSelection.style.display = 'block';
                     await loadDepartmentsForSelection();
                 }
@@ -614,7 +615,7 @@ ${brokenCode}
                 authWrapper.style.display = 'flex';
                 mainContainer.style.display = 'none';
                 loginContainer.style.display = 'block';
-                userLogin.style.display = 'block';
+                if (userLogin) userLogin.style.display = 'block';
                 departmentSelection.style.display = 'none';
                 chatLogin.style.display = 'none';
                 adminPanel.style.display = 'none';
@@ -623,7 +624,7 @@ ${brokenCode}
             authWrapper.style.display = 'flex';
             mainContainer.style.display = 'none';
             loginContainer.style.display = 'block';
-            userLogin.style.display = 'block';
+            if (userLogin) userLogin.style.display = 'block';
             departmentSelection.style.display = 'none';
             chatLogin.style.display = 'none';
             adminPanel.style.display = 'none';
