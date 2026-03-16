@@ -1,4 +1,6 @@
 const path = require('path');
+const dns = require('node:dns');
+dns.setDefaultResultOrder('ipv4first');
 const fs = require('fs');
 const pino = require('pino');
 const pinoHttp = require('pino-http');
