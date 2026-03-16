@@ -954,6 +954,10 @@ ${brokenCode}
                     <td>${user.email}</td>
                     <td>${user.role === 'admin' ? 'Админ' : 'Пользователь'}</td>
                     <td>${user.department_name || '-'}</td>
+                    <td>
+                        <button class="button-small change-password-btn" data-user-id="${user.id}">Пароль</button>
+                        <button class="button-small delete-user-btn" data-user-id="${user.id}" ${user.id === sessionUser.id ? 'disabled' : ''}>Удалить</button>
+                    </td>
                 </tr>
             `).join('');
 
@@ -998,6 +1002,38 @@ ${brokenCode}
             showNotification(`Ошибка: ${error.message}`, "error");
         } finally {
             setButtonLoading(createUserBtn, false);
+        }
+    }
+
+    async function handleDeleteUser(userId) {
+        if (!confirm('Вы уверены, что хотите удалить этого пользователя? Это действие необратимо.')) return;
+
+        try {
+            await fetchWithAuth(`/api/admin/users/${userId}`, { method: 'DELETE' });
+            showNotification('Пользователь удален', 'success');
+            await loadAdminUsers();
+        } catch (error) {
+            showNotification(`Ошибка удаления: ${error.message}`, 'error');
+        }
+    }
+
+    async function handleChangePassword(userId) {
+        const newPassword = prompt('Введите новый пароль (минимум 8 символов):');
+        if (!newPassword) return;
+        if (newPassword.length < 8) {
+            showNotification('Пароль слишком короткий', 'error');
+            return;
+        }
+
+        try {
+            await fetchWithAuth(`/api/admin/users/${userId}/password`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: newPassword })
+            });
+            showNotification('Пароль изменен', 'success');
+        } catch (error) {
+            showNotification(`Ошибка изменения пароля: ${error.message}`, 'error');
         }
     }
 
@@ -1559,10 +1595,16 @@ ${brokenCode}
     departmentSelectionContainer.addEventListener('click', handleDepartmentCardSelection);
     chatLoginBtn.addEventListener('click', handleChatLogin);
     createDepartmentBtn.addEventListener('click', handleCreateDepartment);
+    createUserBtn.addEventListener('click', handleCreateUser);
+    usersListBody.addEventListener('click', (e) => {
+        const userId = e.target.dataset.userId;
+        if (!userId) return;
+        if (e.target.classList.contains('delete-user-btn')) handleDeleteUser(userId);
+        if (e.target.classList.contains('change-password-btn')) handleChangePassword(userId);
+    });
     departmentList.addEventListener('click', handleAdminDepartmentSelection);
     chatList.addEventListener('click', handleAdminChatListClick);
     createChatBtn.addEventListener('click', handleCreateChat);
-    createUserBtn.addEventListener('click', handleCreateUser);
     inReviewList.addEventListener('click', handleAdminChatSelection);
     pendingList.addEventListener('click', handleAdminChatSelection);
     completedList.addEventListener('click', handleAdminChatSelection);

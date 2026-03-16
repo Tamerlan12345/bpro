@@ -238,6 +238,10 @@ const userCreateSchema = z.object({
     role: z.enum(['user', 'admin']).default('user')
 });
 
+const passwordUpdateSchema = z.object({
+    password: z.string().min(8)
+});
+
 const generateSchema = z.object({
     prompt: z.string().min(1).max(10000)
 });
@@ -470,6 +474,45 @@ app.post('/api/admin/users', isAuthenticated, isAdmin, validateBody(userCreateSc
             return res.status(409).json({ error: 'User with this email already exists.' });
         }
         logger.error(error, 'Error creating user');
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.patch('/api/admin/users/:id/password', isAuthenticated, isAdmin, validateBody(passwordUpdateSchema), async (req, res) => {
+    const { id } = req.params;
+    const { password } = req.body;
+    try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        const result = await pool.query('UPDATE users SET hashed_password = $1 WHERE id = $2', [hashedPassword, id]);
+        
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        res.json({ message: 'Password updated successfully' });
+    } catch (error) {
+        logger.error(error, 'Error updating user password');
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/admin/users/:id', isAuthenticated, isAdmin, async (req, res) => {
+    const { id } = req.params;
+    
+    // Check if user is trying to delete themselves
+    if (id === req.session.user.id) {
+        return res.status(400).json({ error: 'You cannot delete your own account.' });
+    }
+    
+    try {
+        const result = await pool.query('DELETE FROM users WHERE id = $1', [id]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json({ message: 'User deleted successfully' });
+    } catch (error) {
+        logger.error(error, 'Error deleting user');
         res.status(500).json({ error: error.message });
     }
 });
