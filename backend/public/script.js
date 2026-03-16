@@ -608,7 +608,7 @@ ${brokenCode}
                     adminPanel.style.display = 'block';
                     await loadAdminPanel();
                 } else {
-                    loginContainer.style.display = 'none';
+                    loginContainer.style.display = 'block';
                     if (userLogin) userLogin.style.display = 'none';
                     departmentSelection.style.display = 'block';
                     await loadDepartmentsForSelection();
