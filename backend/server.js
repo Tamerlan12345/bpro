@@ -226,8 +226,16 @@ const chatSchema = z.object({
 });
 
 const loginSchema = z.object({
-    name: z.string().min(1),
+    email: z.string().email(),
     password: z.string().min(1)
+});
+
+const userCreateSchema = z.object({
+    full_name: z.string().min(1),
+    email: z.string().email(),
+    password: z.string().min(8),
+    department_id: z.string().uuid().nullable().optional(),
+    role: z.enum(['user', 'admin']).default('user')
 });
 
 const generateSchema = z.object({
@@ -326,24 +334,23 @@ app.post('/api/transcribe', isAuthenticated, uploadAudio, async (req, res) => {
 });
 
 app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, res) => {
-    const { name, password } = req.body;
-    logger.info('Login attempt initiated');
+    const { email, password } = req.body;
+    logger.info(`Login attempt initiated for email: ${email}`);
     try {
-        const result = await pool.query('SELECT id, name, hashed_password FROM users WHERE name = $1', [name]);
+        const result = await pool.query('SELECT id, name, full_name, role, hashed_password FROM users WHERE email = $1', [email]);
         const user = result.rows[0];
         if (!user) {
-            logger.info('Login failed: User not found.');
-            return res.status(401).json({ error: 'Invalid username or password' });
+            logger.info(`Login failed: User with email ${email} not found.`);
+            return res.status(401).json({ error: 'Invalid email or password' });
         }
         const passwordMatches = await bcrypt.compare(password, user.hashed_password);
         if (!passwordMatches) {
-            logger.info(`Login failed for user: ${user.name}. Invalid password.`);
-            return res.status(401).json({ error: 'Invalid username or password' });
+            logger.info(`Login failed for email: ${email}. Invalid password.`);
+            return res.status(401).json({ error: 'Invalid email or password' });
         }
-        const role = user.name === 'admin' ? 'admin' : 'user';
-        logger.info(`Login successful for user: ${user.name}, role: ${role}`);
-        req.session.user = { id: user.id, name: user.name, role: role };
-        res.json({ id: user.id, name: user.name, role: role });
+        logger.info(`Login successful for user: ${user.name}, role: ${user.role}`);
+        req.session.user = { id: user.id, name: user.name, full_name: user.full_name, role: user.role };
+        res.json({ id: user.id, name: user.name, full_name: user.full_name, role: user.role });
     } catch (error) {
         logger.error(error, 'Error during login');
         res.status(500).json({ error: 'Internal server error' });
@@ -430,9 +437,47 @@ app.get('/api/chats/:id/status', isAuthenticated, async (req, res) => {
     }
 });
 
+app.get('/api/admin/users', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+        const query = `
+            SELECT u.id, u.name, u.full_name, u.email, u.role, d.name as department_name 
+            FROM users u
+            LEFT JOIN departments d ON u.department_id = d.id
+            ORDER BY u.created_at DESC
+        `;
+        const { rows } = await pool.query(query);
+        res.json(rows);
+    } catch (error) {
+        logger.error(error, 'Error fetching users');
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/admin/users', isAuthenticated, isAdmin, validateBody(userCreateSchema), async (req, res) => {
+    const { full_name, email, password, department_id, role } = req.body;
+    try {
+        const name = email.split('@')[0]; // Simple fallback for name
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        
+        const { rows } = await pool.query(
+            `INSERT INTO users (name, full_name, email, hashed_password, role, department_id) 
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, full_name, email, role`,
+            [name, full_name, email, hashedPassword, role, department_id]
+        );
+        res.status(201).json(rows[0]);
+    } catch (error) {
+        if (error.code === '23505') {
+            return res.status(409).json({ error: 'User with this email already exists.' });
+        }
+        logger.error(error, 'Error creating user');
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/api/users', isAuthenticated, isAdmin, async (req, res) => {
     try {
-        const { rows } = await pool.query('SELECT id, name FROM users');
+        const { rows } = await pool.query('SELECT id, name, full_name FROM users');
         res.json(rows);
     } catch (error) {
         logger.error(error, 'Error fetching users');
@@ -744,26 +789,19 @@ app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (
 const BCRYPT_SALT_ROUNDS = 10;
 async function ensureUsersExist(pool) {
     try {
-        let { rows: adminRows } = await pool.query("SELECT id FROM users WHERE name = 'admin'");
+        // Find by role or name to transition
+        let { rows: adminRows } = await pool.query("SELECT id FROM users WHERE role = 'admin' OR name = 'admin' OR email = 'admin@bizpro.ai'");
         if (adminRows.length === 0) {
             if (process.env.ADMIN_INITIAL_PASSWORD) {
                 logger.info('Admin user not found, creating it...');
                 const hashedPassword = await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD, BCRYPT_SALT_ROUNDS);
-                await pool.query("INSERT INTO users (name, hashed_password) VALUES ('admin', $1)", [hashedPassword]);
+                await pool.query(
+                    "INSERT INTO users (name, full_name, email, hashed_password, role) VALUES ('admin', 'Главный Администратор', 'admin@bizpro.ai', $1, 'admin')",
+                    [hashedPassword]
+                );
                 logger.info('Admin user created.');
             } else {
                 logger.warn('ADMIN_INITIAL_PASSWORD not set. Skipping admin user creation.');
-            }
-        }
-        let { rows: userRows } = await pool.query("SELECT id FROM users WHERE name = 'user'");
-        if (userRows.length === 0) {
-            if (process.env.USER_INITIAL_PASSWORD) {
-                logger.info('Regular user not found, creating it...');
-                const hashedPassword = await bcrypt.hash(process.env.USER_INITIAL_PASSWORD, BCRYPT_SALT_ROUNDS);
-                await pool.query("INSERT INTO users (name, hashed_password) VALUES ('user', $1)", [hashedPassword]);
-                logger.info('Regular user created.');
-            } else {
-                logger.warn('USER_INITIAL_PASSWORD not set. Skipping regular user creation.');
             }
         }
     } catch (error) {

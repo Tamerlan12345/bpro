@@ -17,12 +17,12 @@
         <main>
             <div id="login-container" class="login-container">
     <div id="user-login" class="login-form">
-        <h2>Вход для пользователя</h2>
-        <p>Введите имя пользователя и пароль.</p>
-        <label for="user-name">Имя пользователя</label>
-        <input type="text" id="user-name" placeholder="Имя пользователя" value="user">
+        <h2>Вход в систему</h2>
+        <p>Введите ваш Email и пароль.</p>
+        <label for="user-email">Email</label>
+        <input type="email" id="user-email" placeholder="example@bizpro.ai">
         <label for="user-password">Пароль</label>
-        <input type="password" id="user-password" placeholder="Пароль" value="userpassword">
+        <input type="password" id="user-password" placeholder="Пароль">
         <button id="user-login-btn" class="button-primary">Войти</button>
         <p id="user-error" class="error-message"></p>
     </div>
@@ -51,10 +51,55 @@
         <h2>Панель администратора</h2>
 
         <div class="admin-section">
+            <h3>Управление пользователями</h3>
+            <div id="create-user-form" class="admin-form-inline">
+                <div class="form-group">
+                    <label for="new-user-fullname">ФИО:</label>
+                    <input type="text" id="new-user-fullname" placeholder="Иванов Иван Иванович">
+                </div>
+                <div class="form-group">
+                    <label for="new-user-email">Email:</label>
+                    <input type="email" id="new-user-email" placeholder="email@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="new-user-dept">Департамент:</label>
+                    <select id="new-user-dept">
+                        <option value="">Без департамента</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="new-user-password">Пароль:</label>
+                    <input type="password" id="new-user-password" placeholder="Мин. 8 символов">
+                </div>
+                <div class="form-group">
+                    <label for="new-user-role">Роль:</label>
+                    <select id="new-user-role">
+                        <option value="user">Пользователь</option>
+                        <option value="admin">Администратор</option>
+                    </select>
+                </div>
+                <button id="create-user-btn" class="button-primary">Создать пользователя</button>
+            </div>
+            <div class="admin-table-container">
+                <table id="users-table">
+                    <thead>
+                        <tr>
+                            <th>ФИО</th>
+                            <th>Email</th>
+                            <th>Роль</th>
+                            <th>Департамент</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-list-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="admin-section">
             <h3>Создать новый департамент</h3>
             <div id="create-department-form">
                 <div class="form-group">
-                    <label for="user-for-new-department">Назначить пользователю:</label>
+                    <label for="user-for-new-department">Назначить пользователю (владелец):</label>
                     <select id="user-for-new-department"></select>
                 </div>
                 <div class="form-group">
@@ -62,7 +107,7 @@
                     <input type="text" id="new-department-name" placeholder="Название департамента">
                 </div>
                 <div class="form-group">
-                    <label for="new-department-password">Пароль:</label>
+                    <label for="new-department-password">Пароль (для входа в чаты):</label>
                     <input type="password" id="new-department-password" placeholder="Пароль">
                 </div>
                 <button id="create-department-btn" class="button-primary">Создать</button>

@@ -1157,3 +1157,51 @@ p.error-message {
         width: 100%;
     }
 }
+
+/* --- Admin User Management --- */
+.admin-form-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    align-items: flex-end;
+    margin-bottom: var(--space-xl);
+    padding: var(--space-lg);
+    background-color: var(--light-bg-color);
+    border-radius: var(--radius-md);
+}
+
+.admin-form-inline .form-group {
+    flex: 1;
+    min-width: 150px;
+    margin-bottom: 0;
+}
+
+.admin-form-inline button {
+    flex-shrink: 0;
+}
+
+.admin-table-container {
+    overflow-x: auto;
+    margin-top: var(--space-lg);
+}
+
+#users-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-sm);
+}
+
+#users-table th, #users-table td {
+    padding: var(--space-smd);
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+#users-table th {
+    background-color: var(--bg-surface-secondary);
+    font-weight: 600;
+}
+
+#users-table tr:hover {
+    background-color: var(--light-bg-color);
+}

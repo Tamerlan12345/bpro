@@ -20,8 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const authWrapper = document.querySelector('.auth-wrapper');
     const loginContainer = document.getElementById('login-container');
-    const userLogin = document.getElementById('user-login');
-    const userNameInput = document.getElementById('user-name');
+    const userEmailInput = document.getElementById('user-email');
     const userPasswordInput = document.getElementById('user-password');
     const userLoginBtn = document.getElementById('user-login-btn');
     const userError = document.getElementById('user-error');
@@ -100,6 +99,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const inReviewTab = document.getElementById('in-review-tab');
     const pendingTab = document.getElementById('pending-tab');
     const completedTab = document.getElementById('completed-tab');
+
+    const newUserFullnameInput = document.getElementById('new-user-fullname');
+    const newUserEmailInput = document.getElementById('new-user-email');
+    const newUserDeptSelect = document.getElementById('new-user-dept');
+    const newUserPasswordInput = document.getElementById('new-user-password');
+    const newUserRoleSelect = document.getElementById('new-user-role');
+    const createUserBtn = document.getElementById('create-user-btn');
+    const usersListBody = document.getElementById('users-list-body');
 
     const transcriptionReviewModal = document.getElementById('transcription-review-modal');
     const transcriptionTextArea = document.getElementById('transcription-text-area');
@@ -445,16 +452,16 @@ ${brokenCode}
     }
 
     async function handleUserLogin() {
-        const name = userNameInput.value;
+        const email = userEmailInput.value;
         const password = userPasswordInput.value;
-        if (!name || !password) return;
+        if (!email || !password) return;
 
         setButtonLoading(userLoginBtn, true, 'Вход...');
         try {
             const response = await fetchWithAuth('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, password })
+                body: JSON.stringify({ email, password })
             });
             const user = await response.json();
             sessionUser = user;
@@ -909,18 +916,10 @@ ${brokenCode}
 
     async function loadAdminPanel() {
         try {
-            const usersResponse = await fetchWithAuth('/api/users');
-            const users = await usersResponse.json();
-            const regularUser = users.find(user => user.name === 'user');
-
-            if (regularUser) {
-                userForNewDepartmentSelect.innerHTML = `<option value="${regularUser.id}" selected>${regularUser.name}</option>`;
-            } else {
-                userForNewDepartmentSelect.innerHTML = '<option value="">Пользователь "user" не найден</option>';
-                console.error('Default user "user" not found in the database.');
-            }
-
-            await loadAdminDepartments();
+            await Promise.all([
+                loadAdminUsers(),
+                loadAdminDepartments()
+            ]);
 
             const [inReviewResponse, completedResponse, pendingResponse] = await Promise.all([
                 fetchWithAuth('/api/admin/chats/in_review'),
@@ -937,7 +936,67 @@ ${brokenCode}
 
         } catch (error) {
             console.error("Failed to load admin panel data:", error);
-            adminPanel.innerHTML = `<p class="error">Failed to load admin panel: ${error.message}</p>`;
+            // Don't overwrite the whole panel if one fetch fails
+            showNotification(`Ошибка загрузки данных админ-панели: ${error.message}`, 'error');
+        }
+    }
+
+    async function loadAdminUsers() {
+        try {
+            const response = await fetchWithAuth('/api/admin/users');
+            const users = await response.json();
+            
+            // Populate table
+            usersListBody.innerHTML = users.map(user => `
+                <tr>
+                    <td>${user.full_name || user.name}</td>
+                    <td>${user.email}</td>
+                    <td>${user.role === 'admin' ? 'Админ' : 'Пользователь'}</td>
+                    <td>${user.department_name || '-'}</td>
+                </tr>
+            `).join('');
+
+            // Populate select for new department
+            userForNewDepartmentSelect.innerHTML = users
+                .filter(u => u.role === 'user')
+                .map(u => `<option value="${u.id}">${u.full_name || u.name} (${u.email})</option>`)
+                .join('');
+        } catch (error) {
+            console.error("Failed to load users:", error);
+            showNotification("Не удалось загрузить список пользователей", "error");
+        }
+    }
+
+    async function handleCreateUser() {
+        const full_name = newUserFullnameInput.value;
+        const email = newUserEmailInput.value;
+        const department_id = newUserDeptSelect.value || null;
+        const password = newUserPasswordInput.value;
+        const role = newUserRoleSelect.value;
+
+        if (!full_name || !email || !password) {
+            showNotification("ФИО, Email и Пароль обязательны", "error");
+            return;
+        }
+
+        setButtonLoading(createUserBtn, true, 'Создание...');
+        try {
+            await fetchWithAuth('/api/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ full_name, email, password, department_id, role })
+            });
+            showNotification("Пользователь успешно создан", "success");
+            // Clear form
+            newUserFullnameInput.value = '';
+            newUserEmailInput.value = '';
+            newUserPasswordInput.value = '';
+            // Reload user list and department owner select
+            await loadAdminUsers();
+        } catch (error) {
+            showNotification(`Ошибка: ${error.message}`, "error");
+        } finally {
+            setButtonLoading(createUserBtn, false);
         }
     }
 
@@ -950,6 +1009,11 @@ ${brokenCode}
                     <span>${dept.name}</span>
                     <button class="button-danger delete-department-btn" data-dept-id="${dept.id}" title="Удалить департамент">Удалить</button>
                 </div>`).join('');
+            
+            // Also update the department select for user creation
+            newUserDeptSelect.innerHTML = '<option value="">Без департамента</option>' + 
+                departments.map(dept => `<option value="${dept.id}">${dept.name}</option>`).join('');
+                
         } catch (error) {
             departmentList.innerHTML = `<div class="error-text">Не удалось загрузить департаменты: ${error.message}</div>`;
         }
@@ -1497,6 +1561,7 @@ ${brokenCode}
     departmentList.addEventListener('click', handleAdminDepartmentSelection);
     chatList.addEventListener('click', handleAdminChatListClick);
     createChatBtn.addEventListener('click', handleCreateChat);
+    createUserBtn.addEventListener('click', handleCreateUser);
     inReviewList.addEventListener('click', handleAdminChatSelection);
     pendingList.addEventListener('click', handleAdminChatSelection);
     completedList.addEventListener('click', handleAdminChatSelection);
