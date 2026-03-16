@@ -187,6 +187,11 @@
                         <audio id="audio-playback" controls class="audio-playback"></audio>
                     </div>
 
+                    <div id="initial-process-block" class="initial-process-block" style="display: none;">
+                        <label>Оригинальное описание (Статичное)</label>
+                        <div id="initial-process-content" class="initial-process-content"></div>
+                    </div>
+
                     <div id="transcription-display" class="transcription-display-area"></div>
                     <div id="partial-transcript-display" class="partial-transcript"></div>
                 </div>
@@ -265,7 +270,12 @@
                 </div>
 
                 <div class="comments-block">
-                    <h3>Комментарии</h3>
+                    <h3>Чат и подсказки</h3>
+                    <div id="chat-tips" class="chat-tips-container">
+                        <div class="tip-item">💡 <strong>Как пользоваться:</strong> Запишите аудио или введите текст, выберите улучшения от ИИ и примените их.</div>
+                        <div class="tip-item">✅ <strong>Первый вариант:</strong> Ваш самый первый ввод будет сохранен в верхней части как эталон.</div>
+                        <div class="tip-item">💬 <strong>Обсуждение:</strong> Используйте чат ниже для уточнения деталей процесса.</div>
+                    </div>
                     <div id="comments-container"></div>
                     <div class="comment-form">
                         <textarea id="comment-input" placeholder="Введите ваш комментарий..."></textarea>

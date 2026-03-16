@@ -48,6 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const recordingIndicator = document.getElementById('recording-indicator');
     const recordingTimer = document.getElementById('recording-timer');
     const transcriptionDisplay = document.getElementById('transcription-display');
+    const initialProcessBlock = document.getElementById('initial-process-block');
+    const initialProcessContent = document.getElementById('initial-process-content');
     const transcriptionTimer = document.getElementById('transcription-timer');
     const partialTranscriptDisplay = document.getElementById('partial-transcript-display');
     const versionHistoryContainer = document.getElementById('version-history-container');
@@ -635,18 +637,26 @@ ${brokenCode}
     async function loadChatData() {
         try {
             const [versionsResponse, commentsResponse, statusResponse, transcriptionResponse] = await Promise.all([
-                fetchWithAuth(`/api/chats/${chatId}/versions`),
                 fetchWithAuth(`/api/chats/${chatId}/comments`),
                 fetchWithAuth(`/api/chats/${chatId}/status`),
-                fetchWithAuth(`/api/chats/${chatId}/transcription`).catch(err => null) // Allow it to fail if no transcription exists
+                fetchWithAuth(`/api/chats/${chatId}/transcription`).catch(err => null), // Allow it to fail if no transcription exists
+                fetchWithAuth(`/api/chats/${chatId}/initial-process`).catch(err => null) // Fetch initial process
             ]);
             chatVersions = await versionsResponse.json();
             const comments = await commentsResponse.json();
             const { status } = await statusResponse.json();
             const transcriptionData = transcriptionResponse ? await transcriptionResponse.json() : null;
+            const initialProcessData = initialProcessResponse ? await initialProcessResponse.json() : null;
 
             renderVersions(chatVersions);
             renderComments(comments);
+
+            if (initialProcessData) {
+                initialProcessBlock.style.display = 'block';
+                initialProcessContent.textContent = initialProcessData.content;
+            } else {
+                initialProcessBlock.style.display = 'none';
+            }
 
             if (transcriptionData && transcriptionData.status === 'finalized') {
                 transcriptionDisplay.textContent = transcriptionData.final_text;
@@ -902,6 +912,21 @@ ${brokenCode}
             showNotification('Транскрибация успешно сохранена!', 'success');
             updateTranscriptionModalUI(data);
             if (isFinalizing) {
+                // Check if initial process already exists
+                try {
+                    const initResp = await fetchWithAuth(`/api/chats/${chatId}/initial-process`);
+                    // If it exists, do nothing
+                } catch (e) {
+                    // If it doesn't exist, save it
+                    if (e.message.includes('404')) {
+                        await fetchWithAuth(`/api/chats/${chatId}/initial-process`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ content: text })
+                        });
+                    }
+                }
+
                 transcriptionDisplay.textContent = text;
                 processDescriptionInput.value = text;
                 updateStepCounter();

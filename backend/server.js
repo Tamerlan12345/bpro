@@ -798,9 +798,53 @@ app.put('/api/chats/:id/status', isAuthenticated, validateBody(statusSchema), as
     const { status } = req.body;
     try {
         const { rows } = await pool.query('UPDATE chat_statuses SET status = $1 WHERE chat_id = $2 RETURNING *', [status, id]);
+        if (rows.length === 0) return res.status(404).json({ error: 'Status not found' });
         res.json(rows[0]);
     } catch (error) {
+        logger.error(error, 'Error updating chat status');
         res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/chats/:id/initial-process', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
+    try {
+        const { rows } = await pool.query('SELECT * FROM initial_business_processes WHERE chat_id = $1', [id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Initial process not found' });
+        }
+        res.json(rows[0]);
+    } catch (error) {
+        logger.error(error, `Error fetching initial process for chat ${id}`);
+        res.status(500).json({ error: 'Failed to retrieve initial process.' });
+    }
+});
+
+app.post('/api/chats/:id/initial-process', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
+    const { content } = req.body;
+
+    if (!content || !content.trim()) {
+        return res.status(400).json({ error: 'Content is required.' });
+    }
+
+    try {
+        // Enforce immutability: check if it already exists
+        const { rows: existing } = await pool.query('SELECT 1 FROM initial_business_processes WHERE chat_id = $1', [id]);
+        if (existing.length > 0) {
+            return res.status(409).json({ error: 'Initial process already exists and cannot be changed.' });
+        }
+
+        const { rows } = await pool.query(
+            'INSERT INTO initial_business_processes (chat_id, content) VALUES ($1, $2) RETURNING *',
+            [id, content]
+        );
+        res.status(201).json(rows[0]);
+    } catch (error) {
+        logger.error(error, `Error saving initial process for chat ${id}`);
+        res.status(500).json({ error: 'Failed to save initial process.' });
     }
 });
 
