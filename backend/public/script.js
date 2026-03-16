@@ -636,7 +636,8 @@ ${brokenCode}
 
     async function loadChatData() {
         try {
-            const [versionsResponse, commentsResponse, statusResponse, transcriptionResponse] = await Promise.all([
+            const [versionsResponse, commentsResponse, statusResponse, transcriptionResponse, initialProcessResponse] = await Promise.all([
+                fetchWithAuth(`/api/chats/${chatId}/versions`),
                 fetchWithAuth(`/api/chats/${chatId}/comments`),
                 fetchWithAuth(`/api/chats/${chatId}/status`),
                 fetchWithAuth(`/api/chats/${chatId}/transcription`).catch(err => null), // Allow it to fail if no transcription exists
