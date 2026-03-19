@@ -156,72 +156,6 @@ const uploadAudio = (req, res, next) => {
     });
 };
 
-const uploadDocs = multer({
-    storage: storage,
-    limits: { fileSize: 50 * 1024 * 1024 }
-}).array('documents', 50);
-
-app.post('/api/admin/parse-documents', isAuthenticated, isAdmin, (req, res, next) => {
-    uploadDocs(req, res, function (err) {
-        if (err) return res.status(400).json({ error: err.message });
-        next();
-    });
-}, async (req, res) => {
-    if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ error: 'No files uploaded' });
-    }
-    try {
-        const resultJSON = await parseDocumentsWithAI(req.files, process.env.GOOGLE_API_KEY);
-        
-        const deptMap = {};
-        if (resultJSON.departments) {
-            for (const dName of resultJSON.departments) {
-                const { rows } = await pool.query(
-                    'INSERT INTO departments (name, hashed_password, user_id) VALUES ($1, $2, $3) ON CONFLICT (user_id, name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
-                    [dName, 'dummy_hash', req.session.user.id]
-                );
-                deptMap[dName] = rows[0].id;
-            }
-        }
-
-        const procMap = {};
-        if (resultJSON.processes) {
-            for (const proc of resultJSON.processes) {
-                const deptId = deptMap[proc.department] || null;
-                const { rows } = await pool.query(
-                    'INSERT INTO business_processes (name, owner_name, department_id, status, is_ai_generated) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-                    [proc.name, proc.owner, deptId, 'approved', true]
-                );
-                procMap[proc.name] = rows[0].id;
-            }
-            
-            for (const proc of resultJSON.processes) {
-                if (proc.connections && Array.isArray(proc.connections)) {
-                    for (const targetName of proc.connections) {
-                        const targetId = procMap[targetName];
-                        if (targetId && procMap[proc.name]) {
-                            await pool.query(
-                                'INSERT INTO process_relations (source_process_id, target_process_id, relation_type) VALUES ($1, $2, $3)',
-                                [procMap[proc.name], targetId, 'Связано ИИ']
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        for (const file of req.files) {
-            fs.unlinkSync(file.path);
-        }
-
-        res.json({ message: 'Parsed and integrated successfully', parsed: resultJSON });
-    } catch (error) {
-        logger.error(error, 'Document parse error');
-        res.status(500).json({ error: error.message });
-    }
-});
-
-
 app.use(express.json());
 app.use(cors({
     origin: process.env.FRONTEND_URL,
@@ -971,6 +905,71 @@ app.post('/api/admin/processes', isAuthenticated, isAdmin, async (req, res) => {
     } catch (error) {
         logger.error(error, 'Error creating draft process');
         res.status(500).json({ error: 'Failed to create draft process.' });
+    }
+});
+
+const uploadDocs = multer({
+    storage: storage,
+    limits: { fileSize: 50 * 1024 * 1024 }
+}).array('documents', 50);
+
+app.post('/api/admin/parse-documents', isAuthenticated, isAdmin, (req, res, next) => {
+    uploadDocs(req, res, function (err) {
+        if (err) return res.status(400).json({ error: err.message });
+        next();
+    });
+}, async (req, res) => {
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'No files uploaded' });
+    }
+    try {
+        const resultJSON = await parseDocumentsWithAI(req.files, process.env.GOOGLE_API_KEY);
+        
+        const deptMap = {};
+        if (resultJSON.departments) {
+            for (const dName of resultJSON.departments) {
+                const { rows } = await pool.query(
+                    'INSERT INTO departments (name, hashed_password, user_id) VALUES ($1, $2, $3) ON CONFLICT (user_id, name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
+                    [dName, 'dummy_hash', req.session.user.id]
+                );
+                deptMap[dName] = rows[0].id;
+            }
+        }
+
+        const procMap = {};
+        if (resultJSON.processes) {
+            for (const proc of resultJSON.processes) {
+                const deptId = deptMap[proc.department] || null;
+                const { rows } = await pool.query(
+                    'INSERT INTO business_processes (name, owner_name, department_id, status, is_ai_generated) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+                    [proc.name, proc.owner, deptId, 'approved', true]
+                );
+                procMap[proc.name] = rows[0].id;
+            }
+            
+            for (const proc of resultJSON.processes) {
+                if (proc.connections && Array.isArray(proc.connections)) {
+                    for (const targetName of proc.connections) {
+                        const targetId = procMap[targetName];
+                        if (targetId && procMap[proc.name]) {
+                            await pool.query(
+                                'INSERT INTO process_relations (source_process_id, target_process_id, relation_type) VALUES ($1, $2, $3)',
+                                [procMap[proc.name], targetId, 'Связано ИИ']
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        for (const file of req.files) {
+            fs.unlinkSync(file.path);
+        }
+
+        res.json({ message: 'Parsed and integrated successfully', parsed: resultJSON });
+    } catch (error) {
+        logger.error(error, 'Document parse error');
+        res.status(500).json({ error: error.message });
     }
 });
 
