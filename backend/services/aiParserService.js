@@ -1,19 +1,9 @@
 const fs = require('fs');
-const pdfParse = require('pdf-parse');
-const mammoth = require('mammoth');
 
 async function extractTextFromFile(filePath, mimeType) {
-    if (mimeType === 'application/pdf') {
-        const dataBuffer = fs.readFileSync(filePath);
-        const data = await pdfParse(dataBuffer);
-        return data.text;
-    } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mimeType.includes('word')) {
-        const result = await mammoth.extractRawText({ path: filePath });
-        return result.value;
-    } else {
-        // Fallback for txt
-        return fs.readFileSync(filePath, 'utf8');
-    }
+    console.warn('PDF and Word parsing are disabled due to missing dependencies. Falling back to text extraction.');
+    // Fallback for text files
+    return fs.readFileSync(filePath, 'utf8');
 }
 
 async function parseDocumentsWithAI(files, processEnvGoogleApiKey) {
