@@ -33,9 +33,9 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         "default-src": ["'self'"],
-        "script-src": ["'self'", "https://cdn.jsdelivr.net"], // <-- Разрешаем CDN
+        "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"], // <-- Разрешаем CDN JS
         "img-src": ["'self'", "data:", "blob:"], // <-- Разрешаем картинки-схемы (Mermaid)
-        "connect-src": ["'self'"],
+        "connect-src": ["'self'", "https://api.github.com"],
       },
     },
   })

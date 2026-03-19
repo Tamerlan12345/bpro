@@ -1684,16 +1684,25 @@ ${brokenCode}
         if (!document.getElementById('cy')) return;
         try {
             const data = await fetchWithAuth('/api/admin/map');
+            if (!data || data.error) {
+                console.error('Map loading error or unauthorized:', data?.error);
+                return;
+            }
+            
+            const departments = data.departments || [];
+            const processes = data.processes || [];
+            const relations = data.relations || [];
+
             const elements = [];
 
-            data.departments.forEach(dept => {
+            departments.forEach(dept => {
                 elements.push({
                     data: { id: `dept_${dept.id}`, name: dept.name, type: 'department' },
                     classes: 'department'
                 });
             });
 
-            data.processes.forEach(proc => {
+            processes.forEach(proc => {
                 elements.push({
                     data: {
                         id: `proc_${proc.id}`,
