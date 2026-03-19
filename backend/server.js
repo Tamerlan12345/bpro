@@ -879,7 +879,7 @@ app.post('/api/chats/:id/initial-process', isAuthenticated, async (req, res) => 
 app.get('/api/admin/map', isAuthenticated, isAdmin, async (req, res) => {
     try {
         const departmentsRes = await pool.query('SELECT id, name FROM departments');
-        const processesRes = await pool.query('SELECT id, name, department_id, status FROM business_processes');
+        const processesRes = await pool.query('SELECT id, name, department_id, description, status FROM business_processes');
         const relationsRes = await pool.query('SELECT id, source_process_id, target_process_id, relation_type FROM process_relations');
         
         res.json({
@@ -941,8 +941,8 @@ app.post('/api/admin/parse-documents', isAuthenticated, isAdmin, (req, res, next
             for (const proc of resultJSON.processes) {
                 const deptId = deptMap[proc.department] || null;
                 const { rows } = await pool.query(
-                    'INSERT INTO business_processes (name, owner_name, department_id, status, is_ai_generated) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-                    [proc.name, proc.owner, deptId, 'approved', true]
+                    'INSERT INTO business_processes (name, owner_name, department_id, description, status, is_ai_generated) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+                    [proc.name, proc.owner, deptId, proc.description || '', 'approved', true]
                 );
                 procMap[proc.name] = rows[0].id;
             }

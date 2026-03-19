@@ -7,64 +7,65 @@ async function extractTextFromFile(filePath, mimeType) {
 }
 
 async function parseDocumentsWithAI(files, processEnvGoogleApiKey) {
-    let combinedText = '';
+    const results = { departments: [], processes: [] };
+    const deptSet = new Set();
     
-    // 1. Extract text from all files
+    // Process each document individually (1 file = 1 process)
     for (const file of files) {
         try {
             const text = await extractTextFromFile(file.path, file.mimetype);
-            combinedText += `\n--- Document: ${file.originalname} ---\n${text}\n`;
+            if (!text || !text.trim()) continue;
+
+            const prompt = `
+Ты опытный бизнес-архитектор. Прочитай следующий документ компании и выдели из него ОДИН ГЛАВНЫЙ бизнес-процесс.
+Ответь СТРОГО в формате JSON без markdown блоков, следующего вида:
+{
+  "department": "Название Департамента, к которому относится процесс",
+  "process": {
+    "name": "Название процесса",
+    "owner": "Владелец (роль/должность)",
+    "description": "ПОЛНОЕ описание процесса в развернутом виде: шаги действий, логика ИЛИ/ЕСЛИ, важные нюансы из текста. Если текста много, составь выжимку, но не упускай суть.",
+    "connections": ["Название другого процесса, с которым есть связь (из текста)"]
+  }
+}
+
+ДОКУМЕНТ:
+${text.substring(0, 900000)}
+`;
+
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${processEnvGoogleApiKey}`;
+            const apiResponse = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+
+            if (!apiResponse.ok) {
+                console.error('LLM API error for file', file.originalname, apiResponse.statusText);
+                continue;
+            }
+
+            const data = await apiResponse.json();
+            let jsonText = data.candidates[0].content.parts[0].text;
+            // Clean up markdown quotes if present
+            jsonText = jsonText.replace(/^```json/m, '').replace(/```\s*$/m, '').trim();
+
+            const parsed = JSON.parse(jsonText);
+            
+            if (parsed.department) {
+                deptSet.add(parsed.department);
+            }
+            if (parsed.process && parsed.process.name) {
+                parsed.process.department = parsed.department || 'Общий отдел';
+                results.processes.push(parsed.process);
+            }
         } catch (error) {
-            console.error(`Failed to extract text from ${file.originalname}:`, error);
+            console.error(`Failed to parse document ${file.originalname}:`, error);
         }
     }
 
-    if (!combinedText.trim()) throw new Error('No text extracted from documents.');
-    
-    // Chunking might be needed for very large texts, but Gemini 2.0 Flash has 1M context.
-    const prompt = `
-Ты опытный бизнес-архитектор. Прочитай следующие документы компании и выдели из них бизнес-процессы.
-Ответь СТРОГО в формате JSON без markdown блоков, следующего вида:
-{
-  "departments": ["Название Департамента 1", ...],
-  "processes": [
-    {
-      "name": "Название процесса",
-      "owner": "Владелец",
-      "department": "Название департамента",
-      "connections": ["Название другого процесса, с которым есть связь"]
-    }
-  ]
-}
-
-ДОКУМЕНТЫ:
-${combinedText.substring(0, 900000)} // Ограничим на всякий случай
-`;
-
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${processEnvGoogleApiKey}`;
-    
-    const apiResponse = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-    });
-    
-    if (!apiResponse.ok) {
-        throw new Error('LLM parsing failed: ' + apiResponse.statusText);
-    }
-    
-    const data = await apiResponse.json();
-    let jsonText = data.candidates[0].content.parts[0].text;
-    
-    // Clean up markdown quotes if present
-    jsonText = jsonText.replace(/^```json/m, '').replace(/```$/m, '').trim();
-    
-    try {
-        return JSON.parse(jsonText);
-    } catch (e) {
-        console.error('Failed to parse LLM JSON response:', jsonText);
-        throw new Error('LLM returned invalid JSON');
-    }
+    results.departments = Array.from(deptSet);
+    return results;
 }
 
 module.exports = { parseDocumentsWithAI };

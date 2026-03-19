@@ -1709,6 +1709,7 @@ ${brokenCode}
                     data: {
                         id: `proc_${proc.id}`,
                         name: proc.name,
+                        description: proc.description || 'Описание отсутствует',
                         parent: proc.department_id ? `dept_${proc.department_id}` : undefined,
                         status: proc.status,
                         type: 'process'
@@ -1734,13 +1735,31 @@ ${brokenCode}
                     container: document.getElementById('cy'),
                     elements: elements,
                     style: [
-                        { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'rectangle', 'background-color': '#e0f2f1', 'border-width': 2, 'border-color': '#00796b', 'color': '#004d40', 'text-valign': 'top', 'text-margin-y': -5, 'font-weight': 'bold', 'padding': 20 } },
-                        { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 1, 'border-color': '#9e9e9e', 'text-valign': 'center', 'text-halign': 'center', 'width': 'label', 'height': 'label', 'padding': 10 } },
-                        { selector: 'node.status-approved', style: { 'border-color': '#388e3c', 'border-width': 2 } },
-                        { selector: 'node.status-draft', style: { 'border-style': 'dashed', 'border-width': 2 } },
-                        { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'font-size': 10, 'color': '#555', 'text-background-opacity': 1, 'text-background-color': '#fff' } }
+                        { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#f0f9ff', 'border-width': 2, 'border-color': '#0284c7', 'color': '#0369a1', 'text-valign': 'top', 'text-margin-y': -8, 'font-weight': 'bold', 'font-size': 20, 'padding': 40 } },
+                        { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 2, 'border-color': '#94a3b8', 'color': '#334155', 'text-valign': 'center', 'text-halign': 'center', 'text-wrap': 'wrap', 'text-max-width': 180, 'font-size': 14, 'padding': 15, 'shadow-blur': 10, 'shadow-color': '#ccc', 'shadow-opacity': 0.5 } },
+                        { selector: 'node.status-approved', style: { 'border-color': '#22c55e', 'background-color': '#f0fdf4' } },
+                        { selector: 'node.status-draft', style: { 'border-style': 'dashed', 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
+                        { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#94a3b8', 'line-color': '#cbd5e1', 'width': 3, 'font-size': 11, 'color': '#64748b', 'text-background-opacity': 1, 'text-background-color': '#fff', 'text-background-padding': 3 } }
                     ],
-                    layout: { name: 'cose', padding: 30 }
+                    layout: { name: 'cose', padding: 50, nodeOverlap: 20, nodeRepulsion: 400000, idealEdgeLength: 100, edgeElasticity: 100 }
+                });
+
+                cy.on('tap', 'node.process', function(evt){
+                    const nodeData = evt.target.data();
+                    const modal = document.getElementById('process-info-modal');
+                    const title = document.getElementById('process-info-title');
+                    const desc = document.getElementById('process-info-description');
+                    const closeBtn = document.getElementById('close-process-info-btn');
+                    
+                    if(modal && title && desc) {
+                        title.innerText = nodeData.name;
+                        desc.innerText = nodeData.description;
+                        modal.style.display = 'block';
+
+                        if(closeBtn) {
+                            closeBtn.onclick = () => modal.style.display = 'none';
+                        }
+                    }
                 });
 
                 cy.on('cxttap', 'node.department', async (event) => {

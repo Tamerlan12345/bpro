@@ -163,13 +163,21 @@
         <div id="admin-view-map" class="admin-view-content" style="display: none;">
             <div class="admin-section">
                 <h3>Карта Процессов (Mind Map)</h3>
-        <p>Глобальный взгляд на архитектуру процессов всех департаментов.</p>
-        <div id="cy" style="width: 100%; height: 500px; border: 1px solid #ccc; background-color: #f9f9f9; border-radius: 8px;">
+        <p>Глобальный взгляд на архитектуру процессов всех департаментов. (Левый клик = посмотреть описание, Правый клик = создать новый процесс).</p>
+        <div id="cy" style="width: 100%; height: 500px; border: 1px solid #ccc; background-color: #f9f9f9; border-radius: 8px; cursor: default;">
             <!-- Cytoscape Container -->
         </div>
         <div style="margin-top: 10px;">
             <button id="refresh-map-btn" class="button-secondary">Обновить карту</button>
             <button id="global-audit-btn" class="button-primary" style="margin-left: 10px;">🔍 Глобальный ИИ Аудит</button>
+        </div>
+
+        <div id="process-info-modal" class="modal" style="display: none; z-index: 10000;">
+            <div class="modal-content">
+                <button class="close-btn" id="close-process-info-btn" aria-label="Закрыть">&times;</button>
+                <h2 id="process-info-title">Описание процесса</h2>
+                <div id="process-info-description" style="white-space: pre-wrap; font-size: 14px; margin-top: 15px; max-height: 400px; overflow-y: auto;"></div>
+            </div>
         </div>
     </div>
             </div>
