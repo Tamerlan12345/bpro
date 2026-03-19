@@ -22,6 +22,7 @@ const { BatchClient } = require('@speechmatics/batch-client');
 const multer = require('multer');
 const { z } = require('zod');
 const csrf = require('csurf');
+const { parseDocumentsWithAI } = require('./services/aiParserService');
 
 const app = express();
 const logger = pino();
@@ -155,6 +156,71 @@ const uploadAudio = (req, res, next) => {
     });
 };
 
+const uploadDocs = multer({
+    storage: storage,
+    limits: { fileSize: 50 * 1024 * 1024 }
+}).array('documents', 50);
+
+app.post('/api/admin/parse-documents', isAuthenticated, isAdmin, (req, res, next) => {
+    uploadDocs(req, res, function (err) {
+        if (err) return res.status(400).json({ error: err.message });
+        next();
+    });
+}, async (req, res) => {
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'No files uploaded' });
+    }
+    try {
+        const resultJSON = await parseDocumentsWithAI(req.files, process.env.GOOGLE_API_KEY);
+        
+        const deptMap = {};
+        if (resultJSON.departments) {
+            for (const dName of resultJSON.departments) {
+                const { rows } = await pool.query(
+                    'INSERT INTO departments (name, hashed_password, user_id) VALUES ($1, $2, $3) ON CONFLICT (user_id, name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
+                    [dName, 'dummy_hash', req.session.user.id]
+                );
+                deptMap[dName] = rows[0].id;
+            }
+        }
+
+        const procMap = {};
+        if (resultJSON.processes) {
+            for (const proc of resultJSON.processes) {
+                const deptId = deptMap[proc.department] || null;
+                const { rows } = await pool.query(
+                    'INSERT INTO business_processes (name, owner_name, department_id, status, is_ai_generated) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+                    [proc.name, proc.owner, deptId, 'approved', true]
+                );
+                procMap[proc.name] = rows[0].id;
+            }
+            
+            for (const proc of resultJSON.processes) {
+                if (proc.connections && Array.isArray(proc.connections)) {
+                    for (const targetName of proc.connections) {
+                        const targetId = procMap[targetName];
+                        if (targetId && procMap[proc.name]) {
+                            await pool.query(
+                                'INSERT INTO process_relations (source_process_id, target_process_id, relation_type) VALUES ($1, $2, $3)',
+                                [procMap[proc.name], targetId, 'Связано ИИ']
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        for (const file of req.files) {
+            fs.unlinkSync(file.path);
+        }
+
+        res.json({ message: 'Parsed and integrated successfully', parsed: resultJSON });
+    } catch (error) {
+        logger.error(error, 'Document parse error');
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 app.use(express.json());
 app.use(cors({
@@ -258,7 +324,7 @@ const commentSchema = z.object({
 });
 
 const statusSchema = z.object({
-    status: z.enum(['draft', 'pending_review', 'needs_revision', 'completed', 'archived'])
+    status: z.enum(['draft', 'pending_review', 'needs_revision', 'completed', 'archived', 'in_progress', 'review', 'approved'])
 });
 
 const authChatSchema = z.object({
@@ -801,6 +867,32 @@ app.put('/api/chats/:id/status', isAuthenticated, validateBody(statusSchema), as
     try {
         const { rows } = await pool.query('UPDATE chat_statuses SET status = $1 WHERE chat_id = $2 RETURNING *', [status, id]);
         if (rows.length === 0) return res.status(404).json({ error: 'Status not found' });
+        
+        // --- NEW LOGIC FOR GLOBAL ARCHITECTURE ---
+        if (status === 'approved') {
+            try {
+                // Transfer data to business_processes
+                const chatQuery = 'SELECT department_id, name FROM chats WHERE id = $1';
+                const chatRes = await pool.query(chatQuery, [id]);
+                if (chatRes.rows.length > 0) {
+                    const chat = chatRes.rows[0];
+                    await pool.query(`
+                        INSERT INTO business_processes (
+                            department_id, chat_id, name, status, is_ai_generated
+                        ) VALUES ($1, $2, $3, 'approved', false)
+                        ON CONFLICT (chat_id) DO UPDATE SET 
+                            status = 'approved',
+                            department_id = EXCLUDED.department_id,
+                            name = EXCLUDED.name
+                    `, [chat.department_id, id, chat.name]);
+                }
+            } catch (err) {
+                logger.error(err, 'Error moving chat to business_processes');
+                // Continue, do not fail status update entirely
+            }
+        }
+        // -----------------------------------------
+
         res.json(rows[0]);
     } catch (error) {
         logger.error(error, 'Error updating chat status');
@@ -850,17 +942,105 @@ app.post('/api/chats/:id/initial-process', isAuthenticated, async (req, res) => 
     }
 });
 
-app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (req, res) => {
-  const { prompt } = req.body;
+app.get('/api/admin/map', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+        const departmentsRes = await pool.query('SELECT id, name FROM departments');
+        const processesRes = await pool.query('SELECT id, name, department_id, status FROM business_processes');
+        const relationsRes = await pool.query('SELECT id, source_process_id, target_process_id, relation_type FROM process_relations');
+        
+        res.json({
+            departments: departmentsRes.rows,
+            processes: processesRes.rows,
+            relations: relationsRes.rows
+        });
+    } catch (error) {
+        logger.error(error, 'Error fetching map data');
+        res.status(500).json({ error: 'Failed to retrieve map data.' });
+    }
+});
+
+app.post('/api/admin/processes', isAuthenticated, isAdmin, async (req, res) => {
+    const { name, department_id } = req.body;
+    if (!name || !department_id) return res.status(400).json({ error: 'Name and Department ID are required' });
+    try {
+        const { rows } = await pool.query(
+            'INSERT INTO business_processes (name, department_id, status) VALUES ($1, $2, $3) RETURNING *',
+            [name, department_id, 'draft']
+        );
+        res.status(201).json(rows[0]);
+    } catch (error) {
+        logger.error(error, 'Error creating draft process');
+        res.status(500).json({ error: 'Failed to create draft process.' });
+    }
+});
+
+app.post('/api/admin/audit', isAuthenticated, isAdmin, async (req, res) => {
+    const { prompt } = req.body;
+    if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+
+    try {
+        const bpRes = await pool.query("SELECT name, department_id, description FROM business_processes WHERE status = 'approved'");
+        const globalContext = bpRes.rows.map(r => `Процесс: ${r.name} (Dept: ${r.department_id})\nОписание: ${r.description || 'Нет'}`).join('\n\n');
+
+        const fullPrompt = `Ты — элитный бизнес-архитектор и ИИ аудитор. Твоя задача: провести анализ предоставленной базы утвержденных процессов согласно промпту администратора.
+БАЗА ПРОЦЕССОВ:
+${globalContext}
+
+ПРОМПТ АДМИНИСТРАТОРА:
+${prompt}
+
+Ответь структурированно, указывая найденные проблемы или результаты согласно запросу.`;
+
+        const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+        const apiResponse = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
+        });
+        
+        const data = await apiResponse.json();
+        const report = data.candidates && data.candidates[0] ? data.candidates[0].content.parts[0].text : 'Ошибка аудита';
+        
+        // Save report to db
+        await pool.query(
+            'INSERT INTO ai_audit_reports (prompt_used, report_text) VALUES ($1, $2)',
+            [prompt, report]
+        );
+
+        res.json({ result: report });
+    } catch (error) {
+        logger.error(error, 'Global Audit Error');
+        res.status(500).json({ error: 'Audit failed' });
+    }
+});
+
+app.post('/api/generate', isAuthenticated, async (req, res) => {
+  const { prompt, chat_id } = req.body;
   const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+  
   if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
   if (!GOOGLE_API_KEY) return res.status(500).json({ error: 'API key is not configured' });
+  
   try {
+    let contextStr = '';
+    if (chat_id) {
+       const chatRes = await pool.query('SELECT department_id FROM chats WHERE id = $1', [chat_id]);
+       if (chatRes.rows.length > 0) {
+           const dId = chatRes.rows[0].department_id;
+           const bpRes = await pool.query("SELECT name FROM business_processes WHERE department_id = $1 AND status = 'approved'", [dId]);
+           if (bpRes.rows.length > 0) {
+               contextStr = 'КОНТЕКСТ УТВЕРЖДЕННЫХ ПРОЦЕССОВ ВАШЕГО ДЕПАРТАМЕНТА:\n' + bpRes.rows.map(r => `- ${r.name}`).join('\n') + '\nСТРОГО УЧИТЫВАЙ ЭТИ ПРОЦЕССЫ ПРИ ГЕНЕРАЦИИ.\n\n';
+           }
+       }
+    }
+    const finalPrompt = contextStr + prompt;
+
     const apiResponse = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt }] }] })
     });
     if (!apiResponse.ok) {
       const errorData = await apiResponse.json();
@@ -872,6 +1052,43 @@ app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (
     logger.error(error);
     res.status(500).json({ error: 'An internal server error occurred.' });
   }
+});
+
+app.post('/api/chats/:id/validate', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { process_text } = req.body;
+    if (!process_text) return res.status(400).json({ error: 'Process text required' });
+
+    try {
+        const bpRes = await pool.query("SELECT name, department_id FROM business_processes WHERE status = 'approved'");
+        const globalContext = bpRes.rows.map(r => `${r.name} (Dept: ${r.department_id})`).join(', ');
+
+        const prompt = `
+Ты интеллектуальный Copilot. Проанализируй этот бизнес-процесс на предмет логических нестыковок и нарушений, сравнивая его с глобальной картой утвержденных процессов компании.
+ГЛОБАЛЬНАЯ КАРТА: ${globalContext}
+
+ТЕКУЩИЙ ПРОЦЕСС НА ПРОВЕРКЕ:
+${process_text}
+
+Ответь кратко, есть ли ошибки логики (например, дублирование функций или конфликт полномочий). Если все ок, напиши 'Ошибок не найдено'.
+        `;
+        
+        const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+        const apiResponse = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        
+        const data = await apiResponse.json();
+        const analysis = data.candidates && data.candidates[0] ? data.candidates[0].content.parts[0].text : 'Ошибок не найдено';
+        
+        res.json({ analysis });
+    } catch (error) {
+        logger.error(error, 'Error during copilot validation');
+        res.status(500).json({ error: 'Validation failed' });
+    }
 });
 
 const BCRYPT_SALT_ROUNDS = 10;

@@ -730,8 +730,25 @@ ${brokenCode}
             showNotification("Нельзя сохранить пустую версию.", "error");
             return;
         }
-        setButtonLoading(button, true, 'Сохранение с ИИ...');
+        
+        setButtonLoading(button, true, 'Copilot проверяет...');
         try {
+            const copilotRes = await fetchWithAuth(`/api/chats/${chatId}/validate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ process_text })
+            });
+            const validateData = await copilotRes.json();
+            
+            if (validateData.analysis && validateData.analysis.trim() !== 'Ошибок не найдено' && validateData.analysis.trim().length > 3) {
+                const proceed = confirm(`⚠️ Внимание от AI Copilot:\n\n${validateData.analysis}\n\nВы уверены, что хотите продолжить сохранение?`);
+                if (!proceed) {
+                    setButtonLoading(button, false);
+                    return;
+                }
+            }
+            
+            setButtonLoading(button, true, 'Сохранение с ИИ...');
             const result = await generateProcessArtifacts(process_text);
             const { standardDescription, mermaidCode } = result;
 
@@ -1658,6 +1675,145 @@ ${brokenCode}
     saveMermaidChangesBtn.addEventListener('click', handleSaveMermaidChanges);
     mermaidEditorTextarea.addEventListener('input', handleMermaidEditorInput);
 
+
+    const refreshMapBtn = document.getElementById('refresh-map-btn');
+    const globalAuditBtn = document.getElementById('global-audit-btn');
+    let cy; // Cytoscape instance
+
+    async function loadProcessMap() {
+        if (!document.getElementById('cy')) return;
+        try {
+            const data = await fetchWithAuth('/api/admin/map');
+            const elements = [];
+
+            data.departments.forEach(dept => {
+                elements.push({
+                    data: { id: `dept_${dept.id}`, name: dept.name, type: 'department' },
+                    classes: 'department'
+                });
+            });
+
+            data.processes.forEach(proc => {
+                elements.push({
+                    data: {
+                        id: `proc_${proc.id}`,
+                        name: proc.name,
+                        parent: proc.department_id ? `dept_${proc.department_id}` : undefined,
+                        status: proc.status,
+                        type: 'process'
+                    },
+                    classes: `process status-${proc.status}`
+                });
+            });
+
+            data.relations.forEach(rel => {
+                elements.push({
+                    data: {
+                        id: `rel_${rel.id}`,
+                        source: `proc_${rel.source_process_id}`,
+                        target: `proc_${rel.target_process_id}`,
+                        label: rel.relation_type || ''
+                    }
+                });
+            });
+
+            if (!cy) {
+                // Initialize cytoscape
+                cy = cytoscape({
+                    container: document.getElementById('cy'),
+                    elements: elements,
+                    style: [
+                        { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'rectangle', 'background-color': '#e0f2f1', 'border-width': 2, 'border-color': '#00796b', 'color': '#004d40', 'text-valign': 'top', 'text-margin-y': -5, 'font-weight': 'bold', 'padding': 20 } },
+                        { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 1, 'border-color': '#9e9e9e', 'text-valign': 'center', 'text-halign': 'center', 'width': 'label', 'height': 'label', 'padding': 10 } },
+                        { selector: 'node.status-approved', style: { 'border-color': '#388e3c', 'border-width': 2 } },
+                        { selector: 'node.status-draft', style: { 'border-style': 'dashed', 'border-width': 2 } },
+                        { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'font-size': 10, 'color': '#555', 'text-background-opacity': 1, 'text-background-color': '#fff' } }
+                    ],
+                    layout: { name: 'cose', padding: 30 }
+                });
+
+                cy.on('cxttap', 'node.department', async (event) => {
+                    const deptId = event.target.id().replace('dept_', '');
+                    const name = prompt('Введите название нового процесса (черновика) для ' + event.target.data('name') + ':');
+                    if (name) {
+                        try {
+                            await fetchWithAuth('/api/admin/processes', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name, department_id: deptId })
+                            });
+                            showNotification('Черновик процесса успешно создан', 'success');
+                            loadProcessMap();
+                        } catch (e) {
+                            showNotification('Ошибка создания процесса', 'error');
+                        }
+                    }
+                });
+                cy.on('cxttap', 'core', async (event) => {
+                    if (event.target === cy) {
+                        showNotification('Для создания процесса кликните правой кнопкой мыши по нужному Департаменту.', 'info');
+                    }
+                });
+            } else {
+                cy.elements().remove();
+                cy.add(elements);
+                cy.layout({ name: 'cose', padding: 30 }).run();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки карты:', error);
+            showNotification('Ошибка при загрузке карты процессов', 'error');
+        }
+    }
+
+    if (refreshMapBtn) refreshMapBtn.addEventListener('click', loadProcessMap);
+    
+    // Quick hook to load map when admin panel starts
+    const originalLoadAdminDeps = window.loadAdminDepartments; // We hook into existing function or just call it after login
+    // we'll just expose it to window for now to call inside handleLogin 
+    window.loadProcessMap = loadProcessMap;
+
+    const globalAuditModal = document.getElementById('global-audit-modal');
+    const closeGlobalAuditModal = document.getElementById('close-global-audit-modal');
+    const auditPromptInput = document.getElementById('audit-prompt');
+    const runAuditBtn = document.getElementById('run-audit-btn');
+    const auditResultsDiv = document.getElementById('audit-results');
+
+    if (globalAuditBtn) {
+        globalAuditBtn.addEventListener('click', () => {
+            if (globalAuditModal) globalAuditModal.style.display = 'block';
+        });
+    }
+
+    if (closeGlobalAuditModal) {
+        closeGlobalAuditModal.addEventListener('click', () => {
+             if (globalAuditModal) globalAuditModal.style.display = 'none';
+        });
+    }
+
+    if (runAuditBtn) {
+        runAuditBtn.addEventListener('click', async () => {
+            const prompt = auditPromptInput.value.trim();
+            if (!prompt) return showNotification('Введите промпт для аудита', 'error');
+
+            setButtonLoading(runAuditBtn, true, 'Аудит...');
+            auditResultsDiv.style.display = 'block';
+            auditResultsDiv.textContent = 'Идет анализ... Ожидайте...';
+
+            try {
+                const res = await fetchWithAuth('/api/admin/audit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+                const data = await res.json();
+                auditResultsDiv.textContent = data.result || 'Ошибок не найдено (или пустой ответ).';
+            } catch (error) {
+                auditResultsDiv.textContent = `Ошибка: ${error.message}`;
+            } finally {
+                setButtonLoading(runAuditBtn, false, 'Запустить аудит');
+            }
+        });
+    }
 
     fetchCsrfToken();
     checkSession();
