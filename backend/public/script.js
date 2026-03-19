@@ -1750,6 +1750,7 @@ ${brokenCode}
                     const title = document.getElementById('process-info-title');
                     const desc = document.getElementById('process-info-description');
                     const closeBtn = document.getElementById('close-process-info-btn');
+                    const deleteBtn = document.getElementById('delete-process-btn');
                     
                     if(modal && title && desc) {
                         title.innerText = nodeData.name;
@@ -1759,23 +1760,58 @@ ${brokenCode}
                         if(closeBtn) {
                             closeBtn.onclick = () => modal.style.display = 'none';
                         }
+                        
+                        if(deleteBtn) {
+                            deleteBtn.onclick = async () => {
+                                if(confirm(`Вы уверены, что хотите удалить процесс "${nodeData.name}"? Это действие необратимо.`)) {
+                                    try {
+                                        const res = await fetchWithAuth(`/api/admin/processes/${nodeData.id.replace('proc_', '')}`, { method: 'DELETE' });
+                                        if (res.ok) {
+                                            showNotification('Процесс успешно удален', 'success');
+                                            modal.style.display = 'none';
+                                            loadProcessMap();
+                                        }
+                                    } catch (e) {
+                                        showNotification('Ошибка при удалении процесса', 'error');
+                                    }
+                                }
+                            };
+                        }
                     }
                 });
 
                 cy.on('cxttap', 'node.department', async (event) => {
                     const deptId = event.target.id().replace('dept_', '');
-                    const name = prompt('Введите название нового процесса (черновика) для ' + event.target.data('name') + ':');
-                    if (name) {
-                        try {
-                            await fetchWithAuth('/api/admin/processes', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ name, department_id: deptId })
-                            });
-                            showNotification('Черновик процесса успешно создан', 'success');
-                            loadProcessMap();
-                        } catch (e) {
-                            showNotification('Ошибка создания процесса', 'error');
+                    const deptName = event.target.data('name');
+                    
+                    const action = prompt(`Департамент: ${deptName}\n1 - Добавить процесс\n2 - Удалить департамент\n\nВведите номер действия (1 или 2):`);
+                    
+                    if (action === '1') {
+                        const name = prompt('Введите название нового процесса (черновика) для ' + deptName + ':');
+                        if (name) {
+                            try {
+                                await fetchWithAuth('/api/admin/processes', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ name, department_id: deptId })
+                                });
+                                showNotification('Черновик процесса успешно создан', 'success');
+                                loadProcessMap();
+                            } catch (e) {
+                                showNotification('Ошибка создания процесса', 'error');
+                            }
+                        }
+                    } else if (action === '2') {
+                        if (confirm(`Вы уверены, что хотите полностью удалить департамент "${deptName}" из базы данных?`)) {
+                            try {
+                                const res = await fetchWithAuth(`/api/admin/departments/${deptId}`, { method: 'DELETE' });
+                                if (res.ok) {
+                                    showNotification('Департамент удален', 'success');
+                                    loadProcessMap();
+                                }
+                            } catch (e) {
+                                showNotification('Ошибка при удалении департамента', 'error');
+                            }
                         }
                     }
                 });

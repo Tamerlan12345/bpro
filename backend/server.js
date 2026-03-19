@@ -908,6 +908,30 @@ app.post('/api/admin/processes', isAuthenticated, isAdmin, async (req, res) => {
     }
 });
 
+app.delete('/api/admin/processes/:id', isAuthenticated, isAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM business_processes WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (error) {
+        logger.error(error, `Error deleting process ${id}`);
+        res.status(500).json({ error: 'Failed to delete process.' });
+    }
+});
+
+app.delete('/api/admin/departments/:id', isAuthenticated, isAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Find if there are processes tied to this department. 
+        // business_processes has ON DELETE SET NULL, but we might want to check or just let it happen.
+        await pool.query('DELETE FROM departments WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (error) {
+        logger.error(error, `Error deleting department ${id}`);
+        res.status(500).json({ error: 'Failed to delete department.' });
+    }
+});
+
 const uploadDocs = multer({
     storage: storage,
     limits: { fileSize: 50 * 1024 * 1024 }

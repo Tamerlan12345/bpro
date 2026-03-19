@@ -614,6 +614,14 @@ p.error-message {
     box-shadow: var(--shadow);
     border: 1px solid var(--border-color);
 }
+
+#cy {
+    transition: box-shadow 0.3s ease;
+}
+
+#cy:hover {
+    box-shadow: 0 0 15px rgba(42, 111, 219, 0.15);
+}
 #admin-panel h2, #admin-panel h3, #admin-panel h4, #admin-panel h5 {
     font-weight: 600;
     margin-top: 0;
