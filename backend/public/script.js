@@ -1683,7 +1683,9 @@ ${brokenCode}
     async function loadProcessMap() {
         if (!document.getElementById('cy')) return;
         try {
-            const data = await fetchWithAuth('/api/admin/map');
+            const res = await fetchWithAuth('/api/admin/map');
+            const data = await res.json();
+
             if (!data || data.error) {
                 console.error('Map loading error or unauthorized:', data?.error);
                 return;
@@ -1715,7 +1717,7 @@ ${brokenCode}
                 });
             });
 
-            data.relations.forEach(rel => {
+            relations.forEach(rel => {
                 elements.push({
                     data: {
                         id: `rel_${rel.id}`,
@@ -1820,6 +1822,94 @@ ${brokenCode}
                 auditResultsDiv.textContent = `Ошибка: ${error.message}`;
             } finally {
                 setButtonLoading(runAuditBtn, false, 'Запустить аудит');
+            }
+        });
+    }
+
+    // Admin Panel Tabs Logic
+    const adminTabUsers = document.getElementById('admin-tab-users');
+    const adminTabMap = document.getElementById('admin-tab-map');
+    const adminTabImport = document.getElementById('admin-tab-import');
+    const adminViewUsers = document.getElementById('admin-view-users');
+    const adminViewMap = document.getElementById('admin-view-map');
+    const adminViewImport = document.getElementById('admin-view-import');
+
+    function switchAdminTab(targetTab) {
+        // Hide all views
+        [adminViewUsers, adminViewMap, adminViewImport].forEach(v => {
+            if(v) v.style.display = 'none';
+        });
+        // Remove active from all tabs
+        [adminTabUsers, adminTabMap, adminTabImport].forEach(t => {
+            if(t) t.classList.remove('active');
+        });
+
+        if (targetTab === 'users') {
+            if (adminViewUsers) adminViewUsers.style.display = 'block';
+            if (adminTabUsers) adminTabUsers.classList.add('active');
+        } else if (targetTab === 'map') {
+            if (adminViewMap) adminViewMap.style.display = 'block';
+            if (adminTabMap) adminTabMap.classList.add('active');
+            // Render cytoscape when tab becomes visible
+            loadProcessMap();
+        } else if (targetTab === 'import') {
+            if (adminViewImport) adminViewImport.style.display = 'block';
+            if (adminTabImport) adminTabImport.classList.add('active');
+        }
+    }
+
+    if (adminTabUsers) adminTabUsers.addEventListener('click', () => switchAdminTab('users'));
+    if (adminTabMap) adminTabMap.addEventListener('click', () => switchAdminTab('map'));
+    if (adminTabImport) adminTabImport.addEventListener('click', () => switchAdminTab('import'));
+
+    // Mass Upload Logic
+    const massUploadBtn = document.getElementById('mass-upload-btn');
+    const massUploadInput = document.getElementById('mass-upload-input');
+    const massUploadStatus = document.getElementById('mass-upload-status');
+
+    if (massUploadBtn) {
+        massUploadBtn.addEventListener('click', async () => {
+            const files = massUploadInput.files;
+            if (!files || files.length === 0) {
+                return showNotification('Пожалуйста, выберите хотя бы один файл (только .txt)', 'error');
+            }
+
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('documents', files[i]);
+            }
+
+            setButtonLoading(massUploadBtn, true, 'Загрузка и Анализ...');
+            massUploadStatus.innerText = 'Этап 1: Распознавание процессов ИИ... Это может занять несколько минут.';
+            massUploadStatus.style.color = '#007bff';
+
+            try {
+                const res = await fetch('/api/admin/parse-documents', {
+                    method: 'POST',
+                    headers: {
+                        'CSRF-Token': csrfToken
+                    },
+                    body: formData
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || 'Failed to upload documents');
+                }
+
+                massUploadStatus.innerText = 'Анализ завершен! Выделено процессов: ' + (data.parsed?.processes?.length || 0);
+                massUploadStatus.style.color = 'green';
+                showNotification('Документы успешно распарсены ИИ', 'success');
+
+                if (window.loadAdminDepartments) window.loadAdminDepartments();
+                switchAdminTab('map');
+            } catch (error) {
+                console.error('Upload Error:', error);
+                massUploadStatus.innerText = `Ошибка при анализе: ${error.message}`;
+                massUploadStatus.style.color = 'red';
+            } finally {
+                setButtonLoading(massUploadBtn, false, 'Загрузить и Анализировать');
+                massUploadInput.value = '';
             }
         });
     }
