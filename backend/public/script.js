@@ -1676,8 +1676,61 @@ ${brokenCode}
     mermaidEditorTextarea.addEventListener('input', handleMermaidEditorInput);
 
 
-    const refreshMapBtn = document.getElementById('refresh-map-btn');
     const globalAuditBtn = document.getElementById('global-audit-btn');
+    const globalAuditModal = document.getElementById('global-audit-modal');
+    const closeGlobalAuditModal = document.getElementById('close-global-audit-modal');
+    const runGlobalAuditBtn = document.getElementById('run-global-audit-btn');
+    const auditPrompt = document.getElementById('audit-prompt');
+    const auditResultArea = document.getElementById('global-audit-result-area');
+    const auditResultText = document.getElementById('global-audit-text');
+
+    if (globalAuditBtn) {
+        globalAuditBtn.addEventListener('click', () => {
+            if (globalAuditModal) globalAuditModal.style.display = 'block';
+        });
+    }
+
+    if (closeGlobalAuditModal) {
+        closeGlobalAuditModal.addEventListener('click', () => {
+            globalAuditModal.style.display = 'none';
+        });
+    }
+
+    if (runGlobalAuditBtn) {
+        runGlobalAuditBtn.addEventListener('click', async () => {
+            const prompt = auditPrompt.value.trim();
+            if (!prompt) return showNotification('Введите запрос для анализа', 'error');
+
+            runGlobalAuditBtn.disabled = true;
+            runGlobalAuditBtn.innerHTML = '<span class="spinner"></span> Обработка...';
+            auditResultArea.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/admin/audit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+                    body: JSON.stringify({ prompt })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    auditResultText.innerText = data.result;
+                    auditResultArea.style.display = 'block';
+                } else {
+                    const error = await response.json();
+                    showNotification(error.error || 'Ошибка аудита', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showNotification('Сетевая ошибка при аудите', 'error');
+            } finally {
+                runGlobalAuditBtn.disabled = false;
+                runGlobalAuditBtn.innerHTML = '🚀 Запустить Анализ';
+            }
+        });
+    }
+
+    const refreshMapBtn = document.getElementById('refresh-map-btn');
     const cyZoomIn = document.getElementById('cy-zoom-in');
     const cyZoomOut = document.getElementById('cy-zoom-out');
     const cyFit = document.getElementById('cy-fit');
@@ -1807,13 +1860,10 @@ ${brokenCode}
                         }
                     ],
                     layout: { 
-                        name: 'cose', 
-                        padding: 100, 
-                        nodeOverlap: 20, 
-                        nodeRepulsion: 8000000, 
-                        idealEdgeLength: 150, 
-                        edgeElasticity: 100,
-                        componentSpacing: 100
+                        name: elements.some(e => e.position) ? 'preset' : 'dagre',
+                        rankDir: 'LR', // Left to Right
+                        nodeSep: 50, // Separation between nodes in the same rank
+                        rankSep: 100 // Separation between ranks
                     }
                 });
 
@@ -1849,7 +1899,7 @@ ${brokenCode}
                     
                     if(modal && title && desc) {
                         title.innerText = nodeData.name;
-                        desc.innerHTML = marked.parse(nodeData.description);
+                        desc.innerHTML = marked.parse(nodeData.description || 'Описание отсутствует');
                         if (owner) owner.innerText = nodeData.owner || 'Не назначен';
                         if (goal) goal.innerText = nodeData.goal || 'Цель не указана';
                         if (status) {
@@ -1865,11 +1915,8 @@ ${brokenCode}
 
                         if(goToChatBtn) {
                             goToChatBtn.onclick = () => {
-                                // Logic to navigate to this process in chat view
-                                // For now, we simple close modal and alert
                                 modal.style.display = 'none';
                                 showNotification(`Переход к процессу: ${nodeData.name}`, 'info');
-                                // Could implement real navigation if chat IDs were linked
                             };
                         }
                         
@@ -1940,7 +1987,12 @@ ${brokenCode}
             } else {
                 cy.elements().remove();
                 cy.add(elements);
-                cy.layout({ name: 'cose', padding: 50, nodeRepulsion: 8000000 }).run();
+                cy.layout({ 
+                    name: elements.some(e => e.position) ? 'preset' : 'dagre',
+                    rankDir: 'LR',
+                    nodeSep: 50,
+                    rankSep: 100
+                }).run();
             }
         } catch (error) {
             console.error('Ошибка загрузки карты:', error);
@@ -1954,50 +2006,17 @@ ${brokenCode}
     if (cyFit) cyFit.addEventListener('click', () => cy.fit());
     
     // Quick hook to load map when admin panel starts
-    const originalLoadAdminDeps = window.loadAdminDepartments; // We hook into existing function or just call it after login
-    // we'll just expose it to window for now to call inside handleLogin 
     window.loadProcessMap = loadProcessMap;
 
-    const globalAuditModal = document.getElementById('global-audit-modal');
-    const closeGlobalAuditModal = document.getElementById('close-global-audit-modal');
-    const auditPromptInput = document.getElementById('audit-prompt');
-    const runAuditBtn = document.getElementById('run-audit-btn');
-    const auditResultContainer = document.getElementById('audit-result-container');
-    const auditResultText = document.getElementById('audit-result-text');
-
-    if (globalAuditBtn) {
-        globalAuditBtn.addEventListener('click', () => {
-            if (globalAuditModal) globalAuditModal.style.display = 'block';
-        });
-    }
-
-    if (closeGlobalAuditModal) {
-        closeGlobalAuditModal.addEventListener('click', () => {
-             if (globalAuditModal) globalAuditModal.style.display = 'none';
-        });
-    }
-
-    if (runAuditBtn) {
-        runAuditBtn.addEventListener('click', async () => {
-            const prompt = auditPromptInput.value.trim();
-            if (!prompt) return showNotification('Введите промпт для аудита', 'error');
-
-            setButtonLoading(runAuditBtn, true, 'Аудит...');
-            if (auditResultContainer) auditResultContainer.style.display = 'block';
-            if (auditResultText) auditResultText.textContent = 'Идет анализ... Ожидайте...';
-
-            try {
-                const res = await fetchWithAuth('/api/admin/audit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt })
-                });
-                const data = await res.json();
-                if (auditResultText) auditResultText.innerHTML = marked.parse(data.result || 'Ошибок не найдено (или пустой ответ).');
-            } catch (error) {
-                if (auditResultText) auditResultText.textContent = `Ошибка: ${error.message}`;
-            } finally {
-                setButtonLoading(runAuditBtn, false, 'Запустить аудит');
+    const toggleChatLinks = document.getElementById('toggle-chat-links');
+    if (toggleChatLinks) {
+        toggleChatLinks.addEventListener('change', () => {
+            if (cy) {
+                if (toggleChatLinks.checked) {
+                    cy.edges('[relation_type = "Связано с чатом"]').style('display', 'element');
+                } else {
+                    cy.edges('[relation_type = "Связано с чатом"]').style('display', 'none');
+                }
             }
         });
     }

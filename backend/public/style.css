@@ -615,12 +615,129 @@ p.error-message {
     border: 1px solid var(--border-color);
 }
 
-#cy {
-    transition: box-shadow 0.3s ease;
+/* --- Premium Glassmorphism --- */
+.glass {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15) !important;
 }
 
-#cy:hover {
-    box-shadow: 0 0 15px rgba(42, 111, 219, 0.15);
+/* --- Toggle Switch Styling --- */
+.toggle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--space-smd);
+    background: var(--bg-surface-secondary);
+    padding: var(--space-xs) var(--space-md);
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.toggle-label {
+    font-size: var(--font-sm);
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: var(--primary-color);
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px var(--primary-color);
+}
+
+input:checked + .slider:before {
+    transform: translateX(18px);
+}
+
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+/* --- Map Header & Controls --- */
+.map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+    flex-wrap: wrap;
+    gap: var(--space-md);
+}
+
+.map-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+/* --- Cytoscape Styling --- */
+#cy {
+    background-color: #fcfdfe;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+/* --- Modal Close Button Fix --- */
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-muted-color);
+    transition: color 0.2s;
+    z-index: 10;
+    padding: 5px;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: var(--color-danger);
 }
 #admin-panel h2, #admin-panel h3, #admin-panel h4, #admin-panel h5 {
     font-weight: 600;
