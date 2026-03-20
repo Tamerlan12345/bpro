@@ -1829,14 +1829,9 @@ ${brokenCode}
                                 'text-max-width': 160, 
                                 'font-size': 13, 
                                 'padding': 20,
-                                'width': 'label',
-                                'height': 'label',
                                 'min-width': 140,
                                 'min-height': 60,
-                                'shadow-blur': 15, 
-                                'shadow-color': 'rgba(0,0,0,0.1)', 
-                                'shadow-opacity': 1,
-                                'shadow-offset-y': 4
+                                'background-opacity': 1
                             } 
                         },
                         { selector: 'node.status-approved', style: { 'border-color': '#10b981', 'background-color': '#ecfdf5' } },
