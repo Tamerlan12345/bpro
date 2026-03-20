@@ -1678,6 +1678,9 @@ ${brokenCode}
 
     const refreshMapBtn = document.getElementById('refresh-map-btn');
     const globalAuditBtn = document.getElementById('global-audit-btn');
+    const cyZoomIn = document.getElementById('cy-zoom-in');
+    const cyZoomOut = document.getElementById('cy-zoom-out');
+    const cyFit = document.getElementById('cy-fit');
     let cy; // Cytoscape instance
 
     async function loadProcessMap() {
@@ -1710,6 +1713,8 @@ ${brokenCode}
                         id: `proc_${proc.id}`,
                         name: proc.name,
                         description: proc.description || 'Описание отсутствует',
+                        goal: proc.goal || 'Цель не указана',
+                        owner: proc.owner || 'Не назначен',
                         parent: proc.department_id ? `dept_${proc.department_id}` : undefined,
                         status: proc.status,
                         type: 'process'
@@ -1735,13 +1740,80 @@ ${brokenCode}
                     container: document.getElementById('cy'),
                     elements: elements,
                     style: [
-                        { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#f0f9ff', 'border-width': 2, 'border-color': '#0284c7', 'color': '#0369a1', 'text-valign': 'top', 'text-margin-y': -8, 'font-weight': 'bold', 'font-size': 20, 'padding': 40 } },
-                        { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 2, 'border-color': '#94a3b8', 'color': '#334155', 'text-valign': 'center', 'text-halign': 'center', 'text-wrap': 'wrap', 'text-max-width': 180, 'font-size': 14, 'padding': 15, 'shadow-blur': 10, 'shadow-color': '#ccc', 'shadow-opacity': 0.5 } },
-                        { selector: 'node.status-approved', style: { 'border-color': '#22c55e', 'background-color': '#f0fdf4' } },
-                        { selector: 'node.status-draft', style: { 'border-style': 'dashed', 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
-                        { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#94a3b8', 'line-color': '#cbd5e1', 'width': 3, 'font-size': 11, 'color': '#64748b', 'text-background-opacity': 1, 'text-background-color': '#fff', 'text-background-padding': 3 } }
+                        { 
+                            selector: 'node.department', 
+                            style: { 
+                                'label': 'data(name)', 
+                                'shape': 'round-rectangle', 
+                                'background-color': '#f8fafc', 
+                                'border-width': 1, 
+                                'border-color': '#cbd5e1', 
+                                'color': '#64748b', 
+                                'text-valign': 'top', 
+                                'text-margin-y': -15, 
+                                'font-weight': '600', 
+                                'font-size': 18, 
+                                'padding': 60,
+                                'text-background-opacity': 1,
+                                'text-background-color': '#f8fafc',
+                                'text-background-padding': 5,
+                                'text-background-shape': 'roundrectangle'
+                            } 
+                        },
+                        { 
+                            selector: 'node.process', 
+                            style: { 
+                                'label': 'data(name)', 
+                                'shape': 'round-rectangle', 
+                                'background-color': '#ffffff', 
+                                'border-width': 2, 
+                                'border-color': '#3b82f6', 
+                                'color': '#1e293b', 
+                                'text-valign': 'center', 
+                                'text-halign': 'center', 
+                                'text-wrap': 'wrap', 
+                                'text-max-width': 160, 
+                                'font-size': 13, 
+                                'padding': 20,
+                                'width': 'label',
+                                'height': 'label',
+                                'min-width': 140,
+                                'min-height': 60,
+                                'shadow-blur': 15, 
+                                'shadow-color': 'rgba(0,0,0,0.1)', 
+                                'shadow-opacity': 1,
+                                'shadow-offset-y': 4
+                            } 
+                        },
+                        { selector: 'node.status-approved', style: { 'border-color': '#10b981', 'background-color': '#ecfdf5' } },
+                        { selector: 'node.status-draft', style: { 'border-style': 'solid', 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
+                        { 
+                            selector: 'edge', 
+                            style: { 
+                                'label': 'data(label)', 
+                                'curve-style': 'bezier', 
+                                'target-arrow-shape': 'triangle', 
+                                'target-arrow-color': '#94a3b8', 
+                                'line-color': '#cbd5e1', 
+                                'width': 2, 
+                                'font-size': 10, 
+                                'color': '#94a3b8', 
+                                'text-background-opacity': 1, 
+                                'text-background-color': '#fff', 
+                                'text-background-padding': 2,
+                                'arrow-scale': 1.2
+                            } 
+                        }
                     ],
-                    layout: { name: 'cose', padding: 50, nodeOverlap: 20, nodeRepulsion: 400000, idealEdgeLength: 100, edgeElasticity: 100 }
+                    layout: { 
+                        name: 'cose', 
+                        padding: 100, 
+                        nodeOverlap: 20, 
+                        nodeRepulsion: 8000000, 
+                        idealEdgeLength: 150, 
+                        edgeElasticity: 100,
+                        componentSpacing: 100
+                    }
                 });
 
                 cy.on('tap', 'node.process', function(evt){
@@ -1749,16 +1821,37 @@ ${brokenCode}
                     const modal = document.getElementById('process-info-modal');
                     const title = document.getElementById('process-info-title');
                     const desc = document.getElementById('process-info-description');
+                    const owner = document.getElementById('process-info-owner');
+                    const goal = document.getElementById('process-info-goal');
+                    const status = document.getElementById('process-info-status');
                     const closeBtn = document.getElementById('close-process-info-btn');
                     const deleteBtn = document.getElementById('delete-process-btn');
+                    const goToChatBtn = document.getElementById('go-to-chat-btn');
                     
                     if(modal && title && desc) {
                         title.innerText = nodeData.name;
-                        desc.innerText = nodeData.description;
+                        desc.innerHTML = marked.parse(nodeData.description);
+                        if (owner) owner.innerText = nodeData.owner || 'Не назначен';
+                        if (goal) goal.innerText = nodeData.goal || 'Цель не указана';
+                        if (status) {
+                            status.innerText = nodeData.status === 'approved' ? 'Одобрен' : 'Черновик';
+                            status.className = 'status-badge ' + (nodeData.status === 'approved' ? 'status-approved' : 'status-draft');
+                        }
+                        
                         modal.style.display = 'block';
 
                         if(closeBtn) {
                             closeBtn.onclick = () => modal.style.display = 'none';
+                        }
+
+                        if(goToChatBtn) {
+                            goToChatBtn.onclick = () => {
+                                // Logic to navigate to this process in chat view
+                                // For now, we simple close modal and alert
+                                modal.style.display = 'none';
+                                showNotification(`Переход к процессу: ${nodeData.name}`, 'info');
+                                // Could implement real navigation if chat IDs were linked
+                            };
                         }
                         
                         if(deleteBtn) {
@@ -1780,20 +1873,22 @@ ${brokenCode}
                     }
                 });
 
+                // Context menu for department
                 cy.on('cxttap', 'node.department', async (event) => {
                     const deptId = event.target.id().replace('dept_', '');
                     const deptName = event.target.data('name');
                     
+                    // Improved interaction: use prompt for name but allow multiple actions
                     const action = prompt(`Департамент: ${deptName}\n1 - Добавить процесс\n2 - Удалить департамент\n\nВведите номер действия (1 или 2):`);
                     
                     if (action === '1') {
-                        const name = prompt('Введите название нового процесса (черновика) для ' + deptName + ':');
+                        const name = prompt('Введите название нового процесса:');
                         if (name) {
                             try {
                                 await fetchWithAuth('/api/admin/processes', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ name, department_id: deptId })
+                                    body: JSON.stringify({ name, department_id: deptId, status: 'draft' })
                                 });
                                 showNotification('Черновик процесса успешно создан', 'success');
                                 loadProcessMap();
@@ -1802,7 +1897,7 @@ ${brokenCode}
                             }
                         }
                     } else if (action === '2') {
-                        if (confirm(`Вы уверены, что хотите полностью удалить департамент "${deptName}" из базы данных?`)) {
+                        if (confirm(`Вы уверены, что хотите удалить департамент "${deptName}" и ВСЕ его процессы?`)) {
                             try {
                                 const res = await fetchWithAuth(`/api/admin/departments/${deptId}`, { method: 'DELETE' });
                                 if (res.ok) {
@@ -1815,15 +1910,18 @@ ${brokenCode}
                         }
                     }
                 });
-                cy.on('cxttap', 'core', async (event) => {
-                    if (event.target === cy) {
-                        showNotification('Для создания процесса кликните правой кнопкой мыши по нужному Департаменту.', 'info');
-                    }
+
+                // Keyboard controls
+                window.addEventListener('keydown', (e) => {
+                    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+                    if (e.key === '+' || e.key === '=') cy.zoom(cy.zoom() * 1.2);
+                    if (e.key === '-' || e.key === '_') cy.zoom(cy.zoom() * 0.8);
                 });
+
             } else {
                 cy.elements().remove();
                 cy.add(elements);
-                cy.layout({ name: 'cose', padding: 30 }).run();
+                cy.layout({ name: 'cose', padding: 50, nodeRepulsion: 8000000 }).run();
             }
         } catch (error) {
             console.error('Ошибка загрузки карты:', error);
@@ -1832,6 +1930,9 @@ ${brokenCode}
     }
 
     if (refreshMapBtn) refreshMapBtn.addEventListener('click', loadProcessMap);
+    if (cyZoomIn) cyZoomIn.addEventListener('click', () => cy.zoom(cy.zoom() * 1.2));
+    if (cyZoomOut) cyZoomOut.addEventListener('click', () => cy.zoom(cy.zoom() * 0.8));
+    if (cyFit) cyFit.addEventListener('click', () => cy.fit());
     
     // Quick hook to load map when admin panel starts
     const originalLoadAdminDeps = window.loadAdminDepartments; // We hook into existing function or just call it after login
@@ -1884,18 +1985,16 @@ ${brokenCode}
     // Admin Panel Tabs Logic
     const adminTabUsers = document.getElementById('admin-tab-users');
     const adminTabMap = document.getElementById('admin-tab-map');
-    const adminTabImport = document.getElementById('admin-tab-import');
     const adminViewUsers = document.getElementById('admin-view-users');
     const adminViewMap = document.getElementById('admin-view-map');
-    const adminViewImport = document.getElementById('admin-view-import');
 
     function switchAdminTab(targetTab) {
         // Hide all views
-        [adminViewUsers, adminViewMap, adminViewImport].forEach(v => {
+        [adminViewUsers, adminViewMap].forEach(v => {
             if(v) v.style.display = 'none';
         });
         // Remove active from all tabs
-        [adminTabUsers, adminTabMap, adminTabImport].forEach(t => {
+        [adminTabUsers, adminTabMap].forEach(t => {
             if(t) t.classList.remove('active');
         });
 
@@ -1907,15 +2006,11 @@ ${brokenCode}
             if (adminTabMap) adminTabMap.classList.add('active');
             // Render cytoscape when tab becomes visible
             loadProcessMap();
-        } else if (targetTab === 'import') {
-            if (adminViewImport) adminViewImport.style.display = 'block';
-            if (adminTabImport) adminTabImport.classList.add('active');
         }
     }
 
     if (adminTabUsers) adminTabUsers.addEventListener('click', () => switchAdminTab('users'));
     if (adminTabMap) adminTabMap.addEventListener('click', () => switchAdminTab('map'));
-    if (adminTabImport) adminTabImport.addEventListener('click', () => switchAdminTab('import'));
 
     // Mass Upload Logic
     const massUploadBtn = document.getElementById('mass-upload-btn');
@@ -1926,7 +2021,7 @@ ${brokenCode}
         massUploadBtn.addEventListener('click', async () => {
             const files = massUploadInput.files;
             if (!files || files.length === 0) {
-                return showNotification('Пожалуйста, выберите хотя бы один файл (только .txt)', 'error');
+                return showNotification('Пожалуйста, выберите хотя бы один файл (.docx, .txt)', 'error');
             }
 
             const formData = new FormData();
@@ -1934,37 +2029,35 @@ ${brokenCode}
                 formData.append('documents', files[i]);
             }
 
-            setButtonLoading(massUploadBtn, true, 'Загрузка и Анализ...');
-            massUploadStatus.innerText = 'Этап 1: Распознавание процессов ИИ... Это может занять несколько минут.';
-            massUploadStatus.style.color = '#007bff';
+            setButtonLoading(massUploadBtn, true, 'Анализ...');
+            massUploadStatus.innerText = 'Этап 1: Извлечение текста и ИИ-анализ... Ожидайте.';
+            massUploadStatus.style.color = '#2a6fdb';
 
             try {
                 const res = await fetch('/api/admin/parse-documents', {
                     method: 'POST',
-                    headers: {
-                        'CSRF-Token': csrfToken
-                    },
+                    headers: { 'CSRF-Token': csrfToken },
                     body: formData
                 });
 
                 const data = await res.json();
-                if (!res.ok) {
-                    throw new Error(data.error || 'Failed to upload documents');
-                }
+                if (!res.ok) throw new Error(data.error || 'Ошибка при загрузке');
 
-                massUploadStatus.innerText = 'Анализ завершен! Выделено процессов: ' + (data.parsed?.processes?.length || 0);
-                massUploadStatus.style.color = 'green';
-                showNotification('Документы успешно распарсены ИИ', 'success');
+                const count = data.parsed?.processes?.length || 0;
+                massUploadStatus.innerText = `✅ Успешно! Добавлено процессов: ${count}`;
+                massUploadStatus.style.color = '#10b981';
+                showNotification(`Документы обработаны. Добавлено ${count} процессов.`, 'success');
 
-                if (window.loadAdminDepartments) window.loadAdminDepartments();
-                switchAdminTab('map');
+                setTimeout(() => {
+                    loadProcessMap();
+                    massUploadInput.value = '';
+                }, 1500);
             } catch (error) {
                 console.error('Upload Error:', error);
-                massUploadStatus.innerText = `Ошибка при анализе: ${error.message}`;
-                massUploadStatus.style.color = 'red';
+                massUploadStatus.innerText = `❌ Ошибка: ${error.message}`;
+                massUploadStatus.style.color = '#dc3545';
             } finally {
-                setButtonLoading(massUploadBtn, false, 'Загрузить и Анализировать');
-                massUploadInput.value = '';
+                setButtonLoading(massUploadBtn, false, 'Анализировать и добавить');
             }
         });
     }

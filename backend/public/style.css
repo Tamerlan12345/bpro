@@ -1245,3 +1245,184 @@ p.error-message {
 #users-table tr:hover {
     background-color: var(--light-bg-color);
 }
+
+/* --- Process Map Premium Styles (Miro-like) --- */
+.map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+}
+
+.map-controls {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.map-hint {
+    font-size: var(--font-sm);
+    color: var(--text-muted-color);
+    margin-bottom: var(--space-lg);
+}
+
+.cy-container {
+    position: relative;
+    width: 100%;
+    height: 600px;
+    background-color: #ffffff;
+    background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+    background-size: 20px 20px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+#cy {
+    width: 100%;
+    height: 100%;
+}
+
+.cy-toolbar {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 10;
+}
+
+.cy-toolbar button {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(4px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-color);
+    font-size: 18px;
+    box-shadow: var(--shadow);
+}
+
+.cy-toolbar button:hover {
+    background: var(--white-color);
+    color: var(--primary-color);
+    transform: scale(1.05);
+}
+
+/* Mass Import Integrated Styles */
+.mass-import-integrated {
+    margin-top: var(--space-2xl);
+    padding: var(--space-xl);
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 1px solid #bae6fd;
+    border-radius: var(--radius-lg);
+}
+
+.import-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-top: var(--space-md);
+}
+
+.import-controls input[type="file"] {
+    flex: 1;
+    padding: var(--space-sm);
+    background: var(--white-color);
+    border: 1px solid #bae6fd;
+    border-radius: var(--radius-md);
+}
+
+.upload-status {
+    margin-top: var(--space-md);
+    font-weight: 500;
+    font-size: var(--font-sm);
+}
+
+/* Premium Modal Enhancements */
+.premium-modal {
+    max-width: 650px !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.premium-modal .modal-header {
+    background: linear-gradient(90deg, var(--primary-color) 0%, #4f46e5 100%);
+    color: var(--white-color);
+    padding: var(--space-xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.premium-modal .modal-header h2 {
+    margin: 0;
+    color: var(--white-color);
+    font-size: var(--font-xl);
+    font-weight: 600;
+}
+
+.premium-modal .close-btn {
+    color: rgba(255, 255, 255, 0.8);
+    top: 15px;
+    right: 20px;
+    font-size: 28px;
+}
+
+.premium-modal .close-btn:hover {
+    color: var(--white-color);
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: var(--font-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.premium-modal .modal-body {
+    padding: var(--space-xl);
+}
+
+.info-group {
+    margin-bottom: var(--space-lg);
+}
+
+.info-group strong {
+    display: block;
+    font-size: var(--font-xs);
+    text-transform: uppercase;
+    color: var(--text-muted-color);
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-xs);
+}
+
+.scroll-area {
+    max-height: 300px;
+    overflow-y: auto;
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    font-size: var(--font-sm);
+    line-height: 1.6;
+}
+
+.premium-modal .modal-footer {
+    padding: var(--space-lg) var(--space-xl);
+    background: #f8fafc;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-md);
+}
+
+#go-to-chat-btn {
+    width: auto;
+}

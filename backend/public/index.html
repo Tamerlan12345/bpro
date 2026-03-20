@@ -162,41 +162,64 @@
         
         <div id="admin-view-map" class="admin-view-content" style="display: none;">
             <div class="admin-section">
-                <h3>Карта Процессов (Mind Map)</h3>
-        <p>Глобальный взгляд на архитектуру процессов всех департаментов. (Левый клик = посмотреть описание, Правый клик = создать новый процесс).</p>
-        <div id="cy" style="width: 100%; height: 500px; border: 1px solid #ccc; background-color: #f9f9f9; border-radius: 8px; cursor: default;">
-            <!-- Cytoscape Container -->
-        </div>
-        <div style="margin-top: 10px;">
-            <button id="refresh-map-btn" class="button-secondary">Обновить карту</button>
-            <button id="global-audit-btn" class="button-primary" style="margin-left: 10px;">🔍 Глобальный ИИ Аудит</button>
-        </div>
+                <div class="map-header">
+                    <h3>Карта Процессов (Mind Map)</h3>
+                    <div class="map-controls">
+                        <button id="refresh-map-btn" class="button-secondary" title="Обновить карту">🔄 Обновить</button>
+                        <button id="global-audit-btn" class="button-primary" title="Запустить ИИ Аудит">🔍 Глобальный ИИ Аудит</button>
+                    </div>
+                </div>
+                <p class="map-hint">Глобальный взгляд на архитектуру процессов. Используйте левую кнопку для передвижения, колесо для зума. Клик по процессу откроет детали.</p>
+                
+                <div id="cy-container" class="cy-container">
+                    <div id="cy"></div>
+                    <div class="cy-toolbar">
+                        <button id="cy-zoom-in" title="Приблизить">+</button>
+                        <button id="cy-zoom-out" title="Отдалить">-</button>
+                        <button id="cy-fit" title="По размеру">⏹</button>
+                    </div>
+                </div>
 
-        <div id="process-info-modal" class="modal" style="display: none; z-index: 10000;">
-            <div class="modal-content">
-                <button class="close-btn" id="close-process-info-btn" aria-label="Закрыть">&times;</button>
-                <h2 id="process-info-title">Описание процесса</h2>
-                <div id="process-info-description" style="white-space: pre-wrap; font-size: 14px; margin-top: 15px; max-height: 400px; overflow-y: auto;"></div>
-                <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
-                    <button id="delete-process-btn" class="button-secondary" style="background-color: #fee2e2; color: #b91c1c; border-color: #fecaca;">🗑️ Удалить процесс</button>
+                <div class="admin-section mass-import-integrated">
+                    <h3>📥 Массовый импорт документов</h3>
+                    <p>Загрузите регламенты (.docx, .txt) для автоматического наполнения карты через ИИ.</p>
+                    <div class="import-controls">
+                        <input type="file" id="mass-upload-input" accept=".txt,.pdf,.docx" multiple>
+                        <button id="mass-upload-btn" class="button-primary">Анализировать и добавить</button>
+                    </div>
+                    <div id="mass-upload-status" class="upload-status"></div>
+                </div>
+
+                <div id="process-info-modal" class="modal" style="display: none; z-index: 10000;">
+                    <div class="modal-content premium-modal">
+                        <button class="close-btn" id="close-process-info-btn" aria-label="Закрыть">&times;</button>
+                        <div class="modal-header">
+                            <h2 id="process-info-title">Описание процесса</h2>
+                            <span id="process-info-status" class="status-badge"></span>
+                        </div>
+                        <div class="modal-body">
+                            <div class="info-group">
+                                <strong>Владелец:</strong>
+                                <span id="process-info-owner"></span>
+                            </div>
+                            <div class="info-group">
+                                <strong>Цель:</strong>
+                                <p id="process-info-goal"></p>
+                            </div>
+                            <div class="info-group">
+                                <strong>Описание:</strong>
+                                <div id="process-info-description" class="scroll-area"></div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button id="go-to-chat-btn" class="button-primary">Перейти в чат</button>
+                            <button id="delete-process-btn" class="button-danger">🗑️ Удалить</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-            </div>
-        </div>
 
-        <div id="admin-view-import" class="admin-view-content" style="display: none;">
-            <div class="admin-section">
-                <h3>Массовый импорт (Анализ документов ИИ)</h3>
-                <p>Загрузите файлы для анализа ИИ. Система автоматически выделит новые процессы и их связи (поддерживаются .txt).</p>
-                <input type="file" id="mass-upload-input" accept=".txt,.pdf,.docx" multiple>
-                <div style="margin-top: 15px;">
-                    <button id="mass-upload-btn" class="button-primary">Загрузить и Анализировать</button>
-                </div>
-                <div id="mass-upload-status" style="margin-top: 15px; font-weight: bold; white-space: pre-wrap;"></div>
-            </div>
-        </div>
 
     </div>
         </main>

@@ -1,9 +1,25 @@
 const fs = require('fs');
+const mammoth = require('mammoth');
 
 async function extractTextFromFile(filePath, mimeType) {
-    console.warn('PDF and Word parsing are disabled due to missing dependencies. Falling back to text extraction.');
-    // Fallback for text files
-    return fs.readFileSync(filePath, 'utf8');
+    if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || filePath.endsWith('.docx')) {
+        try {
+            const result = await mammoth.extractRawText({ path: filePath });
+            return result.value;
+        } catch (error) {
+            console.error('Mammoth extraction error:', error);
+            // Fallback to text reading if mammoth fails
+            return fs.readFileSync(filePath, 'utf8');
+        }
+    }
+    
+    // Default fallback for text files
+    try {
+        return fs.readFileSync(filePath, 'utf8');
+    } catch (error) {
+        console.error('File read error:', error);
+        return '';
+    }
 }
 
 async function parseDocumentsWithAI(files, processEnvGoogleApiKey) {
@@ -17,20 +33,29 @@ async function parseDocumentsWithAI(files, processEnvGoogleApiKey) {
             if (!text || !text.trim()) continue;
 
             const prompt = `
-Ты опытный бизнес-архитектор. Прочитай следующий документ компании и выдели из него ОДИН ГЛАВНЫЙ бизнес-процесс.
-Ответь СТРОГО в формате JSON без markdown блоков, следующего вида:
+Ты элитный бизнес-архитектор и системный аналитик. Твоя задача — проанализировать регламентирующий документ компании и извлечь из него структуру бизнес-процесса.
+
+ИНСТРУКЦИИ:
+1. Найди название процесса, его цель и владельца.
+2. Детально опиши шаги процесса.
+3. Выяви связи с другими процессами или системами (КИАС, MyCent, 1С и т.д.).
+4. Ответ должен быть СТРОГО в формате JSON.
+
+ФОРМАТ ОТВЕТА (JSON):
 {
-  "department": "Название Департамента, к которому относится процесс",
+  "department": "Название департамента",
   "process": {
     "name": "Название процесса",
-    "owner": "Владелец (роль/должность)",
-    "description": "ПОЛНОЕ описание процесса в развернутом виде: шаги действий, логика ИЛИ/ЕСЛИ, важные нюансы из текста. Если текста много, составь выжимку, но не упускай суть.",
-    "connections": ["Название другого процесса, с которым есть связь (из текста)"]
+    "goal": "Цель процесса",
+    "owner": "Владелец/Ответственный",
+    "participants": ["Участник 1", "Участник 2"],
+    "description": "Подробное текстовое описание по шагам. Используй Markdown для списков.",
+    "connections": ["Связанный процесс или система 1", "Система 2"]
   }
 }
 
-ДОКУМЕНТ:
-${text.substring(0, 900000)}
+ДОКУМЕНТ ДЛЯ АНАЛИЗА:
+${text.substring(0, 50000)}
 `;
 
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${processEnvGoogleApiKey}`;
@@ -57,6 +82,8 @@ ${text.substring(0, 900000)}
             }
             if (parsed.process && parsed.process.name) {
                 parsed.process.department = parsed.department || 'Общий отдел';
+                // Incorporate goal and participants into description for UI compatibility if needed, 
+                // but keep them in the object as well
                 results.processes.push(parsed.process);
             }
         } catch (error) {
