@@ -1802,15 +1802,18 @@ ${brokenCode}
                                 'background-color': '#f8fafc', 
                                 'border-width': 1, 
                                 'border-color': '#cbd5e1', 
+                                'border-style': 'dashed',
                                 'color': '#64748b', 
                                 'text-valign': 'top', 
-                                'text-margin-y': -15, 
+                                'text-margin-y': -25, 
                                 'font-weight': '600', 
-                                'font-size': 18, 
-                                'padding': 60,
+                                'font-size': 14, 
+                                'padding': 15,
+                                'min-width': 200,
+                                'min-height': 120,
                                 'text-background-opacity': 1,
                                 'text-background-color': '#f8fafc',
-                                'text-background-padding': 5,
+                                'text-background-padding': 3,
                                 'text-background-shape': 'roundrectangle'
                             } 
                         },
@@ -1828,12 +1831,13 @@ ${brokenCode}
                                 'text-wrap': 'wrap', 
                                 'text-max-width': 160, 
                                 'font-size': 13, 
-                                'padding': 20,
-                                'min-width': 140,
-                                'min-height': 60,
+                                'padding': 15,
+                                'min-width': 120,
+                                'min-height': 50,
                                 'background-opacity': 1
                             } 
                         },
+                        { selector: 'node.chat-node', style: { 'border-style': 'double', 'background-color': '#f0f9ff' } },
                         { selector: 'node.status-approved', style: { 'border-color': '#10b981', 'background-color': '#ecfdf5' } },
                         { selector: 'node.status-draft', style: { 'border-style': 'solid', 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
                         { 
@@ -1856,11 +1860,29 @@ ${brokenCode}
                     ],
                     layout: { 
                         name: elements.some(e => e.position) ? 'preset' : 'dagre',
-                        rankDir: 'LR', // Left to Right
-                        nodeSep: 50, // Separation between nodes in the same rank
-                        rankSep: 100 // Separation between ranks
+                        rankDir: 'LR',
+                        spacingFactor: 1.2,
+                        nodeSep: 60,
+                        rankSep: 120,
+                        padding: 50
                     }
                 });
+
+                // Add Auto Layout button listener
+                const autoLayoutBtn = document.getElementById('auto-layout-btn');
+                if (autoLayoutBtn) {
+                    autoLayoutBtn.onclick = () => {
+                        if (confirm('Сбросить ручные настройки и выровнять карту автоматически?')) {
+                            cy.layout({ 
+                                name: 'dagre', 
+                                rankDir: 'LR', 
+                                nodeSep: 60, 
+                                rankSep: 120 
+                            }).run();
+                            showNotification('Авто-выравнивание завершено', 'success');
+                        }
+                    };
+                }
 
                 // Save node positions after drag
                 cy.on('dragfree', 'node.process', async function(evt) {
@@ -1978,15 +2000,16 @@ ${brokenCode}
                     if (e.key === '+' || e.key === '=') cy.zoom(cy.zoom() * 1.2);
                     if (e.key === '-' || e.key === '_') cy.zoom(cy.zoom() * 0.8);
                 });
-
             } else {
                 cy.elements().remove();
                 cy.add(elements);
                 cy.layout({ 
                     name: elements.some(e => e.position) ? 'preset' : 'dagre',
                     rankDir: 'LR',
-                    nodeSep: 50,
-                    rankSep: 100
+                    spacingFactor: 1.2,
+                    nodeSep: 60,
+                    rankSep: 120,
+                    padding: 50
                 }).run();
             }
         } catch (error) {

@@ -35,7 +35,7 @@ app.use(
         "default-src": ["'self'"],
         "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"], // <-- Разрешаем CDN JS
         "img-src": ["'self'", "data:", "blob:"], // <-- Разрешаем картинки-схемы (Mermaid)
-        "connect-src": ["'self'", "https://api.github.com"],
+        "connect-src": ["'self'", "https://api.github.com", "https://cdn.jsdelivr.net"],
       },
     },
   })
@@ -884,13 +884,22 @@ app.post('/api/chats/:id/initial-process', isAuthenticated, async (req, res) => 
 app.get('/api/admin/map', isAuthenticated, isAdmin, async (req, res) => {
     try {
         const departmentsRes = await pool.query('SELECT id, name FROM departments');
-        const processesRes = await pool.query('SELECT id, name, department_id, description, status, x, y FROM business_processes');
+        const processesRes = await pool.query('SELECT id, name, department_id, description, goal, owner_name, status, x, y FROM business_processes');
         const relationsRes = await pool.query('SELECT id, source_process_id, target_process_id, relation_type FROM process_relations');
         
+        // Also fetch chats that are not yet processes to show them in the map
+        const chatsRes = await pool.query(`
+            SELECT c.id, c.name, c.department_id, cs.status 
+            FROM chats c 
+            JOIN chat_statuses cs ON c.id = cs.chat_id 
+            WHERE c.id NOT IN (SELECT chat_id FROM business_processes WHERE chat_id IS NOT NULL)
+        `);
+
         res.json({
             departments: departmentsRes.rows,
             processes: processesRes.rows,
-            relations: relationsRes.rows
+            relations: relationsRes.rows,
+            active_chats: chatsRes.rows
         });
     } catch (error) {
         logger.error(error, 'Error fetching map data');
