@@ -884,8 +884,8 @@ app.post('/api/chats/:id/initial-process', isAuthenticated, async (req, res) => 
 app.get('/api/admin/map', isAuthenticated, isAdmin, async (req, res) => {
     try {
         const departmentsRes = await pool.query('SELECT id, name FROM departments');
-        const processesRes = await pool.query('SELECT id, name, department_id, description, goal, owner_name, status, x, y FROM business_processes');
-        const relationsRes = await pool.query('SELECT id, source_process_id, target_process_id, relation_type FROM process_relations');
+        const processesRes = await pool.query('SELECT * FROM business_processes');
+        const relationsRes = await pool.query('SELECT * FROM process_relations');
         
         // Also fetch chats that are not yet processes to show them in the map
         const chatsRes = await pool.query(`
