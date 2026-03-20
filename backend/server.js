@@ -261,6 +261,11 @@ const statusSchema = z.object({
     status: z.enum(['draft', 'pending_review', 'needs_revision', 'completed', 'archived', 'in_progress', 'review', 'approved'])
 });
 
+const positionSchema = z.object({
+    x: z.number(),
+    y: z.number()
+});
+
 const authChatSchema = z.object({
     department_id: z.string().uuid().or(z.string()),
     name: z.string().min(1),
@@ -879,7 +884,7 @@ app.post('/api/chats/:id/initial-process', isAuthenticated, async (req, res) => 
 app.get('/api/admin/map', isAuthenticated, isAdmin, async (req, res) => {
     try {
         const departmentsRes = await pool.query('SELECT id, name FROM departments');
-        const processesRes = await pool.query('SELECT id, name, department_id, description, status FROM business_processes');
+        const processesRes = await pool.query('SELECT id, name, department_id, description, status, x, y FROM business_processes');
         const relationsRes = await pool.query('SELECT id, source_process_id, target_process_id, relation_type FROM process_relations');
         
         res.json({
@@ -905,6 +910,22 @@ app.post('/api/admin/processes', isAuthenticated, isAdmin, async (req, res) => {
     } catch (error) {
         logger.error(error, 'Error creating draft process');
         res.status(500).json({ error: 'Failed to create draft process.' });
+    }
+});
+
+app.put('/api/admin/processes/:id/position', isAuthenticated, isAdmin, validateBody(positionSchema), async (req, res) => {
+    const { id } = req.params;
+    const { x, y } = req.body;
+    try {
+        const { rowCount } = await pool.query(
+            'UPDATE business_processes SET x = $1, y = $2 WHERE id = $3',
+            [x, y, id]
+        );
+        if (rowCount === 0) return res.status(404).json({ error: 'Process not found' });
+        res.json({ success: true });
+    } catch (error) {
+        logger.error(error, `Error updating position for process ${id}`);
+        res.status(500).json({ error: 'Failed to update position.' });
     }
 });
 

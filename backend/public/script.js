@@ -1719,6 +1719,7 @@ ${brokenCode}
                         status: proc.status,
                         type: 'process'
                     },
+                    position: (proc.x !== null && proc.y !== null) ? { x: parseFloat(proc.x), y: parseFloat(proc.y) } : undefined,
                     classes: `process status-${proc.status}`
                 });
             });
@@ -1813,6 +1814,24 @@ ${brokenCode}
                         idealEdgeLength: 150, 
                         edgeElasticity: 100,
                         componentSpacing: 100
+                    }
+                });
+
+                // Save node positions after drag
+                cy.on('dragfree', 'node.process', async function(evt) {
+                    const node = evt.target;
+                    const pos = node.position();
+                    const processId = node.id().replace('proc_', '');
+                    
+                    try {
+                        await fetchWithAuth(`/api/admin/processes/${processId}/position`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ x: pos.x, y: pos.y })
+                        });
+                        console.log(`Position saved for process ${processId}:`, pos);
+                    } catch (err) {
+                        console.error('Failed to save node position:', err);
                     }
                 });
 
@@ -1943,7 +1962,8 @@ ${brokenCode}
     const closeGlobalAuditModal = document.getElementById('close-global-audit-modal');
     const auditPromptInput = document.getElementById('audit-prompt');
     const runAuditBtn = document.getElementById('run-audit-btn');
-    const auditResultsDiv = document.getElementById('audit-results');
+    const auditResultContainer = document.getElementById('audit-result-container');
+    const auditResultText = document.getElementById('audit-result-text');
 
     if (globalAuditBtn) {
         globalAuditBtn.addEventListener('click', () => {
@@ -1963,8 +1983,8 @@ ${brokenCode}
             if (!prompt) return showNotification('Введите промпт для аудита', 'error');
 
             setButtonLoading(runAuditBtn, true, 'Аудит...');
-            auditResultsDiv.style.display = 'block';
-            auditResultsDiv.textContent = 'Идет анализ... Ожидайте...';
+            if (auditResultContainer) auditResultContainer.style.display = 'block';
+            if (auditResultText) auditResultText.textContent = 'Идет анализ... Ожидайте...';
 
             try {
                 const res = await fetchWithAuth('/api/admin/audit', {
@@ -1973,9 +1993,9 @@ ${brokenCode}
                     body: JSON.stringify({ prompt })
                 });
                 const data = await res.json();
-                auditResultsDiv.textContent = data.result || 'Ошибок не найдено (или пустой ответ).';
+                if (auditResultText) auditResultText.innerHTML = marked.parse(data.result || 'Ошибок не найдено (или пустой ответ).');
             } catch (error) {
-                auditResultsDiv.textContent = `Ошибка: ${error.message}`;
+                if (auditResultText) auditResultText.textContent = `Ошибка: ${error.message}`;
             } finally {
                 setButtonLoading(runAuditBtn, false, 'Запустить аудит');
             }
