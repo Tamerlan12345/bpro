@@ -150,6 +150,11 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.head.appendChild(globalStyle);
 
+    const escapeHtml = (str) => {
+        if (!str) return str;
+        return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    };
+
 
 
     function showNotification(message, type = 'success') {
@@ -611,7 +616,23 @@ ${brokenCode}
     function showMainApp(chatName) {
         authWrapper.style.display = 'none';
         mainContainer.style.display = 'block';
-        chatNameHeader.textContent = `Чат: ${chatName}`;
+
+        const deptName = selectedDepartment ? selectedDepartment.name : 'Департамент';
+        chatNameHeader.innerHTML = `
+            <span id="breadcrumb-back" style="cursor:pointer; color: #3b82f6; transition: color 0.2s;" title="Вернуться к списку процессов" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#3b82f6'">
+                🏢 ${escapeHtml(deptName)}
+            </span> 
+            <span style="color: #94a3b8; margin: 0 8px;">/</span> 
+            💬 ${escapeHtml(chatName)}
+        `;
+
+        document.getElementById('breadcrumb-back').addEventListener('click', () => {
+            mainContainer.style.display = 'none';
+            authWrapper.style.display = 'flex';
+            if (sessionUser && sessionUser.role === 'admin') adminPanel.style.display = 'block';
+            else chatLogin.style.display = 'block';
+        });
+
         updateStepCounter();
         loadChatData();
     }
@@ -702,10 +723,10 @@ ${brokenCode}
     }
 
     function renderVersions(versions) {
-        versionHistoryContainer.innerHTML = versions.map(v => `
-            <div class="version-item" data-version-id="${v.id}">
-                <span>Версия от ${new Date(v.created_at).toLocaleString()}</span>
-                <button>Посмотреть</button>
+        versionHistoryContainer.innerHTML = versions.map((v, i) => `
+            <div class="version-item" data-version-id="${v.id}" style="transition: all 0.2s; ${i === 0 ? 'border-left: 4px solid #10b981; background-color: #f0fdf4;' : 'border-left: 4px solid transparent;'}">
+                <span style="${i === 0 ? 'font-weight: 600; color: #065f46;' : ''}">Версия от ${new Date(v.created_at).toLocaleString()} ${i === 0 ? '⭐️' : ''}</span>
+                <button class="button-small">Посмотреть</button>
             </div>`).join('') || '<p>Нет сохраненных версий.</p>';
     }
 
@@ -721,6 +742,15 @@ ${brokenCode}
             return;
         }
         processDescriptionInput.value = version.process_text;
+
+        // ВОССТАНОВЛЕНИЕ АВТОСОХРАНЕНИЯ
+        const savedDraft = localStorage.getItem(`autosave_chat_${chatId}`);
+        // Если черновик новее и мы смотрим именно последнюю (актуальную) версию
+        if (savedDraft && savedDraft !== version.process_text && version.id === chatVersions[0]?.id) {
+            showNotification('Восстановлен несохраненный черновик', 'info');
+            processDescriptionInput.value = savedDraft;
+        }
+
         updateStepCounter();
         if (version.mermaid_code && version.mermaid_code.trim() !== '') {
             placeholderContent.style.display = 'none';
@@ -733,6 +763,11 @@ ${brokenCode}
             diagramContainer.style.display = 'none';
             diagramToolbar.style.display = 'none';
             renderDiagramBtn.style.display = 'block';
+        }
+
+        // Если включен режим предпросмотра, обновляем его
+        if (typeof isPreviewMode !== 'undefined' && isPreviewMode) {
+            previewContainer.innerHTML = typeof marked !== 'undefined' ? marked.parse(processDescriptionInput.value || '*Пусто*') : processDescriptionInput.value;
         }
     }
 
@@ -784,6 +819,7 @@ ${brokenCode}
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ process_text: standardDescription, mermaid_code: mermaidCode })
             });
+            localStorage.removeItem(`autosave_chat_${chatId}`);
             showNotification("Версия успешно сохранена.", "success");
 
             await loadChatData();
@@ -1332,9 +1368,10 @@ ${brokenCode}
             chatId = link.dataset.chatId;
             authWrapper.style.display = 'none';
             mainContainer.style.display = 'block';
-            chatNameHeader.textContent = `Чат: ${link.dataset.chatName}`;
-            loadChatData();
-            backToAdminBtn.style.display = 'block';
+            const deptNameMatch = link.querySelector('.chat-dept-name')?.textContent.replace(/[()]/g, '');
+            selectedDepartment = { name: deptNameMatch || 'Админ-панель' };
+            showMainApp(link.dataset.chatName);
+            backToAdminBtn.style.display = 'none';
         }
     }
 
@@ -1344,8 +1381,10 @@ ${brokenCode}
         rerecordCount = 0;
         processDescriptionInput.readOnly = false;
         transcriptionDisplay.textContent = ''; // Clear the display area
+        if (fileUploadInput) fileUploadInput.value = '';
 
         startRecordBtn.style.display = 'block';
+        if (typeof uploadAudioBtn !== 'undefined') uploadAudioBtn.style.display = 'inline-block';
         stopRecordBtn.style.display = 'none';
         listenBtn.style.display = 'none';
         processBtn.style.display = 'none'; // Use processBtn
@@ -1384,6 +1423,7 @@ ${brokenCode}
 
             mediaRecorder.start();
             startRecordBtn.style.display = 'none';
+            if (typeof uploadAudioBtn !== 'undefined') uploadAudioBtn.style.display = 'none';
             stopRecordBtn.style.display = 'block';
             recordingIndicator.style.display = 'inline';
 
@@ -1415,12 +1455,14 @@ ${brokenCode}
         rerecordCount++;
         audioBlob = null;
         audioChunks = [];
+        if (fileUploadInput) fileUploadInput.value = '';
 
         listenBtn.style.display = 'none';
         processBtn.style.display = 'none';
         rerecordBtn.style.display = 'none';
         audioPlayback.style.display = 'none';
         partialTranscriptDisplay.textContent = '';
+        if (typeof uploadAudioBtn !== 'undefined') uploadAudioBtn.style.display = 'none';
 
         handleStartRecording();
     };
@@ -1637,6 +1679,60 @@ ${brokenCode}
         }
     }
 
+    // --- ИНЪЕКЦИИ НОВОГО UI/UX ---
+
+    // 1. Кнопка загрузки аудиофайла
+    const fileUploadInput = document.createElement('input');
+    fileUploadInput.type = 'file';
+    fileUploadInput.accept = 'audio/*';
+    fileUploadInput.style.display = 'none';
+
+    const uploadAudioBtn = document.createElement('button');
+    uploadAudioBtn.className = 'button-secondary';
+    uploadAudioBtn.innerHTML = '📁 Загрузить файл';
+    uploadAudioBtn.type = 'button';
+    uploadAudioBtn.style.marginLeft = '10px';
+
+    startRecordBtn.parentNode.insertBefore(uploadAudioBtn, startRecordBtn.nextSibling);
+    startRecordBtn.parentNode.insertBefore(fileUploadInput, uploadAudioBtn);
+
+    uploadAudioBtn.addEventListener('click', () => fileUploadInput.click());
+
+    fileUploadInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            audioBlob = file;
+            audioPlayback.src = URL.createObjectURL(file);
+            audioPlayback.style.display = 'block';
+            processBtn.style.display = 'inline-block';
+            startRecordBtn.style.display = 'none';
+            uploadAudioBtn.style.display = 'none';
+            rerecordBtn.style.display = 'inline-block';
+            showNotification(`Аудиофайл ${file.name} готов к транскрибации.`, 'info');
+        }
+    });
+
+    // 2. Предпросмотр Markdown
+    const previewContainer = document.createElement('div');
+    previewContainer.className = 'markdown-body scroll-area';
+    previewContainer.style.cssText = 'display: none; height: 400px; overflow-y: auto; border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px; background-color: #f8fafc;';
+    processDescriptionInput.parentNode.insertBefore(previewContainer, processDescriptionInput.nextSibling);
+
+    const togglePreviewBtn = document.createElement('button');
+    togglePreviewBtn.className = 'button-secondary';
+    togglePreviewBtn.style.marginBottom = '10px';
+    togglePreviewBtn.innerHTML = '👁️ Предпросмотр Markdown';
+    processDescriptionInput.parentNode.insertBefore(togglePreviewBtn, processDescriptionInput);
+
+    let isPreviewMode = false;
+    togglePreviewBtn.addEventListener('click', () => {
+        isPreviewMode = !isPreviewMode;
+        togglePreviewBtn.innerHTML = isPreviewMode ? '✏️ Режим редактирования' : '👁️ Предпросмотр Markdown';
+        processDescriptionInput.style.display = isPreviewMode ? 'none' : 'block';
+        previewContainer.style.display = isPreviewMode ? 'block' : 'none';
+        if (isPreviewMode) previewContainer.innerHTML = typeof marked !== 'undefined' ? marked.parse(processDescriptionInput.value || '*Пусто*') : processDescriptionInput.value;
+    });
+
     improveBtn.addEventListener('click', handleImproveProcess);
     selectAllCheckbox.addEventListener('click', handleSelectAllSuggestions);
     applyImprovementsBtn.addEventListener('click', handleApplyImprovements);
@@ -1648,7 +1744,14 @@ ${brokenCode}
     closeTranscriptionModalBtn.addEventListener('click', closeTranscriptionModal);
     saveTranscriptionProgressBtn.addEventListener('click', () => handleSaveTranscription(false));
     finalizeTranscriptionBtn.addEventListener('click', () => handleSaveTranscription(true));
-    processDescriptionInput.addEventListener('input', updateStepCounter);
+
+    // 3. Автосохранение
+    let autosaveTimeout;
+    processDescriptionInput.addEventListener('input', () => {
+        updateStepCounter();
+        clearTimeout(autosaveTimeout);
+        autosaveTimeout = setTimeout(() => { if (chatId) localStorage.setItem(`autosave_chat_${chatId}`, processDescriptionInput.value); }, 1000);
+    });
     startRecordBtn.addEventListener('click', handleStartRecording);
     stopRecordBtn.addEventListener('click', handleStopRecording);
     listenBtn.addEventListener('click', () => audioPlayback.play());
@@ -1681,7 +1784,21 @@ ${brokenCode}
     sendRevisionBtn.addEventListener('click', (e) => handleUpdateStatus('needs_revision', e.target));
     completeBtn.addEventListener('click', (e) => handleUpdateStatus('completed', e.target));
     archiveBtn.addEventListener('click', (e) => handleUpdateStatus('archived', e.target));
-    versionHistoryContainer.addEventListener('click', async (e) => { if (e.target.tagName === 'BUTTON') { const versionId = e.target.parentElement.dataset.versionId; const selectedVersion = chatVersions.find(v => v.id == versionId); if (selectedVersion) await displayVersion(selectedVersion); } });
+    versionHistoryContainer.addEventListener('click', async (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const versionId = e.target.parentElement.dataset.versionId;
+            const selectedVersion = chatVersions.find(v => v.id == versionId);
+            if (selectedVersion) {
+                versionHistoryContainer.querySelectorAll('.version-item').forEach(el => {
+                    el.style.borderLeft = '4px solid transparent';
+                    el.style.backgroundColor = 'transparent';
+                });
+                e.target.parentElement.style.borderLeft = '4px solid #3b82f6';
+                e.target.parentElement.style.backgroundColor = '#eff6ff';
+                await displayVersion(selectedVersion);
+            }
+        }
+    });
     downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
     downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
 
