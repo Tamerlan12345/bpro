@@ -32,9 +32,39 @@ async function extractTextFromFile(filePath, mimeType) {
     }
 }
 
+async function callGoogleAPI(prompt, apiKey) {
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const apiResponse = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    if (!apiResponse.ok) throw new Error(apiResponse.statusText);
+    const data = await apiResponse.json();
+    return data.candidates[0].content.parts[0].text;
+}
+
+async function processTextBlock(textBlock, apiKey, blockIndex) {
+    const prompt = `Ты — эксперт по анализу бизнес-процессов.
+Проанализируй следующую часть документа (Часть ${blockIndex}). Извлеки все шаги процесса, артефакты, системы (MyCent, 1C и др.) и роли.
+Особое внимание удели строгой последовательности (Sequential Order) действий и пропиши скрытые условия ветвления (IF-THEN-ELSE).
+Ответь в структурированном текстовом формате:
+Название промежуточных процессов/шагов.
+Участники и Системы.
+Действия по порядку с условиями IF-THEN-ELSE.
+Входящие/исходящие документы (артефакты).
+Упоминания других бизнес-процессов для построения сквозной карты.
+
+ТЕКСТ (Часть ${blockIndex}):
+${textBlock}
+`;
+    return await callGoogleAPI(prompt, apiKey);
+}
+
 async function parseDocumentsWithAI(files, processEnvGoogleApiKey) {
     const results = { departments: [], processes: [] };
     const deptSet = new Set();
+    const MAX_CHUNK_LENGTH = 100000; // rough equivalent for ~30k tokens
     
     // Process each document individually (1 file = 1 process)
     for (const file of files) {
@@ -42,22 +72,46 @@ async function parseDocumentsWithAI(files, processEnvGoogleApiKey) {
             const text = await extractTextFromFile(file.path, file.mimetype);
             if (!text || !text.trim()) continue;
 
+            let finalAnalysisContent = text;
+
+            // Map-Reduce logic
+            if (text.length > MAX_CHUNK_LENGTH) {
+                console.log(`File ${file.originalname} is large (${text.length} chars). Applying Map-Reduce strategy.`);
+                const chunks = [];
+                for (let i = 0; i < text.length; i += MAX_CHUNK_LENGTH) {
+                    chunks.push(text.substring(i, i + MAX_CHUNK_LENGTH));
+                }
+                
+                let blockResults = [];
+                for (let i = 0; i < chunks.length; i++) {
+                    console.log(`Processing block ${i + 1}/${chunks.length} for ${file.originalname}...`);
+                    try {
+                        const blockResult = await processTextBlock(chunks[i], processEnvGoogleApiKey, i + 1);
+                        blockResults.push(`--- ИТОГИ ЧАСТИ ${i+1} ---\n${blockResult}`);
+                    } catch (e) {
+                        console.error(`Error processing block ${i+1}:`, e);
+                    }
+                }
+                finalAnalysisContent = blockResults.join('\n\n');
+            } else {
+                finalAnalysisContent = text;
+            }
+
             // Enhanced prompt for more detailed extraction
             const prompt = `
 Ты — элитный бизнес-архитектор и эксперт по автоматизации бизнес-процессов. 
-Твоя задача: провести максимально подробный анализ предоставленного документа и извлечь полную структуру бизнес-процесса. 
-Эта информация будет использована для обучения ИИ-агента, который должен понимать все нюансы работы.
+Твоя задача: провести максимально подробный анализ предоставленного блока данных и извлечь полную единую структуру бизнес-процесса без дубликатов. 
 
 ИНСТРУКЦИИ ПО ИЗВЛЕЧЕНИЮ:
 1.  **Название и Департамент**: С высокой точностью определи название процесса и функциональный отдел (Департамент), к которому он относится.
 2.  **Цель и Владелец**: Четко сформулируй бизнес-цель и роль Владельца процесса (тот, кто отвечает за результат).
-3.  **Участники и Системы**: Перечисли ВСЕ роли (сотрудников) и ИТ-системы ( MyCent, 1C, КИАС, CRM и т.д.), упомянутые в документе.
+3.  **Участники и Системы**: Перечисли ВСЕ роли (сотрудников) и ИТ-системы, упомянутые в документе.
 4.  **Детальное Описание (Markdown)**: 
-    *   Опиши процесс пошагово: Триггер -> Действия -> Результат.
+    *   Опиши процесс строго пошагово, в правильной последовательности (Sequential Order): Триггер -> Действия -> Результат.
     *   Для каждого шага укажи: КТО делает (Роль), В КАКОЙ системе, КАКОЙ результат (артефакт).
-    *   Опиши логические ветвления (Если X, то Y) и условия выхода из процесса.
-    *   Включи информацию о контрольных точках и KPI, если они есть.
-5.  **Связи с другими процессами**: Найди и выдели упоминания других бизнес-процессов компании для построения сквозной карты.
+    *   Обязательно опиши логические ветвления (IF-THEN-ELSE) и условия выхода из процесса.
+    *   Собери в единую непрерывную логику, исключая дубликаты шагов.
+5.  **Связи с другими процессами**: Найди упоминания других бизнес-процессов компании. И анализируя входящие и исходящие артефакты, предложи потенциальные межпроцессные связи.
 6.  **Формат**: Ответ должен быть СТРОГО валидным JSON-объектом.
 
 ФОРМАТ ОТВЕТА (JSON):
@@ -68,31 +122,24 @@ async function parseDocumentsWithAI(files, processEnvGoogleApiKey) {
     "goal": "Краткая бизнес-цель",
     "owner": "Роль владельца процесса",
     "participants": ["Роль 1", "Роль 2", "Система X"],
-    "description": "ПОЛНОЕ И ПОДРОБНОЕ ОПИСАНИЕ С ИСПОЛЬЗОВАНИЕМ MARKDOWN. Минимум 5-10 абзацев, если документ позволяет. Опиши все шаги, условия, проверки и итоговые результаты.",
+    "description": "ПОЛНОЕ И ПОДРОБНОЕ ОПИСАНИЕ С ИСПОЛЬЗОВАНИЕМ MARKDOWN с учетом IF-THEN-ELSE и строгой последовательности.",
     "connections": ["Связанный процесс 1", "Связанный процесс 2"]
   }
 }
 
-ДОКУМЕНТ ДЛЯ АНАЛИЗА:
-${text.substring(0, 200000)}
+ДАННЫЕ ДЛЯ АНАЛИЗА:
+${finalAnalysisContent}
 `;
 
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${processEnvGoogleApiKey}`;
-            const apiResponse = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-            });
-
-            if (!apiResponse.ok) {
-                console.error('LLM API error for file', file.originalname, apiResponse.statusText);
-                continue;
-            }
-
-            const data = await apiResponse.json();
-            let jsonText = data.candidates[0].content.parts[0].text;
+            let jsonText = await callGoogleAPI(prompt, processEnvGoogleApiKey);
             // Clean up markdown quotes if present
-            jsonText = jsonText.replace(/^```json/m, '').replace(/```\s*$/m, '').trim();
+            jsonText = jsonText.replace(/^```[a-zA-Z]*\n/m, '').replace(/```\s*$/m, '').trim();
+            if (jsonText.startsWith('{') === false) {
+                jsonText = jsonText.substring(jsonText.indexOf('{'));
+            }
+            if (jsonText.endsWith('}') === false) {
+                jsonText = jsonText.substring(0, jsonText.lastIndexOf('}') + 1);
+            }
 
             const parsed = JSON.parse(jsonText);
             

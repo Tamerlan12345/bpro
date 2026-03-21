@@ -1868,6 +1868,118 @@ ${brokenCode}
                     }
                 });
 
+                // Initialize edgehandles
+                const eh = cy.edgehandles({
+                    snap: true,
+                    handleNodes: 'node.process',
+                    handlePosition: function( node ){ return 'right middle'; }, // sets position of handle
+                    complete: async function( sourceNode, targetNode, addedEles ) {
+                        // when edge is completed, add relation via API
+                        try {
+                            const res = await fetchWithAuth('/api/admin/relations', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    source_process_id: sourceNode.id().replace('proc_', ''),
+                                    target_process_id: targetNode.id().replace('proc_', ''),
+                                    relation_type: 'Manual Link',
+                                    is_manual: true
+                                })
+                            });
+                            if(res.ok) {
+                                showNotification('Связь создана', 'success');
+                            } else {
+                                addedEles.remove();
+                                showNotification('Ошибка создания связи', 'error');
+                            }
+                        } catch(err) {
+                            addedEles.remove();
+                            showNotification('Ошибка: ' + err.message, 'error');
+                        }
+                    }
+                });
+
+                document.getElementById('cy-add-edge').onclick = function() {
+                    const btn = this;
+                    if(btn.classList.contains('active')) {
+                        eh.disableDrawMode();
+                        btn.classList.remove('active');
+                        btn.style.backgroundColor = '';
+                        btn.style.color = '';
+                    } else {
+                        eh.enableDrawMode();
+                        btn.classList.add('active');
+                        btn.style.backgroundColor = '#3b82f6';
+                        btn.style.color = 'white';
+                    }
+                };
+
+                document.getElementById('cy-add-node').onclick = async function() {
+                    const depts = cy.nodes('.department');
+                    if(depts.length === 0) {
+                        showNotification('Сначала создайте департамент (Через админ-панель или по пустому месту)', 'error');
+                        return;
+                    }
+                    const deptId = depts[0].id().replace('dept_', ''); // Default to first dept
+                    const name = prompt('Введите название нового процесса:');
+                    if (name) {
+                        try {
+                            await fetchWithAuth('/api/admin/processes', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name, department_id: deptId, status: 'draft' })
+                            });
+                            showNotification('Черновик процесса успешно создан', 'success');
+                            loadProcessMap();
+                        } catch (e) {
+                            showNotification('Ошибка создания процесса', 'error');
+                        }
+                    }
+                };
+
+                const aiLayoutBtn = document.getElementById('cy-ai-layout');
+                if (aiLayoutBtn) {
+                    aiLayoutBtn.onclick = async function() {
+                        const btn = this;
+                        const originalText = btn.innerText;
+                        btn.innerText = '🪄 ИИ Думает...';
+                        btn.disabled = true;
+                        
+                        try {
+                            const res = await fetchWithAuth('/api/admin/map/ai-layout', { method: 'POST' });
+                            const data = await res.json();
+                            if(data.layout && Array.isArray(data.layout)) {
+                                cy.batch(() => {
+                                    data.layout.forEach(item => {
+                                        let eleType = item.type === 'process' ? 'proc_' : 'dept_';
+                                        let ele = cy.getElementById(eleType + item.id);
+                                        if(ele.length > 0) {
+                                            ele.animate({ position: { x: item.x, y: item.y } }, { duration: 1000 });
+                                        }
+                                    });
+                                });
+                                showNotification('ИИ макет применен', 'success');
+                                setTimeout(() => {
+                                    data.layout.forEach(item => {
+                                        let eleType = item.type === 'process' ? 'proc_' : 'dept_';
+                                        let ele = cy.getElementById(eleType + item.id);
+                                        if(ele.length > 0) {
+                                            ele.emit('dragfree'); // trigger save
+                                        }
+                                    });
+                                }, 1100);
+                            } else {
+                                showNotification('Ошибка данных макета', 'error');
+                            }
+                        } catch(e) {
+                            showNotification('Ошибка: ' + e.message, 'error');
+                        } finally {
+                            btn.innerText = originalText;
+                            btn.disabled = false;
+                        }
+                    };
+                }
+
                 // Add Auto Layout button listener
                 const autoLayoutBtn = document.getElementById('auto-layout-btn');
                 if (autoLayoutBtn) {
@@ -1884,114 +1996,168 @@ ${brokenCode}
                     };
                 }
 
-                // Save node positions after drag
-                cy.on('dragfree', 'node.process', async function(evt) {
+                // Save node and department positions after drag
+                cy.on('dragfree', 'node.process, node.department', async function(evt) {
                     const node = evt.target;
                     const pos = node.position();
-                    const processId = node.id().replace('proc_', '');
                     
                     try {
-                        await fetchWithAuth(`/api/admin/processes/${processId}/position`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ x: pos.x, y: pos.y })
-                        });
-                        console.log(`Position saved for process ${processId}:`, pos);
+                        if (node.hasClass('process')) {
+                            const processId = node.id().replace('proc_', '');
+                            await fetchWithAuth(`/api/admin/processes/${processId}/position`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ x: pos.x, y: pos.y })
+                            });
+                        } else if (node.hasClass('department')) {
+                            const deptId = node.id().replace('dept_', '');
+                            await fetchWithAuth(`/api/admin/departments/${deptId}/position`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ x: pos.x, y: pos.y, width: node.width(), height: node.height() })
+                            });
+                        }
                     } catch (err) {
-                        console.error('Failed to save node position:', err);
+                        console.error('Failed to save position:', err);
                     }
                 });
 
-                cy.on('tap', 'node.process', function(evt){
-                    const nodeData = evt.target.data();
-                    const modal = document.getElementById('process-info-modal');
-                    const title = document.getElementById('process-info-title');
-                    const desc = document.getElementById('process-info-description');
-                    const owner = document.getElementById('process-info-owner');
-                    const goal = document.getElementById('process-info-goal');
-                    const status = document.getElementById('process-info-status');
-                    const closeBtn = document.getElementById('close-process-info-btn');
-                    const deleteBtn = document.getElementById('delete-process-btn');
-                    const goToChatBtn = document.getElementById('go-to-chat-btn');
-                    
-                    if(modal && title && desc) {
-                        title.innerText = nodeData.name;
-                        desc.innerHTML = marked.parse(nodeData.description || 'Описание отсутствует');
-                        if (owner) owner.innerText = nodeData.owner || 'Не назначен';
-                        if (goal) goal.innerText = nodeData.goal || 'Цель не указана';
-                        if (status) {
-                            status.innerText = nodeData.status === 'approved' ? 'Одобрен' : 'Черновик';
-                            status.className = 'status-badge ' + (nodeData.status === 'approved' ? 'status-approved' : 'status-draft');
-                        }
-                        
-                        modal.style.display = 'block';
+                // Close panel button logic
+                document.getElementById('close-panel-btn').onclick = () => {
+                    document.getElementById('cy-side-panel').style.display = 'none';
+                };
 
-                        if(closeBtn) {
-                            closeBtn.onclick = () => modal.style.display = 'none';
-                        }
+                const openSidePanel = (nodeData) => {
+                    const panel = document.getElementById('cy-side-panel');
+                    const content = document.getElementById('panel-content');
+                    const isApproved = nodeData.status === 'approved';
+                    const statusClass = isApproved ? 'status-approved' : 'status-draft';
+                    const statusText = isApproved ? 'Одобрен' : 'Черновик';
 
-                        if(goToChatBtn) {
-                            goToChatBtn.onclick = () => {
-                                modal.style.display = 'none';
-                                showNotification(`Переход к процессу: ${nodeData.name}`, 'info');
-                            };
-                        }
-                        
-                        if(deleteBtn) {
-                            deleteBtn.onclick = async () => {
-                                if(confirm(`Вы уверены, что хотите удалить процесс "${nodeData.name}"? Это действие необратимо.`)) {
-                                    try {
-                                        const res = await fetchWithAuth(`/api/admin/processes/${nodeData.id.replace('proc_', '')}`, { method: 'DELETE' });
-                                        if (res.ok) {
-                                            showNotification('Процесс успешно удален', 'success');
-                                            modal.style.display = 'none';
-                                            loadProcessMap();
-                                        }
-                                    } catch (e) {
-                                        showNotification('Ошибка при удалении процесса', 'error');
-                                    }
-                                }
-                            };
-                        }
-                    }
-                });
+                    let html = `
+                        <div style="margin-bottom: 15px;">
+                            <strong>Название:</strong><br>
+                            <input type="text" id="panel-proc-name" value="${nodeData.name}" style="width: 100%; padding: 5px;" disabled>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong>Статус:</strong> <span class="status-badge ${statusClass}">${statusText}</span>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong>Владелец:</strong><br>
+                            <span>${nodeData.owner || 'Не назначен'}</span>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong>Цель:</strong><br>
+                            <p>${nodeData.goal || 'Цель не указана'}</p>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong>Описание:</strong><br>
+                            <div class="scroll-area" style="max-height: 200px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 4px;">
+                                ${marked.parse(nodeData.description || 'Описание отсутствует')}
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                            <button id="panel-go-chat" class="button-primary">Перейти в чат</button>
+                            <button id="panel-delete" class="button-danger">Удалить процесс</button>
+                        </div>
+                    `;
+                    content.innerHTML = html;
+                    panel.style.display = 'block';
 
-                // Context menu for department
-                cy.on('cxttap', 'node.department', async (event) => {
-                    const deptId = event.target.id().replace('dept_', '');
-                    const deptName = event.target.data('name');
-                    
-                    // Improved interaction: use prompt for name but allow multiple actions
-                    const action = prompt(`Департамент: ${deptName}\n1 - Добавить процесс\n2 - Удалить департамент\n\nВведите номер действия (1 или 2):`);
-                    
-                    if (action === '1') {
-                        const name = prompt('Введите название нового процесса:');
-                        if (name) {
+                    document.getElementById('panel-go-chat').onclick = () => {
+                        panel.style.display = 'none';
+                        showNotification(`Переход к процессу: ${nodeData.name}`, 'info');
+                    };
+
+                    document.getElementById('panel-delete').onclick = async () => {
+                        if(confirm(`Удалить процесс "${nodeData.name}"?`)) {
                             try {
-                                await fetchWithAuth('/api/admin/processes', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ name, department_id: deptId, status: 'draft' })
-                                });
-                                showNotification('Черновик процесса успешно создан', 'success');
-                                loadProcessMap();
-                            } catch (e) {
-                                showNotification('Ошибка создания процесса', 'error');
-                            }
-                        }
-                    } else if (action === '2') {
-                        if (confirm(`Вы уверены, что хотите удалить департамент "${deptName}" и ВСЕ его процессы?`)) {
-                            try {
-                                const res = await fetchWithAuth(`/api/admin/departments/${deptId}`, { method: 'DELETE' });
+                                const res = await fetchWithAuth(`/api/admin/processes/${nodeData.id.replace('proc_', '')}`, { method: 'DELETE' });
                                 if (res.ok) {
-                                    showNotification('Департамент удален', 'success');
+                                    showNotification('Процесс удален', 'success');
+                                    panel.style.display = 'none';
                                     loadProcessMap();
                                 }
                             } catch (e) {
-                                showNotification('Ошибка при удалении департамента', 'error');
+                                showNotification('Ошибка', 'error');
                             }
                         }
+                    };
+                };
+
+                cy.on('tap', 'node.process', function(evt){
+                    openSidePanel(evt.target.data());
+                });
+
+                // Context menu for background (create department)
+                const contextMenu = document.getElementById('cy-context-menu');
+                cy.on('cxttap', function(event){
+                    if(event.target === cy){
+                        contextMenu.style.display = 'block';
+                        contextMenu.style.left = event.renderedPosition.x + 'px';
+                        contextMenu.style.top = event.renderedPosition.y + 'px';
+                        contextMenu.innerHTML = `<button id="ctx-add-dept" class="button-secondary" style="border: none; background: transparent; cursor: pointer; padding: 5px 10px; width: 100%; text-align: left;">➕ Добавить департамент</button>`;
+                        
+                        document.getElementById('ctx-add-dept').onclick = async () => {
+                            contextMenu.style.display = 'none';
+                            const name = prompt('Название департамента:');
+                            if(name) {
+                                try {
+                                    await fetchWithAuth('/api/departments', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ name, password: '123', user_id: sessionUser.id })
+                                    });
+                                    showNotification('Департамент создан', 'success');
+                                    loadProcessMap();
+                                } catch (e) {
+                                    showNotification('Ошибка', 'error');
+                                }
+                            }
+                        };
+                    } else if (event.target.hasClass('department')) {
+                        // Context menu for department
+                        const deptId = event.target.id().replace('dept_', '');
+                        const deptName = event.target.data('name');
+                        
+                        // Improved interaction: use prompt for name but allow multiple actions
+                        const action = prompt(`Департамент: ${deptName}\n1 - Добавить процесс\n2 - Удалить департамент\n\nВведите номер действия (1 или 2):`);
+                        
+                        if (action === '1') {
+                            const name = prompt('Введите название нового процесса:');
+                            if (name) {
+                                try {
+                                    fetchWithAuth('/api/admin/processes', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ name, department_id: deptId, status: 'draft' })
+                                    }).then(() => {
+                                        showNotification('Черновик процесса успешно создан', 'success');
+                                        loadProcessMap();
+                                    });
+                                } catch (e) {
+                                    showNotification('Ошибка создания процесса', 'error');
+                                }
+                            }
+                        } else if (action === '2') {
+                            if (confirm(`Вы уверены, что хотите удалить департамент "${deptName}" и ВСЕ его процессы?`)) {
+                                try {
+                                    fetchWithAuth(`/api/admin/departments/${deptId}`, { method: 'DELETE' }).then(() => {
+                                        showNotification('Департамент удален', 'success');
+                                        loadProcessMap();
+                                    });
+                                } catch (e) {
+                                    showNotification('Ошибка при удалении департамента', 'error');
+                                }
+                            }
+                        }
+                    } else {
+                        contextMenu.style.display = 'none';
                     }
+                });
+
+                cy.on('tap', function(event){
+                    contextMenu.style.display = 'none';
                 });
 
                 // Keyboard controls

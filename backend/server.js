@@ -883,7 +883,7 @@ app.post('/api/chats/:id/initial-process', isAuthenticated, async (req, res) => 
 
 app.get('/api/admin/map', isAuthenticated, isAdmin, async (req, res) => {
     try {
-        const departmentsRes = await pool.query('SELECT id, name FROM departments');
+        const departmentsRes = await pool.query('SELECT id, name, x, y, width, height, color FROM departments');
         const processesRes = await pool.query('SELECT * FROM business_processes');
         const relationsRes = await pool.query('SELECT * FROM process_relations');
         
@@ -904,6 +904,62 @@ app.get('/api/admin/map', isAuthenticated, isAdmin, async (req, res) => {
     } catch (error) {
         logger.error(error, 'Error fetching map data');
         res.status(500).json({ error: 'Failed to retrieve map data.' });
+    }
+});
+
+app.post('/api/admin/map/ai-layout', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+        const departmentsRes = await pool.query('SELECT id, name FROM departments');
+        const processesRes = await pool.query('SELECT id, name, department_id FROM business_processes');
+        const relationsRes = await pool.query('SELECT source_process_id, target_process_id FROM process_relations');
+
+        if (processesRes.rows.length === 0) {
+            return res.status(400).json({ error: 'No processes to layout' });
+        }
+
+        const mapContext = {
+            departments: departmentsRes.rows,
+            processes: processesRes.rows,
+            relations: relationsRes.rows
+        };
+
+        const prompt = `Ты — эксперт по визуализации графов. Расположи процессы и департаменты на 2D-плоскости (координаты X и Y от 0 до 3000). Процессы одного департамента должны находиться рядом. Минимизируй пересечения связей (relations).
+        
+Данные карты:
+${JSON.stringify(mapContext, null, 2)}
+
+Верни результат строго в формате JSON:
+{
+  "layout": [
+    { "id": "uuid", "type": "process", "x": число, "y": число },
+    { "id": "uuid", "type": "department", "x": число, "y": число }
+  ]
+}
+Обязательно верни валидный JSON без маркдаун-оберток.`;
+
+        const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+        const apiResponse = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        
+        const data = await apiResponse.json();
+        let aiResult = data.candidates && data.candidates[0] ? data.candidates[0].content.parts[0].text : null;
+        
+        if (!aiResult) throw new Error("Empty AI response");
+        
+        aiResult = aiResult.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+        const parsed = JSON.parse(aiResult);
+
+        // Optional: Save coordinates back to DB directly or let Frontend do it via animation -> Frontend dragfree does it, or we just return it and let Frontend save it.
+        // The user spec said "Затем фронтенд применяет эти координаты с анимацией", so we return it.
+
+        res.json(parsed);
+    } catch (error) {
+        logger.error(error, 'Error in AI layout');
+        res.status(500).json({ error: 'AI Layout failed' });
     }
 });
 
@@ -935,6 +991,46 @@ app.put('/api/admin/processes/:id/position', isAuthenticated, isAdmin, validateB
     } catch (error) {
         logger.error(error, `Error updating position for process ${id}`);
         res.status(500).json({ error: 'Failed to update position.' });
+    }
+});
+
+app.put('/api/admin/departments/:id/position', isAuthenticated, isAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { x, y, width, height, color } = req.body;
+    try {
+        const updates = [];
+        const params = [id];
+        let pidx = 2;
+        if (x !== undefined) { updates.push(`x = $${pidx++}`); params.push(x); }
+        if (y !== undefined) { updates.push(`y = $${pidx++}`); params.push(y); }
+        if (width !== undefined) { updates.push(`width = $${pidx++}`); params.push(width); }
+        if (height !== undefined) { updates.push(`height = $${pidx++}`); params.push(height); }
+        if (color !== undefined) { updates.push(`color = $${pidx++}`); params.push(color); }
+        
+        if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
+
+        const query = `UPDATE departments SET ${updates.join(', ')} WHERE id = $1`;
+        const { rowCount } = await pool.query(query, params);
+        if (rowCount === 0) return res.status(404).json({ error: 'Department not found' });
+        res.json({ success: true });
+    } catch (error) {
+        logger.error(error, `Error updating position for department ${id}`);
+        res.status(500).json({ error: 'Failed to update department position.' });
+    }
+});
+
+app.post('/api/admin/relations', isAuthenticated, isAdmin, async (req, res) => {
+    const { source_process_id, target_process_id, relation_type } = req.body;
+    if (!source_process_id || !target_process_id) return res.status(400).json({ error: 'Source and target process IDs are required' });
+    try {
+        const { rows } = await pool.query(
+            'INSERT INTO process_relations (source_process_id, target_process_id, relation_type, is_manual) VALUES ($1, $2, $3, $4) RETURNING *',
+            [source_process_id, target_process_id, relation_type || 'Ручная связь', true]
+        );
+        res.status(201).json(rows[0]);
+    } catch (error) {
+        logger.error(error, 'Error creating manual relation');
+        res.status(500).json({ error: 'Failed to create relation.' });
     }
 });
 
