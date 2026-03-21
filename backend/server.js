@@ -1023,39 +1023,45 @@ app.get('/dash', (req, res) => {
     <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
     <style>
         body { margin: 0; font-family: system-ui, sans-serif; background: #f8fafc; overflow: hidden; }
-        #cy { width: 100vw; height: 100vh; display: block; }
+        #cy { 
+            width: 100vw; height: 100vh; display: block; 
+            background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
+            background-size: 30px 30px;
+        }
         .overlay { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.95); padding: 15px 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); z-index: 10; border: 1px solid #e2e8f0; backdrop-filter: blur(10px); }
         .overlay h1 { margin: 0; font-size: 20px; color: #0f172a; font-weight: 700; }
         .legend { position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.95); padding: 15px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); z-index: 10; font-size: 13px; border: 1px solid #e2e8f0; color: #334155; pointer-events: none;}
-        .btn-controls { position: absolute; top: 20px; right: 20px; z-index: 10; display: flex; gap: 10px; }
+        .btn-controls { position: absolute; top: 20px; right: 20px; z-index: 10; display: flex; gap: 10px; align-items: center;}
         button { padding: 8px 16px; border: none; background: #fff; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; font-weight: 600; color: #475569; transition: all 0.2s; }
         button:hover { background: #f1f5f9; transform: translateY(-1px); }
+        #dash-search { padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; font-family: inherit; font-size: 14px; width: 220px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
     <div class="overlay"><h1>Карта Бизнес-Процессов</h1><p style="margin: 5px 0 0 0; font-size: 13px; color: #64748b;">Режим чтения</p></div>
-    <div class="btn-controls"><button onclick="cy.fit()">По размеру экрана</button><button onclick="cy.zoom(cy.zoom() * 1.2)">+</button><button onclick="cy.zoom(cy.zoom() * 0.8)">-</button></div>
+    <div class="btn-controls"><input type="text" id="dash-search" placeholder="🔍 Поиск процессов..."><button onclick="cy.fit()">По размеру экрана</button><button onclick="cy.zoom(cy.zoom() * 1.2)">+</button><button onclick="cy.zoom(cy.zoom() * 0.8)">-</button></div>
     <div id="cy"></div>
     <div class="legend">
         <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #1e293b;">Легенда статусов</h4>
         <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #ecfdf5; border: 2px solid #10b981; margin-right: 10px; border-radius: 4px;"></span> Утвержден</div>
         <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #fffbeb; border: 2px solid #f59e0b; margin-right: 10px; border-radius: 4px;"></span> Черновик</div>
         <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #fef2f2; border: 2px solid #ef4444; margin-right: 10px; border-radius: 4px;"></span> Нужны правки</div>
+        <div style="display: flex; align-items: center; margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 10px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #f0f9ff; border: 2px dashed #0ea5e9; margin-right: 10px; border-radius: 4px;"></span> Чат</div>
     </div>
     <script>
         let cy;
         fetch('/api/dash/map').then(r=>r.json()).then(data => {
-            const elements = [{ data: { id: 'root_centras', name: 'Процессы компании Сентрас', type: 'root' }, classes: 'root-node' }];
+            const elements = [{ data: { id: 'root_centras', name: '👑 Процессы компании Сентрас', type: 'root' }, classes: 'root-node' }];
             (data.departments || []).forEach(dept => {
-                elements.push({ data: { id: 'dept_'+dept.id, name: dept.name }, position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined, classes: 'department' });
+                elements.push({ data: { id: 'dept_'+dept.id, name: '🏢 ' + dept.name, rawName: dept.name }, position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined, classes: 'department' });
                 elements.push({ data: { id: 'edge_root_dept_'+dept.id, source: 'root_centras', target: 'dept_'+dept.id }, classes: 'root-edge' });
             });
             (data.processes || []).forEach(proc => {
-                elements.push({ data: { id: 'proc_'+proc.id, name: proc.name }, position: (proc.x !== null && proc.y !== null) ? { x: parseFloat(proc.x), y: parseFloat(proc.y) } : undefined, classes: 'process status-'+proc.status });
+                elements.push({ data: { id: 'proc_'+proc.id, name: '⚙️ ' + proc.name, rawName: proc.name }, position: (proc.x !== null && proc.y !== null) ? { x: parseFloat(proc.x), y: parseFloat(proc.y) } : undefined, classes: 'process status-'+proc.status });
                 if (proc.department_id) elements.push({ data: { id: 'edge_dept_proc_'+proc.id, source: 'dept_'+proc.department_id, target: 'proc_'+proc.id }, classes: 'dept-edge' });
             });
             (data.active_chats || []).forEach(chat => {
-                elements.push({ data: { id: 'chat_'+chat.id, name: chat.name }, position: (chat.x !== null && chat.y !== null) ? { x: parseFloat(chat.x), y: parseFloat(chat.y) } : undefined, classes: 'chat status-'+chat.status });
+                elements.push({ data: { id: 'chat_'+chat.id, name: '💬 ' + chat.name, rawName: chat.name }, position: (chat.x !== null && chat.y !== null) ? { x: parseFloat(chat.x), y: parseFloat(chat.y) } : undefined, classes: 'chat status-'+chat.status });
                 if (chat.department_id) elements.push({ data: { id: 'edge_dept_chat_'+chat.id, source: 'dept_'+chat.department_id, target: 'chat_'+chat.id }, classes: 'dept-edge chat-edge' });
             });
             (data.relations || []).forEach(rel => { elements.push({ data: { id: 'rel_'+rel.id, source: 'proc_'+rel.source_process_id, target: 'proc_'+rel.target_process_id, label: rel.relation_type || '' } }); });
@@ -1072,13 +1078,26 @@ app.get('/dash', (req, res) => {
                     { selector: 'node.status-approved', style: { 'border-width': 3, 'border-color': '#10b981', 'background-color': '#ecfdf5' } },
                     { selector: 'node.status-draft', style: { 'border-width': 3, 'border-style': 'solid', 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
                     { selector: 'node.status-needs_revision', style: { 'border-width': 3, 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
-                    { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#94a3b8', 'line-color': '#cbd5e1', 'width': 2, 'font-size': 10, 'color': '#94a3b8' } },
+                    { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#94a3b8', 'line-color': '#cbd5e1', 'width': 2, 'font-size': 10, 'color': '#94a3b8', 'text-background-opacity': 1, 'text-background-color': '#fff', 'text-background-padding': 2 } },
                     { selector: 'edge.root-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical', 'target-arrow-shape': 'none', 'width': 3 } },
                     { selector: 'edge.dept-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical' } },
                     { selector: 'edge.chat-edge', style: { 'line-style': 'dashed', 'line-color': '#7dd3fc', 'target-arrow-color': '#7dd3fc' } }
                 ],
                 layout: { name: elements.some(e=>e.position)?'preset':'dagre', rankDir: 'TB', spacingFactor: 1.2, nodeSep: 80, rankSep: 100, padding: 50 },
                 userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false
+            });
+            
+            document.getElementById('dash-search').addEventListener('input', (e) => {
+                const val = e.target.value.toLowerCase();
+                if (!val) {
+                    cy.nodes().style('opacity', 1); cy.edges().style('opacity', 1); return;
+                }
+                cy.nodes().forEach(n => {
+                    const name = n.data('rawName') || n.data('name') || '';
+                    if (name.toLowerCase().includes(val) || n.id() === 'root_centras') n.style('opacity', 1);
+                    else n.style('opacity', 0.15);
+                });
+                cy.edges().style('opacity', 0.15);
             });
         });
     </script>

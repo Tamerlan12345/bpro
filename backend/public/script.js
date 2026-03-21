@@ -137,6 +137,16 @@ document.addEventListener('DOMContentLoaded', () => {
         .cy-toolbar button, .admin-section button { white-space: nowrap; min-width: max-content; padding: 8px 14px; }
         .cy-toolbar button.spinner { display: inline-flex; align-items: center; gap: 5px; }
         .cy-toolbar { margin-bottom: 10px; }
+        #cy {
+            background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
+            background-size: 30px 30px;
+            background-color: #f8fafc;
+        }
+        #cy-search-input {
+            padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px;
+            outline: none; font-family: inherit; font-size: 14px; width: 220px;
+        }
+        #cy-search-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
     `;
     document.head.appendChild(globalStyle);
 
@@ -1767,13 +1777,13 @@ ${brokenCode}
 
             // КОРНЕВОЙ УЗЕЛ
             elements.push({
-                data: { id: 'root_centras', name: 'Процессы компании Сентрас', type: 'root' },
+                data: { id: 'root_centras', name: '👑 Процессы компании Сентрас', type: 'root' },
                 classes: 'root-node'
             });
 
             departments.forEach(dept => {
                 elements.push({
-                    data: { id: `dept_${dept.id}`, name: dept.name, type: 'department', collapsed: false },
+                    data: { id: `dept_${dept.id}`, name: '🏢 ' + dept.name, type: 'department', collapsed: false, rawName: dept.name },
                     position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined,
                     classes: 'department'
                 });
@@ -1788,7 +1798,8 @@ ${brokenCode}
                 elements.push({
                     data: {
                         id: `proc_${proc.id}`,
-                        name: proc.name,
+                        name: '⚙️ ' + proc.name,
+                        rawName: proc.name,
                         description: proc.description || 'Описание отсутствует',
                         goal: proc.goal || 'Цель не указана',
                         owner: proc.owner || 'Не назначен',
@@ -1816,7 +1827,8 @@ ${brokenCode}
                 elements.push({
                     data: {
                         id: `chat_${chat.id}`,
-                        name: chat.name,
+                        name: '💬 ' + chat.name,
+                        rawName: chat.name,
                         status: chat.status,
                         type: 'chat'
                     },
@@ -1860,8 +1872,8 @@ ${brokenCode}
                                 'text-wrap': 'wrap',
                                 'text-valign': 'center',
                                 'text-halign': 'center',
-                                'width': 'label', // Авто-ширина под текст
-                                'height': 'label', // Авто-высота под текст
+                                'width': 'label',
+                                'height': 'label',
                                 'font-family': 'system-ui, -apple-system, sans-serif'
                             }
                         },
@@ -1987,7 +1999,8 @@ ${brokenCode}
                         spacingFactor: 1.2,
                         nodeSep: 80,
                         rankSep: 100,
-                        padding: 50
+                        padding: 50,
+                        fit: true
                     }
                 });
 
@@ -2027,6 +2040,58 @@ ${brokenCode}
                                 cy.elements('.chat').style('display', chatsVisible ? 'element' : 'none');
                                 cy.elements('.chat-edge').style('display', chatsVisible ? 'element' : 'none');
                             }
+                        };
+                    }
+                }
+
+                let searchInput = document.getElementById('cy-search-input');
+                if (!searchInput) {
+                    const tb = document.getElementById('diagram-toolbar') || document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
+                    if (tb) {
+                        searchInput = document.createElement('input');
+                        searchInput.id = 'cy-search-input';
+                        searchInput.type = 'text';
+                        searchInput.placeholder = '🔍 Поиск процессов...';
+                        searchInput.style.marginLeft = '10px';
+                        tb.appendChild(searchInput);
+
+                        searchInput.addEventListener('input', (e) => {
+                            const val = e.target.value.toLowerCase();
+                            if (!val) {
+                                cy.nodes().style('opacity', 1);
+                                cy.edges().style('opacity', 1);
+                                return;
+                            }
+                            cy.nodes().forEach(n => {
+                                const name = n.data('rawName') || n.data('name') || '';
+                                if (name.toLowerCase().includes(val) || n.id() === 'root_centras') {
+                                    n.style('opacity', 1);
+                                } else {
+                                    n.style('opacity', 0.15);
+                                }
+                            });
+                            cy.edges().style('opacity', 0.15); // Затухание связей при поиске
+                        });
+                    }
+                }
+
+                let exportPngBtn = document.getElementById('cy-export-png');
+                if (!exportPngBtn) {
+                    const tb = document.getElementById('diagram-toolbar') || document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
+                    if (tb) {
+                        exportPngBtn = document.createElement('button');
+                        exportPngBtn.id = 'cy-export-png';
+                        exportPngBtn.className = 'button-secondary';
+                        exportPngBtn.style.marginLeft = '10px';
+                        exportPngBtn.innerHTML = '🖼️ Экспорт PNG';
+                        tb.appendChild(exportPngBtn);
+
+                        exportPngBtn.onclick = () => {
+                            const png64 = cy.png({ bg: '#f8fafc', full: true, scale: 2 });
+                            const a = document.createElement('a');
+                            a.href = png64;
+                            a.download = 'Карта_Процессов.png';
+                            a.click();
                         };
                     }
                 }
@@ -2182,17 +2247,65 @@ ${brokenCode}
                     };
                 }
 
-                // Add Auto Layout button listener
                 const autoLayoutBtn = document.getElementById('auto-layout-btn');
                 if (autoLayoutBtn) {
                     autoLayoutBtn.onclick = () => {
-                        if (confirm('Сбросить ручные настройки и выровнять карту автоматически?')) {
-                            cy.layout({
-                                name: 'dagre',
-                                rankDir: 'TB',
-                                nodeSep: 80,
-                                rankSep: 100
-                            }).run();
+                        if (confirm('Выровнять все департаменты по горизонтали, а их процессы СТРОГО вертикально вниз? (Текущие координаты будут перезаписаны)')) {
+                            // КАСТОМНЫЙ АЛГОРИТМ ИДЕАЛЬНОЙ ИЕРАРХИИ
+                            const depts = cy.nodes('.department');
+                            const root = cy.getElementById('root_centras');
+
+                            const spacingX = 450; // Отступ между колонками департаментов
+                            const startY = 150;   // Y координата департаментов
+                            const spacingY = 120; // Шаг по вертикали для процессов
+
+                            let currentX = -((depts.length - 1) * spacingX) / 2; // Центрируем весь блок по X=0
+
+                            if (root.length) root.position({ x: 0, y: -100 });
+
+                            cy.batch(() => {
+                                depts.forEach(dept => {
+                                    dept.position({ x: currentX, y: startY });
+
+                                    const children = dept.outgoers('node.process, node.chat');
+                                    let currentY = startY + spacingY;
+
+                                    // Сначала Процессы, затем Чаты
+                                    children.filter('.process').forEach(child => {
+                                        child.position({ x: currentX, y: currentY });
+                                        currentY += spacingY;
+                                    });
+
+                                    children.filter('.chat').forEach(child => {
+                                        child.position({ x: currentX, y: currentY });
+                                        currentY += spacingY;
+                                    });
+
+                                    currentX += spacingX;
+                                });
+
+                                // Обработка процессов без департаментов (сироты)
+                                const floating = cy.nodes('.process, .chat').filter(n => n.incomers('.department').length === 0);
+                                let floatY = startY;
+                                floating.forEach(node => {
+                                    node.position({ x: currentX, y: floatY });
+                                    floatY += spacingY;
+                                });
+                            });
+
+                            cy.fit(cy.nodes(), 50);
+
+                            // Сохраняем новые координаты в БД
+                            cy.nodes('.department, .process, .chat').forEach(node => {
+                                const pos = node.position();
+                                let ep = '';
+                                if (node.hasClass('department')) ep = `/api/admin/departments/${node.id().replace('dept_', '')}/position`;
+                                else if (node.hasClass('process')) ep = `/api/admin/processes/${node.id().replace('proc_', '')}/position`;
+                                else if (node.hasClass('chat')) ep = `/api/admin/chats/${node.id().replace('chat_', '')}/position`;
+
+                                if (ep) fetchWithAuth(ep, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x: pos.x, y: pos.y }) }).catch(e => e);
+                            });
+
                             showNotification('Авто-выравнивание завершено', 'success');
                         }
                     };
