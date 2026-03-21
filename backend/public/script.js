@@ -628,9 +628,9 @@ ${brokenCode}
             if (sessionUser && sessionUser.role === 'admin') {
                 adminPanel.style.display = 'block';
             } else {
-            else chatLogin.style.display = 'block';
-    }
-};
+                chatLogin.style.display = 'block';
+            }
+        };
 
 document.getElementById('universal-back-btn').addEventListener('click', goBackHandler);
 document.getElementById('breadcrumb-back').addEventListener('click', goBackHandler);

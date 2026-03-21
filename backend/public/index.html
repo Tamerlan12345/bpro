@@ -22,16 +22,16 @@
         </header>
         <main>
             <div id="login-container" class="login-container">
-    <div id="user-login" class="login-form">
+    <form id="user-login" class="login-form" onsubmit="event.preventDefault();">
         <h2>Вход в систему</h2>
         <p>Введите ваш Email и пароль.</p>
         <label for="user-email">Email</label>
         <input type="email" id="user-email" placeholder="example@bizpro.ai">
         <label for="user-password">Пароль</label>
-        <input type="password" id="user-password" placeholder="Пароль">
+        <input type="password" id="user-password" placeholder="Пароль" autocomplete="current-password">
         <button id="user-login-btn" class="button-primary">Войти</button>
         <p id="user-error" class="error-message"></p>
-    </div>
+    </form>
 
     <div id="department-selection" class="login-form" style="display: none;">
         <h2>Выбор департамента</h2>
@@ -42,15 +42,15 @@
     </div>
 
     <!-- Step 3: Chat Selection -->
-    <div id="chat-login" class="login-form" style="display: none;">
+    <form id="chat-login" class="login-form" style="display: none;" onsubmit="event.preventDefault();">
         <h2>Выбор чата</h2>
         <p>Выберите чат, кликнув на него, а затем введите пароль.</p>
         <div id="chat-selection-container"></div>
         <label for="chat-password">Пароль чата</label>
-        <input type="password" id="chat-password" placeholder="Пароль выбранного чата">
+        <input type="password" id="chat-password" placeholder="Пароль выбранного чата" autocomplete="current-password">
         <button id="chat-login-btn" class="button-primary">Войти в чат</button>
         <p id="chat-error" class="error-message"></p>
-    </div>
+    </form>
     </div>
 
     <div id="admin-panel" style="display: none;">
