@@ -1754,11 +1754,22 @@ ${brokenCode}
 
             const elements = [];
 
+            // КОРНЕВОЙ УЗЕЛ
+            elements.push({
+                data: { id: 'root_centras', name: 'Процессы компании Сентрас', type: 'root' },
+                classes: 'root-node'
+            });
+
             departments.forEach(dept => {
                 elements.push({
-                    data: { id: `dept_${dept.id}`, name: dept.name, type: 'department' },
+                    data: { id: `dept_${dept.id}`, name: dept.name, type: 'department', collapsed: false },
                     position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined,
                     classes: 'department'
+                });
+                // Связь от корня к департаменту
+                elements.push({
+                    data: { id: `edge_root_dept_${dept.id}`, source: 'root_centras', target: `dept_${dept.id}` },
+                    classes: 'root-edge'
                 });
             });
 
@@ -1833,6 +1844,26 @@ ${brokenCode}
                     elements: elements,
                     style: [
                         {
+                            selector: 'node.root-node',
+                            style: {
+                                'label': 'data(name)',
+                                'shape': 'round-rectangle',
+                                'background-color': '#1e293b',
+                                'color': '#ffffff',
+                                'text-valign': 'center',
+                                'text-halign': 'center',
+                                'font-weight': 'bold',
+                                'font-size': 20,
+                                'padding': 25,
+                                'min-width': 300,
+                                'min-height': 80,
+                                'text-wrap': 'wrap',
+                                'text-max-width': 280,
+                                'border-width': 2,
+                                'border-color': '#0f172a'
+                            }
+                        },
+                        {
                             selector: 'node.department',
                             style: {
                                 'label': 'data(name)',
@@ -1842,12 +1873,16 @@ ${brokenCode}
                                 'text-valign': 'center',
                                 'text-halign': 'center',
                                 'font-weight': '600',
-                                'font-size': 16,
-                                'padding': 20,
-                                'min-width': 160,
+                                'font-size': 15,
+                                'padding': 15,
+                                'min-width': 220,
                                 'min-height': 60,
                                 'text-wrap': 'wrap',
-                                'text-max-width': 180
+                                'text-max-width': 200,
+                                'border-width': 3,
+                                'border-color': '#1d4ed8',
+                                'transition-property': 'opacity',
+                                'transition-duration': '0.3s'
                             }
                         },
                         {
@@ -1890,10 +1925,10 @@ ${brokenCode}
                                 'min-height': 40
                             }
                         },
-                        { selector: 'node.status-approved', style: { 'border-color': '#10b981', 'background-color': '#ecfdf5' } },
-                        { selector: 'node.status-draft', style: { 'border-style': 'solid', 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
-                        { selector: 'node.status-needs_revision', style: { 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
-                        { selector: 'node.status-pending_review', style: { 'border-color': '#8b5cf6', 'background-color': '#f5f3ff' } },
+                        { selector: 'node.status-approved', style: { 'border-width': 3, 'border-color': '#10b981', 'background-color': '#ecfdf5' } },
+                        { selector: 'node.status-draft', style: { 'border-width': 3, 'border-style': 'solid', 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
+                        { selector: 'node.status-needs_revision', style: { 'border-width': 3, 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
+                        { selector: 'node.status-pending_review', style: { 'border-width': 3, 'border-color': '#8b5cf6', 'background-color': '#f5f3ff' } },
                         {
                             selector: 'edge',
                             style: {
@@ -1912,12 +1947,24 @@ ${brokenCode}
                             }
                         },
                         {
+                            selector: 'edge.root-edge',
+                            style: {
+                                'line-color': '#94a3b8',
+                                'width': 3,
+                                'curve-style': 'taxi',
+                                'taxi-direction': 'vertical',
+                                'target-arrow-shape': 'none'
+                            }
+                        },
+                        {
                             selector: 'edge.dept-edge',
                             style: {
                                 'line-color': '#94a3b8',
                                 'target-arrow-color': '#94a3b8',
                                 'width': 2,
-                                'line-style': 'dashed',
+                                'curve-style': 'taxi',
+                                'taxi-direction': 'vertical',
+                                'line-style': 'solid',
                                 'font-size': 10,
                                 'color': '#94a3b8'
                             }
@@ -1927,17 +1974,77 @@ ${brokenCode}
                             style: {
                                 'line-color': '#7dd3fc',
                                 'target-arrow-color': '#7dd3fc',
-                                'line-style': 'dotted'
+                                'line-style': 'dashed'
                             }
                         }
                     ],
                     layout: {
                         name: elements.some(e => e.position) ? 'preset' : 'dagre',
-                        rankDir: 'LR',
-                        spacingFactor: 1.3,
+                        rankDir: 'TB',
+                        spacingFactor: 1.2,
                         nodeSep: 80,
-                        rankSep: 150,
+                        rankSep: 100,
                         padding: 50
+                    }
+                });
+
+                // --- ДОБАВЛЕНИЕ ЛЕГЕНДЫ И КНОПКИ СКРЫТИЯ ЧАТОВ ---
+                if (!document.getElementById('cy-legend')) {
+                    const legend = document.createElement('div');
+                    legend.id = 'cy-legend';
+                    legend.style.cssText = `position: absolute; bottom: 20px; right: 20px; background-color: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); z-index: 10; font-size: 13px; font-family: inherit; pointer-events: none; border: 1px solid #e2e8f0;`;
+                    legend.innerHTML = `
+                        <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #1e293b;">Легенда статусов</h4>
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #ecfdf5; border: 2px solid #10b981; margin-right: 10px; border-radius: 4px;"></span> Утвержден</div>
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #fffbeb; border: 2px solid #f59e0b; margin-right: 10px; border-radius: 4px;"></span> Черновик</div>
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #f5f3ff; border: 2px solid #8b5cf6; margin-right: 10px; border-radius: 4px;"></span> На проверке</div>
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #fef2f2; border: 2px solid #ef4444; margin-right: 10px; border-radius: 4px;"></span> Нужны правки</div>
+                        <div style="display: flex; align-items: center; margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 10px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #f0f9ff; border: 2px dashed #0ea5e9; margin-right: 10px; border-radius: 4px;"></span> Чат</div>
+                        <div style="margin-top: 10px; color: #64748b; font-style: italic; font-size: 11px;">* Клик по департаменту скрывает его связи</div>
+                    `;
+                    document.getElementById('cy').appendChild(legend);
+                }
+
+                let toggleChatsMapBtn = document.getElementById('cy-toggle-chats');
+                if (!toggleChatsMapBtn) {
+                    const tb = document.getElementById('diagram-toolbar') || document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
+                    if (tb) {
+                        toggleChatsMapBtn = document.createElement('button');
+                        toggleChatsMapBtn.id = 'cy-toggle-chats';
+                        toggleChatsMapBtn.className = 'button-secondary';
+                        toggleChatsMapBtn.style.marginLeft = '10px';
+                        toggleChatsMapBtn.innerText = 'Скрыть чаты';
+                        tb.appendChild(toggleChatsMapBtn);
+
+                        let chatsVisible = true;
+                        toggleChatsMapBtn.onclick = () => {
+                            chatsVisible = !chatsVisible;
+                            toggleChatsMapBtn.innerText = chatsVisible ? 'Скрыть чаты' : 'Показать чаты';
+                            if (cy) {
+                                cy.elements('.chat').style('display', chatsVisible ? 'element' : 'none');
+                                cy.elements('.chat-edge').style('display', chatsVisible ? 'element' : 'none');
+                            }
+                        };
+                    }
+                }
+
+                // Сворачивание / Разворачивание по клику на департамент
+                cy.on('tap', 'node.department', function (evt) {
+                    const deptNode = evt.target;
+                    const isCollapsed = deptNode.data('collapsed');
+                    const outEdges = deptNode.outgoers('edge.dept-edge');
+                    const childNodes = outEdges.targets();
+
+                    if (isCollapsed) {
+                        childNodes.style('display', 'element');
+                        outEdges.style('display', 'element');
+                        deptNode.data('collapsed', false);
+                        deptNode.style('opacity', 1);
+                    } else {
+                        childNodes.style('display', 'none');
+                        outEdges.style('display', 'none');
+                        deptNode.data('collapsed', true);
+                        deptNode.style('opacity', 0.6);
                     }
                 });
 
@@ -2060,9 +2167,9 @@ ${brokenCode}
                         if (confirm('Сбросить ручные настройки и выровнять карту автоматически?')) {
                             cy.layout({
                                 name: 'dagre',
-                                rankDir: 'LR',
-                                nodeSep: 60,
-                                rankSep: 120
+                                rankDir: 'TB',
+                                nodeSep: 80,
+                                rankSep: 100
                             }).run();
                             showNotification('Авто-выравнивание завершено', 'success');
                         }
@@ -2251,10 +2358,10 @@ ${brokenCode}
                 cy.add(elements);
                 cy.layout({
                     name: elements.some(e => e.position) ? 'preset' : 'dagre',
-                    rankDir: 'LR',
-                    spacingFactor: 1.3,
+                    rankDir: 'TB',
+                    spacingFactor: 1.2,
                     nodeSep: 80,
-                    rankSep: 150,
+                    rankSep: 100,
                     padding: 50
                 }).run();
             }
