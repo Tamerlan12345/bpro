@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const elements = [{ data: { id: 'root_centras', name: '👑 Процессы компании Сентрас', type: 'root' }, classes: 'root-node' }];
 
         (data.departments || []).forEach(dept => {
-            elements.push({ data: { id: 'dept_' + dept.id, name: '🏢 ' + dept.name, rawName: dept.name }, position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined, classes: 'department' });
+            elements.push({ data: { id: 'dept_' + dept.id, name: '🏢 ' + dept.name, rawName: dept.name, collapsed: false }, position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined, classes: 'department' });
             elements.push({ data: { id: 'edge_root_dept_' + dept.id, source: 'root_centras', target: 'dept_' + dept.id }, classes: 'root-edge' });
         });
 
@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 },
                 { selector: 'node.root-node', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#0f172a', 'color': '#ffffff', 'font-weight': 'bold', 'font-size': 18, 'padding': '20px', 'text-max-width': 260, 'border-width': 0 } },
-                { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#2563eb', 'color': '#ffffff', 'font-weight': '600', 'font-size': 14, 'padding': '16px', 'text-max-width': 200, 'border-width': 0 } },
+                { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#2563eb', 'color': '#ffffff', 'font-weight': '600', 'font-size': 14, 'padding': '16px', 'text-max-width': 200, 'border-width': 0, 'transition-property': 'opacity', 'transition-duration': '0.3s' } },
                 { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 1, 'border-color': '#cbd5e1', 'color': '#1e293b', 'text-max-width': 170, 'font-size': 13, 'font-weight': '500', 'padding': '12px 16px' } },
                 { selector: 'node.chat', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#f8fafc', 'border-width': 2, 'border-style': 'dashed', 'border-color': '#94a3b8', 'color': '#475569', 'text-max-width': 150, 'font-size': 12, 'padding': '10px 14px' } },
 
@@ -100,6 +100,48 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             sidePanel.style.display = 'flex';
         });
+
+        // Индивидуальное сворачивание/разворачивание департаментов по клику
+        cy.on('tap', 'node.department', function (evt) {
+            const deptNode = evt.target;
+            const isCollapsed = deptNode.data('collapsed');
+            const outEdges = deptNode.outgoers('edge.dept-edge');
+            const childNodes = outEdges.targets();
+
+            if (isCollapsed) {
+                childNodes.style('display', 'element');
+                outEdges.style('display', 'element');
+                deptNode.data('collapsed', false);
+                deptNode.style('opacity', 1);
+            } else {
+                childNodes.style('display', 'none');
+                outEdges.style('display', 'none');
+                deptNode.data('collapsed', true);
+                deptNode.style('opacity', 0.6);
+            }
+        });
+
+        // Глобальное сворачивание
+        let isAllCollapsed = false;
+        const btnToggleCollapse = document.getElementById('btn-toggle-collapse');
+        if (btnToggleCollapse) {
+            btnToggleCollapse.addEventListener('click', () => {
+                isAllCollapsed = !isAllCollapsed;
+                btnToggleCollapse.innerText = isAllCollapsed ? '🔼 Развернуть все' : '🔽 Свернуть все';
+                cy.nodes('.department').forEach(deptNode => {
+                    const outEdges = deptNode.outgoers('edge.dept-edge');
+                    const childNodes = outEdges.targets();
+                    childNodes.style('display', isAllCollapsed ? 'none' : 'element');
+                    outEdges.style('display', isAllCollapsed ? 'none' : 'element');
+                    deptNode.data('collapsed', isAllCollapsed);
+                    deptNode.style('opacity', isAllCollapsed ? 0.6 : 1);
+                });
+            });
+        }
+
+        // UX: Изменение курсора при наведении на элементы
+        cy.on('mouseover', 'node', () => document.body.style.cursor = 'pointer');
+        cy.on('mouseout', 'node', () => document.body.style.cursor = 'default');
 
         // Безопасное подключение обработчиков клика
         document.getElementById('btn-fit').addEventListener('click', () => { if (cy) cy.fit(); });

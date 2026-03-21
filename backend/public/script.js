@@ -2113,6 +2113,35 @@ ${brokenCode}
                     }
                 }
 
+                let toggleCollapseBtn = document.getElementById('cy-toggle-collapse');
+                if (!toggleCollapseBtn) {
+                    const tb = document.getElementById('diagram-toolbar') || document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
+                    if (tb) {
+                        toggleCollapseBtn = document.createElement('button');
+                        toggleCollapseBtn.id = 'cy-toggle-collapse';
+                        toggleCollapseBtn.className = 'button-secondary';
+                        toggleCollapseBtn.style.marginLeft = '10px';
+                        toggleCollapseBtn.innerText = '🔽 Свернуть все';
+                        tb.appendChild(toggleCollapseBtn);
+
+                        let isAllCollapsed = false;
+                        toggleCollapseBtn.onclick = () => {
+                            isAllCollapsed = !isAllCollapsed;
+                            toggleCollapseBtn.innerText = isAllCollapsed ? '🔼 Развернуть все' : '🔽 Свернуть все';
+                            if (cy) {
+                                cy.nodes('.department').forEach(deptNode => {
+                                    const outEdges = deptNode.outgoers('edge.dept-edge');
+                                    const childNodes = outEdges.targets();
+                                    childNodes.style('display', isAllCollapsed ? 'none' : 'element');
+                                    outEdges.style('display', isAllCollapsed ? 'none' : 'element');
+                                    deptNode.data('collapsed', isAllCollapsed);
+                                    deptNode.style('opacity', isAllCollapsed ? 0.6 : 1);
+                                });
+                            }
+                        };
+                    }
+                }
+
                 // Сворачивание / Разворачивание по клику на департамент
                 cy.on('tap', 'node.department', function (evt) {
                     const deptNode = evt.target;
@@ -2132,6 +2161,10 @@ ${brokenCode}
                         deptNode.style('opacity', 0.6);
                     }
                 });
+
+                // UX: Изменение курсора при наведении на элементы
+                cy.on('mouseover', 'node', () => document.body.style.cursor = 'pointer');
+                cy.on('mouseout', 'node', () => document.body.style.cursor = 'default');
 
                 // Initialize edgehandles
                 const eh = cy.edgehandles({

@@ -1067,6 +1067,7 @@ app.get('/dash', (req, res) => {
     <div class="overlay"><h1>Карта Бизнес-Процессов</h1><p style="margin: 5px 0 0 0; font-size: 13px; color: #64748b;">Режим чтения</p></div>
     <div class="btn-controls">
         <input type="text" id="dash-search" placeholder="🔍 Поиск процессов...">
+        <button id="btn-toggle-collapse">🔽 Свернуть все</button>
         <button id="btn-fit">По размеру экрана</button>
         <button id="btn-zoom-in">+</button>
         <button id="btn-zoom-out">-</button>
