@@ -2349,21 +2349,39 @@ ${brokenCode}
                     document.getElementById('cy-side-panel').style.display = 'none';
                 };
 
-                const openSidePanel = (nodeData) => {
+                const openSidePanel = async (nodeData) => {
                     const panel = document.getElementById('cy-side-panel');
                     const content = document.getElementById('panel-content');
+                    const isChat = nodeData.type === 'chat';
                     const isApproved = nodeData.status === 'approved';
                     const statusClass = isApproved ? 'status-approved' : 'status-draft';
-                    const statusText = isApproved ? 'Одобрен' : 'Черновик';
+                    const statusText = isApproved ? 'Одобрен' : (statusMap[nodeData.status]?.text || 'Черновик');
+
+                    let descText = nodeData.description;
+                    if (isChat) {
+                        try {
+                            const res = await fetchWithAuth(`/api/chats/${nodeData.id.replace('chat_', '')}/versions`);
+                            if (res.ok) {
+                                const versions = await res.json();
+                                if (versions.length > 0) descText = versions[0].process_text;
+                            }
+                        } catch (e) { console.error('Error fetching chat versions'); }
+                    }
+
+                    let descHtml = marked.parse(descText || 'Описание отсутствует');
 
                     let html = `
                         <div style="margin-bottom: 15px;">
                             <strong>Название:</strong><br>
-                            <input type="text" id="panel-proc-name" value="${nodeData.name}" style="width: 100%; padding: 5px;" disabled>
+                            <input type="text" id="panel-proc-name" value="${nodeData.rawName || nodeData.name}" style="width: 100%; padding: 5px;" disabled>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <strong>Тип:</strong> ${isChat ? 'Чат' : 'Процесс'}
                         </div>
                         <div style="margin-bottom: 15px;">
                             <strong>Статус:</strong> <span class="status-badge ${statusClass}">${statusText}</span>
                         </div>
+                        ${!isChat ? `
                         <div style="margin-bottom: 15px;">
                             <strong>Владелец:</strong><br>
                             <span>${nodeData.owner || 'Не назначен'}</span>
@@ -2372,42 +2390,71 @@ ${brokenCode}
                             <strong>Цель:</strong><br>
                             <p>${nodeData.goal || 'Цель не указана'}</p>
                         </div>
+                        ` : ''}
                         <div style="margin-bottom: 15px;">
                             <strong>Описание:</strong><br>
                             <div class="scroll-area" style="max-height: 200px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 4px;">
-                                ${marked.parse(nodeData.description || 'Описание отсутствует')}
+                                ${descHtml}
                             </div>
                         </div>
                         <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
-                            <button id="panel-go-chat" class="button-primary">Перейти в чат</button>
-                            <button id="panel-delete" class="button-danger">Удалить процесс</button>
+                            ${isChat ? `<button id="panel-go-chat" class="button-primary">Перейти в чат</button>` : ''}
+                            ${!isChat
+                            ? `<button id="panel-delete" class="button-danger">Удалить процесс</button>`
+                            : `<button id="panel-delete-chat" class="button-danger">Удалить чат</button>`}
                         </div>
                     `;
                     content.innerHTML = html;
                     panel.style.display = 'block';
 
-                    document.getElementById('panel-go-chat').onclick = () => {
-                        panel.style.display = 'none';
-                        showNotification(`Переход к процессу: ${nodeData.name}`, 'info');
-                    };
+                    if (isChat) {
+                        document.getElementById('panel-go-chat').onclick = () => {
+                            panel.style.display = 'none';
+                            chatId = nodeData.id.replace('chat_', '');
+                            authWrapper.style.display = 'none';
+                            mainContainer.style.display = 'block';
+                            chatNameHeader.textContent = `Чат: ${nodeData.rawName || nodeData.name}`;
+                            loadChatData();
+                            backToAdminBtn.style.display = 'block';
+                            switchAdminTab(''); // Скрываем панели админки
+                            adminPanel.style.display = 'none';
+                        };
+                    }
 
-                    document.getElementById('panel-delete').onclick = async () => {
-                        if (confirm(`Удалить процесс "${nodeData.name}"?`)) {
-                            try {
-                                const res = await fetchWithAuth(`/api/admin/processes/${nodeData.id.replace('proc_', '')}`, { method: 'DELETE' });
-                                if (res.ok) {
-                                    showNotification('Процесс удален', 'success');
-                                    panel.style.display = 'none';
-                                    loadProcessMap();
+                    if (!isChat) {
+                        document.getElementById('panel-delete').onclick = async () => {
+                            if (confirm(`Удалить процесс "${nodeData.rawName || nodeData.name}"?`)) {
+                                try {
+                                    const res = await fetchWithAuth(`/api/admin/processes/${nodeData.id.replace('proc_', '')}`, { method: 'DELETE' });
+                                    if (res.ok) {
+                                        showNotification('Процесс удален', 'success');
+                                        panel.style.display = 'none';
+                                        loadProcessMap();
+                                    }
+                                } catch (e) {
+                                    showNotification('Ошибка', 'error');
                                 }
-                            } catch (e) {
-                                showNotification('Ошибка', 'error');
                             }
-                        }
-                    };
+                        };
+                    } else {
+                        document.getElementById('panel-delete-chat').onclick = async () => {
+                            if (confirm(`Удалить чат "${nodeData.rawName || nodeData.name}"?`)) {
+                                try {
+                                    const res = await fetchWithAuth(`/api/chats/${nodeData.id.replace('chat_', '')}`, { method: 'DELETE' });
+                                    if (res.ok) {
+                                        showNotification('Чат удален', 'success');
+                                        panel.style.display = 'none';
+                                        loadProcessMap();
+                                    }
+                                } catch (e) {
+                                    showNotification('Ошибка', 'error');
+                                }
+                            }
+                        };
+                    }
                 };
 
-                cy.on('tap', 'node.process', function (evt) {
+                cy.on('tap', 'node.process, node.chat', function (evt) {
                     openSidePanel(evt.target.data());
                 });
 

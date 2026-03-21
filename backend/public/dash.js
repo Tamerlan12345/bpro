@@ -10,12 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         (data.processes || []).forEach(proc => {
-            elements.push({ data: { id: 'proc_' + proc.id, name: '⚙️ ' + proc.name, rawName: proc.name }, position: (proc.x !== null && proc.y !== null) ? { x: parseFloat(proc.x), y: parseFloat(proc.y) } : undefined, classes: 'process status-' + proc.status });
+            elements.push({ data: { id: 'proc_' + proc.id, name: '⚙️ ' + proc.name, rawName: proc.name, description: proc.description, status: proc.status, type: 'process' }, position: (proc.x !== null && proc.y !== null) ? { x: parseFloat(proc.x), y: parseFloat(proc.y) } : undefined, classes: 'process status-' + proc.status });
             if (proc.department_id) elements.push({ data: { id: 'edge_dept_proc_' + proc.id, source: 'dept_' + proc.department_id, target: 'proc_' + proc.id }, classes: 'dept-edge' });
         });
 
         (data.active_chats || []).forEach(chat => {
-            elements.push({ data: { id: 'chat_' + chat.id, name: '💬 ' + chat.name, rawName: chat.name }, position: (chat.x !== null && chat.y !== null) ? { x: parseFloat(chat.x), y: parseFloat(chat.y) } : undefined, classes: 'chat status-' + chat.status });
+            elements.push({ data: { id: 'chat_' + chat.id, name: '💬 ' + chat.name, rawName: chat.name, description: chat.description, status: chat.status, type: 'chat' }, position: (chat.x !== null && chat.y !== null) ? { x: parseFloat(chat.x), y: parseFloat(chat.y) } : undefined, classes: 'chat status-' + chat.status });
             if (chat.department_id) elements.push({ data: { id: 'edge_dept_chat_' + chat.id, source: 'dept_' + chat.department_id, target: 'chat_' + chat.id }, classes: 'dept-edge chat-edge' });
         });
 
@@ -53,6 +53,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 else n.style('opacity', 0.15);
             });
             cy.edges().style('opacity', 0.15);
+        });
+
+        const sidePanel = document.getElementById('dash-side-panel');
+        const panelTitle = document.getElementById('dash-panel-title');
+        const panelContent = document.getElementById('dash-panel-content');
+        const panelCloseBtn = document.getElementById('dash-panel-close');
+
+        panelCloseBtn.addEventListener('click', () => {
+            sidePanel.style.display = 'none';
+        });
+
+        cy.on('tap', 'node.process, node.chat', function (evt) {
+            const nodeData = evt.target.data();
+            const isChat = nodeData.type === 'chat';
+
+            panelTitle.innerText = isChat ? 'Детали чата' : 'Детали процесса';
+
+            const statusMap = {
+                'approved': 'Утвержден',
+                'draft': 'Черновик',
+                'needs_revision': 'Нужны правки',
+                'pending_review': 'На проверке',
+                'completed': 'Завершен',
+                'archived': 'В архиве'
+            };
+
+            let desc = nodeData.description || 'Описание отсутствует';
+            let htmlDesc = typeof marked !== 'undefined' ? marked.parse(desc) : desc;
+
+            panelContent.innerHTML = `
+                <div style="margin-bottom: 12px;"><strong>Название:</strong> ${nodeData.rawName}</div>
+                <div style="margin-bottom: 12px;"><strong>Статус:</strong> ${statusMap[nodeData.status] || nodeData.status}</div>
+                <div style="margin-bottom: 8px;"><strong>Текстовое описание:</strong></div>
+                <div class="markdown-body">${htmlDesc}</div>
+            `;
+            sidePanel.style.display = 'flex';
         });
 
         // Безопасное подключение обработчиков клика

@@ -992,10 +992,11 @@ app.post('/api/admin/processes', isAuthenticated, isAdmin, async (req, res) => {
 app.get('/api/dash/map', async (req, res) => {
     try {
         const departmentsRes = await pool.query('SELECT id, name, x, y FROM departments');
-        const processesRes = await pool.query('SELECT id, name, status, department_id, x, y FROM business_processes');
+        const processesRes = await pool.query('SELECT id, name, status, department_id, description, x, y FROM business_processes');
         const relationsRes = await pool.query('SELECT id, source_process_id, target_process_id, relation_type FROM process_relations');
         const chatsRes = await pool.query(`
-            SELECT c.id, c.name, c.department_id, c.x, c.y, cs.status 
+            SELECT c.id, c.name, c.department_id, c.x, c.y, cs.status,
+                   (SELECT process_text FROM process_versions pv WHERE pv.chat_id = c.id ORDER BY created_at DESC LIMIT 1) as description
             FROM chats c JOIN chat_statuses cs ON c.id = cs.chat_id 
             WHERE c.id NOT IN (SELECT chat_id FROM business_processes WHERE chat_id IS NOT NULL)
         `);
@@ -1022,6 +1023,7 @@ app.get('/dash', (req, res) => {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body { margin: 0; font-family: system-ui, sans-serif; background: #f8fafc; overflow: hidden; }
         #cy { 
@@ -1036,6 +1038,27 @@ app.get('/dash', (req, res) => {
         button { padding: 8px 16px; border: none; background: #fff; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; font-weight: 600; color: #475569; transition: all 0.2s; }
         button:hover { background: #f1f5f9; transform: translateY(-1px); }
         #dash-search { padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; font-family: inherit; font-size: 14px; width: 220px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .side-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 380px;
+            max-height: calc(100vh - 40px);
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            z-index: 100;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .side-panel-header { padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; font-weight: bold; color: #0f172a; font-size: 16px;}
+        .side-panel-content { padding: 20px; overflow-y: auto; font-size: 14px; color: #334155; line-height: 1.5; }
+        .side-panel-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b; padding: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px;}
+        .side-panel-close:hover { color: #0f172a; background: #e2e8f0; }
+        .markdown-body { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 10px; font-family: system-ui, sans-serif; font-size: 13px;}
+        .markdown-body p { margin-top: 0; }
     </style>
 </head>
 <body>
@@ -1053,6 +1076,13 @@ app.get('/dash', (req, res) => {
         <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #fffbeb; border: 2px solid #f59e0b; margin-right: 10px; border-radius: 4px;"></span> Черновик</div>
         <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #fef2f2; border: 2px solid #ef4444; margin-right: 10px; border-radius: 4px;"></span> Нужны правки</div>
         <div style="display: flex; align-items: center; margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 10px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #f0f9ff; border: 2px dashed #0ea5e9; margin-right: 10px; border-radius: 4px;"></span> Чат</div>
+    </div>
+    <div id="dash-side-panel" class="side-panel" style="display: none;">
+        <div class="side-panel-header">
+            <span id="dash-panel-title">Информация</span>
+            <button id="dash-panel-close" class="side-panel-close">✖</button>
+        </div>
+        <div id="dash-panel-content" class="side-panel-content"></div>
     </div>
     <script src="/dash.js"></script>
 </body>
