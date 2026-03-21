@@ -33,9 +33,9 @@ app.use(
         contentSecurityPolicy: {
             directives: {
                 "default-src": ["'self'"],
-                "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"], // <-- Разрешаем CDN JS
-                "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"], // <-- Разрешаем Google Fonts
-                "font-src": ["'self'", "data:", "https://fonts.gstatic.com"], // <-- Сами файлы шрифтов
+                "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://unpkg.com", "'unsafe-eval'"],
+                "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com"],
+                "font-src": ["'self'", "data:", "https://fonts.gstatic.com", "https://unpkg.com"],
                 "media-src": ["'self'", "blob:"], // <-- Разрешаем плееру воспроизводить записанное аудио
                 "img-src": ["'self'", "data:", "blob:"], // <-- Разрешаем картинки-схемы (Mermaid)
                 "connect-src": ["'self'", "https://api.github.com", "https://cdn.jsdelivr.net"],
