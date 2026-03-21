@@ -427,7 +427,7 @@
     <!-- Global AI Audit Modal -->
     <div id="global-audit-modal" class="modal" style="display: none;">
         <div class="modal-content">
-            <button class="close-btn" aria-label="Закрыть">&times;</button>
+            <button class="close-btn" id="close-global-audit-modal" aria-label="Закрыть">&times;</button>
             <h2>Глобальный ИИ Аудит</h2>
             <p>ИИ проанализирует все <strong>утвержденные</strong> процессы компании на предмет логических ошибок, дублей и наложит ваш запрос.</p>
             <div class="form-group">
@@ -435,11 +435,11 @@
                 <textarea id="audit-prompt" placeholder="Например: Найди процессы, где есть риск дублирования функций между отделом продаж и маркетинга."></textarea>
             </div>
             <div class="modal-buttons">
-                <button id="run-audit-btn" class="button-primary">Запустить аудит</button>
+                <button id="run-global-audit-btn" class="button-primary">Запустить аудит</button>
             </div>
-            <div id="audit-result-container" style="display: none; margin-top: 20px;">
+            <div id="global-audit-result-area" style="display: none; margin-top: 20px;">
                 <h3>Результаты аудита</h3>
-                <div id="audit-result-text" class="audit-report"></div>
+                <div id="global-audit-text" class="audit-report"></div>
             </div>
         </div>
     </div>

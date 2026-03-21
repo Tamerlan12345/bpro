@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (csrfToken && finalOptions.method && finalOptions.method.toUpperCase() !== 'GET') {
             finalOptions.headers = {
                 ...finalOptions.headers,
-                'CSRF-Token': csrfToken
+                'X-CSRF-Token': csrfToken
             };
         }
 
@@ -2259,7 +2259,7 @@ ${brokenCode}
             try {
                 const res = await fetch('/api/admin/parse-documents', {
                     method: 'POST',
-                    headers: { 'CSRF-Token': csrfToken },
+                    headers: { 'X-CSRF-Token': csrfToken },
                     body: formData
                 });
 
