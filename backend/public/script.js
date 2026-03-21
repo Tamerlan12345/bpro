@@ -130,6 +130,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const notificationContainer = document.getElementById('notification-container');
 
+    // Глобальные стили для фикса "съедания" текста в кнопках тулбаров
+    const globalStyle = document.createElement('style');
+    globalStyle.innerHTML = `
+        .cy-toolbar, .admin-section .toolbar, #refresh-map-btn { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .cy-toolbar button, .admin-section button { white-space: nowrap; min-width: max-content; padding: 8px 14px; }
+        .cy-toolbar button.spinner { display: inline-flex; align-items: center; gap: 5px; }
+        .cy-toolbar { margin-bottom: 10px; }
+    `;
+    document.head.appendChild(globalStyle);
+
+
 
     function showNotification(message, type = 'success') {
         const notification = document.createElement('div');
@@ -1844,20 +1855,26 @@ ${brokenCode}
                     elements: elements,
                     style: [
                         {
+                            selector: 'node',
+                            style: {
+                                'text-wrap': 'wrap',
+                                'text-valign': 'center',
+                                'text-halign': 'center',
+                                'width': 'label', // Авто-ширина под текст
+                                'height': 'label', // Авто-высота под текст
+                                'font-family': 'system-ui, -apple-system, sans-serif'
+                            }
+                        },
+                        {
                             selector: 'node.root-node',
                             style: {
                                 'label': 'data(name)',
                                 'shape': 'round-rectangle',
                                 'background-color': '#1e293b',
                                 'color': '#ffffff',
-                                'text-valign': 'center',
-                                'text-halign': 'center',
                                 'font-weight': 'bold',
                                 'font-size': 20,
-                                'padding': 25,
-                                'min-width': 300,
-                                'min-height': 80,
-                                'text-wrap': 'wrap',
+                                'padding': '25px',
                                 'text-max-width': 280,
                                 'border-width': 2,
                                 'border-color': '#0f172a'
@@ -1870,14 +1887,9 @@ ${brokenCode}
                                 'shape': 'round-rectangle',
                                 'background-color': '#2563eb',
                                 'color': '#ffffff',
-                                'text-valign': 'center',
-                                'text-halign': 'center',
                                 'font-weight': '600',
                                 'font-size': 15,
-                                'padding': 15,
-                                'min-width': 220,
-                                'min-height': 60,
-                                'text-wrap': 'wrap',
+                                'padding': '20px',
                                 'text-max-width': 200,
                                 'border-width': 3,
                                 'border-color': '#1d4ed8',
@@ -1894,14 +1906,10 @@ ${brokenCode}
                                 'border-width': 2,
                                 'border-color': '#3b82f6',
                                 'color': '#1e293b',
-                                'text-valign': 'center',
-                                'text-halign': 'center',
-                                'text-wrap': 'wrap',
                                 'text-max-width': 160,
                                 'font-size': 13,
-                                'padding': 15,
-                                'min-width': 120,
-                                'min-height': 50,
+                                'font-weight': '500',
+                                'padding': '15px',
                                 'background-opacity': 1
                             }
                         },
@@ -1915,14 +1923,9 @@ ${brokenCode}
                                 'border-style': 'dashed',
                                 'border-color': '#0ea5e9',
                                 'color': '#0369a1',
-                                'text-valign': 'center',
-                                'text-halign': 'center',
-                                'text-wrap': 'wrap',
                                 'text-max-width': 140,
                                 'font-size': 12,
-                                'padding': 12,
-                                'min-width': 110,
-                                'min-height': 40
+                                'padding': '12px'
                             }
                         },
                         { selector: 'node.status-approved', style: { 'border-width': 3, 'border-color': '#10b981', 'background-color': '#ecfdf5' } },
@@ -2024,6 +2027,25 @@ ${brokenCode}
                                 cy.elements('.chat').style('display', chatsVisible ? 'element' : 'none');
                                 cy.elements('.chat-edge').style('display', chatsVisible ? 'element' : 'none');
                             }
+                        };
+                    }
+                }
+
+                let shareBoardBtn = document.getElementById('cy-share-board');
+                if (!shareBoardBtn) {
+                    const tb = document.getElementById('diagram-toolbar') || document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
+                    if (tb) {
+                        shareBoardBtn = document.createElement('button');
+                        shareBoardBtn.id = 'cy-share-board';
+                        shareBoardBtn.className = 'button-primary';
+                        shareBoardBtn.style.marginLeft = '10px';
+                        shareBoardBtn.innerHTML = '🔗 Поделиться дашбордом';
+                        tb.appendChild(shareBoardBtn);
+
+                        shareBoardBtn.onclick = () => {
+                            const shareUrl = window.location.origin + '/dash';
+                            navigator.clipboard.writeText(shareUrl).then(() => showNotification('Ссылка на дашборд скопирована!', 'success'));
+                            window.open(shareUrl, '_blank');
                         };
                     }
                 }

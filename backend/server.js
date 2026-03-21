@@ -923,7 +923,16 @@ app.post('/api/admin/map/ai-layout', isAuthenticated, isAdmin, async (req, res) 
             relations: relationsRes.rows
         };
 
-        const prompt = `Ты — эксперт по визуализации графов. Расположи процессы и департаменты на 2D-плоскости (координаты X и Y от 0 до 3000). Процессы одного департамента должны находиться рядом. Минимизируй пересечения связей (relations).
+        const prompt = `Ты — эксперт по визуализации графов. Твоя задача рассчитать красивые координаты (x, y) для узлов карты процессов.
+Правила идеального макета:
+1. Департаменты располагаются в горизонтальный ряд в верхней части (y = 200). Координата X для каждого департамента должна рассчитываться с отступом в 400-500 пикселей (например: x=500, x=1000, x=1500).
+2. Процессы каждого департамента располагаются СТРОГО ВЕРТИКАЛЬНО ВНИЗ (в столбик) под своим департаментом.
+   - Например, для Департамента 1 (x=500, y=200), его процессы должны идти так:
+     - Процесс 1: x=500, y=400
+     - Процесс 2: x=500, y=600
+     - Процесс 3: x=500, y=800
+3. Чаты (если есть) также располагаются в столбик под процессами своего департамента (y=1000 и т.д.).
+4. Никакие узлы не должны накладываться друг на друга.
         
 Данные карты:
 ${JSON.stringify(mapContext, null, 2)}
@@ -935,7 +944,7 @@ ${JSON.stringify(mapContext, null, 2)}
     { "id": "uuid", "type": "department", "x": число, "y": число }
   ]
 }
-Обязательно верни валидный JSON без маркдаун-оберток.`;
+Обязательно верни только валидный JSON без маркдаун-оберток.`;
 
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
@@ -976,6 +985,106 @@ app.post('/api/admin/processes', isAuthenticated, isAdmin, async (req, res) => {
         logger.error(error, 'Error creating draft process');
         res.status(500).json({ error: 'Failed to create draft process.' });
     }
+});
+
+// --- PUBLIC DASHBOARD ENDPOINTS ---
+app.get('/api/dash/map', async (req, res) => {
+    try {
+        const departmentsRes = await pool.query('SELECT id, name, x, y FROM departments');
+        const processesRes = await pool.query('SELECT id, name, status, department_id, x, y FROM business_processes');
+        const relationsRes = await pool.query('SELECT id, source_process_id, target_process_id, relation_type FROM process_relations');
+        const chatsRes = await pool.query(`
+            SELECT c.id, c.name, c.department_id, c.x, c.y, cs.status 
+            FROM chats c JOIN chat_statuses cs ON c.id = cs.chat_id 
+            WHERE c.id NOT IN (SELECT chat_id FROM business_processes WHERE chat_id IS NOT NULL)
+        `);
+        res.json({
+            departments: departmentsRes.rows,
+            processes: processesRes.rows,
+            relations: relationsRes.rows,
+            active_chats: chatsRes.rows
+        });
+    } catch (error) {
+        logger.error(error, 'Error fetching public map');
+        res.status(500).json({ error: 'Failed to fetch map.' });
+    }
+});
+
+app.get('/dash', (req, res) => {
+    res.send(`
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дашборд Процессов</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+    <style>
+        body { margin: 0; font-family: system-ui, sans-serif; background: #f8fafc; overflow: hidden; }
+        #cy { width: 100vw; height: 100vh; display: block; }
+        .overlay { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.95); padding: 15px 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); z-index: 10; border: 1px solid #e2e8f0; backdrop-filter: blur(10px); }
+        .overlay h1 { margin: 0; font-size: 20px; color: #0f172a; font-weight: 700; }
+        .legend { position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.95); padding: 15px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); z-index: 10; font-size: 13px; border: 1px solid #e2e8f0; color: #334155; pointer-events: none;}
+        .btn-controls { position: absolute; top: 20px; right: 20px; z-index: 10; display: flex; gap: 10px; }
+        button { padding: 8px 16px; border: none; background: #fff; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; font-weight: 600; color: #475569; transition: all 0.2s; }
+        button:hover { background: #f1f5f9; transform: translateY(-1px); }
+    </style>
+</head>
+<body>
+    <div class="overlay"><h1>Карта Бизнес-Процессов</h1><p style="margin: 5px 0 0 0; font-size: 13px; color: #64748b;">Режим чтения</p></div>
+    <div class="btn-controls"><button onclick="cy.fit()">По размеру экрана</button><button onclick="cy.zoom(cy.zoom() * 1.2)">+</button><button onclick="cy.zoom(cy.zoom() * 0.8)">-</button></div>
+    <div id="cy"></div>
+    <div class="legend">
+        <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #1e293b;">Легенда статусов</h4>
+        <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #ecfdf5; border: 2px solid #10b981; margin-right: 10px; border-radius: 4px;"></span> Утвержден</div>
+        <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #fffbeb; border: 2px solid #f59e0b; margin-right: 10px; border-radius: 4px;"></span> Черновик</div>
+        <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #fef2f2; border: 2px solid #ef4444; margin-right: 10px; border-radius: 4px;"></span> Нужны правки</div>
+    </div>
+    <script>
+        let cy;
+        fetch('/api/dash/map').then(r=>r.json()).then(data => {
+            const elements = [{ data: { id: 'root_centras', name: 'Процессы компании Сентрас', type: 'root' }, classes: 'root-node' }];
+            (data.departments || []).forEach(dept => {
+                elements.push({ data: { id: 'dept_'+dept.id, name: dept.name }, position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined, classes: 'department' });
+                elements.push({ data: { id: 'edge_root_dept_'+dept.id, source: 'root_centras', target: 'dept_'+dept.id }, classes: 'root-edge' });
+            });
+            (data.processes || []).forEach(proc => {
+                elements.push({ data: { id: 'proc_'+proc.id, name: proc.name }, position: (proc.x !== null && proc.y !== null) ? { x: parseFloat(proc.x), y: parseFloat(proc.y) } : undefined, classes: 'process status-'+proc.status });
+                if (proc.department_id) elements.push({ data: { id: 'edge_dept_proc_'+proc.id, source: 'dept_'+proc.department_id, target: 'proc_'+proc.id }, classes: 'dept-edge' });
+            });
+            (data.active_chats || []).forEach(chat => {
+                elements.push({ data: { id: 'chat_'+chat.id, name: chat.name }, position: (chat.x !== null && chat.y !== null) ? { x: parseFloat(chat.x), y: parseFloat(chat.y) } : undefined, classes: 'chat status-'+chat.status });
+                if (chat.department_id) elements.push({ data: { id: 'edge_dept_chat_'+chat.id, source: 'dept_'+chat.department_id, target: 'chat_'+chat.id }, classes: 'dept-edge chat-edge' });
+            });
+            (data.relations || []).forEach(rel => { elements.push({ data: { id: 'rel_'+rel.id, source: 'proc_'+rel.source_process_id, target: 'proc_'+rel.target_process_id, label: rel.relation_type || '' } }); });
+
+            cy = cytoscape({
+                container: document.getElementById('cy'),
+                elements: elements,
+                style: [
+                    { selector: 'node', style: { 'text-wrap': 'wrap', 'text-valign': 'center', 'text-halign': 'center', 'width': 'label', 'height': 'label', 'font-family': 'system-ui, sans-serif' } },
+                    { selector: 'node.root-node', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#0f172a', 'color': '#ffffff', 'font-weight': 'bold', 'font-size': 20, 'padding': '25px', 'text-max-width': '300px', 'border-width': 2, 'border-color': '#334155' } },
+                    { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#2563eb', 'color': '#ffffff', 'font-weight': '600', 'font-size': 16, 'padding': '20px', 'text-max-width': '220px', 'border-width': 3, 'border-color': '#1d4ed8' } },
+                    { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 2, 'border-color': '#3b82f6', 'color': '#0f172a', 'text-max-width': '180px', 'font-size': 14, 'padding': '15px' } },
+                    { selector: 'node.chat', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#f8fafc', 'border-width': 2, 'border-style': 'dashed', 'border-color': '#0ea5e9', 'color': '#0369a1', 'text-max-width': '160px', 'font-size': 13, 'padding': '12px' } },
+                    { selector: 'node.status-approved', style: { 'border-width': 3, 'border-color': '#10b981', 'background-color': '#ecfdf5' } },
+                    { selector: 'node.status-draft', style: { 'border-width': 3, 'border-style': 'solid', 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
+                    { selector: 'node.status-needs_revision', style: { 'border-width': 3, 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
+                    { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#94a3b8', 'line-color': '#cbd5e1', 'width': 2, 'font-size': 10, 'color': '#94a3b8' } },
+                    { selector: 'edge.root-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical', 'target-arrow-shape': 'none', 'width': 3 } },
+                    { selector: 'edge.dept-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical' } },
+                    { selector: 'edge.chat-edge', style: { 'line-style': 'dashed', 'line-color': '#7dd3fc', 'target-arrow-color': '#7dd3fc' } }
+                ],
+                layout: { name: elements.some(e=>e.position)?'preset':'dagre', rankDir: 'TB', spacingFactor: 1.2, nodeSep: 80, rankSep: 100, padding: 50 },
+                userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false
+            });
+        });
+    </script>
+</body>
+</html>
+    `);
 });
 
 app.put('/api/admin/processes/:id/position', isAuthenticated, isAdmin, validateBody(positionSchema), async (req, res) => {
