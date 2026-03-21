@@ -988,8 +988,8 @@ app.post('/api/admin/processes', isAuthenticated, isAdmin, async (req, res) => {
     }
 });
 
-// --- PUBLIC DASHBOARD ENDPOINTS ---
-app.get('/api/dash/map', async (req, res) => {
+// --- DASHBOARD ENDPOINTS (ADMIN ONLY) ---
+app.get('/api/dash/map', isAuthenticated, isAdmin, async (req, res) => {
     try {
         const departmentsRes = await pool.query('SELECT id, name, x, y FROM departments');
         const processesRes = await pool.query('SELECT id, name, status, department_id, description, x, y FROM business_processes');
@@ -1013,6 +1013,10 @@ app.get('/api/dash/map', async (req, res) => {
 });
 
 app.get('/dash', (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.redirect('/');
+    }
+
     res.send(`
 <!DOCTYPE html>
 <html lang="ru">
