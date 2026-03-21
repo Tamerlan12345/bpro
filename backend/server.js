@@ -926,12 +926,12 @@ app.post('/api/admin/map/ai-layout', isAuthenticated, isAdmin, async (req, res) 
 
         const prompt = `Ты — эксперт по визуализации графов. Твоя задача рассчитать красивые координаты (x, y) для узлов карты процессов.
 Правила идеального макета:
-1. Департаменты располагаются в горизонтальный ряд в верхней части (y = 150). Координата X для каждого департамента должна рассчитываться с отступом в 280 пикселей (например: x=300, x=580, x=860).
+1. Департаменты располагаются в горизонтальный ряд в верхней части (y = 120). Координата X для каждого департамента должна рассчитываться с отступом в 240 пикселей (например: x=240, x=480, x=720).
 2. Процессы каждого департамента располагаются СТРОГО ВЕРТИКАЛЬНО ВНИЗ (в столбик) под своим департаментом.
-   - Например, для Департамента 1 (x=300, y=150), его процессы должны идти так:
-     - Процесс 1: x=300, y=250
-     - Процесс 2: x=300, y=350
-     - Процесс 3: x=300, y=450
+   - Например, для Департамента 1 (x=240, y=120), его процессы должны идти так:
+     - Процесс 1: x=240, y=210
+     - Процесс 2: x=240, y=300
+     - Процесс 3: x=240, y=390
 3. Чаты (если есть) также располагаются в столбик под процессами своего департамента.
 4. Никакие узлы не должны накладываться друг на друга.
         
@@ -1031,29 +1031,31 @@ app.get('/dash', (req, res) => {
             background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
             background-size: 30px 30px;
         }
-        .overlay { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.95); padding: 15px 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); z-index: 10; border: 1px solid #e2e8f0; backdrop-filter: blur(10px); }
-        .overlay h1 { margin: 0; font-size: 20px; color: #0f172a; font-weight: 700; }
-        .legend { position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.95); padding: 15px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); z-index: 10; font-size: 13px; border: 1px solid #e2e8f0; color: #334155; pointer-events: none;}
+        .overlay { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.85); padding: 15px 25px; border-radius: 12px; box-shadow: 0 8px 32px rgba(15,23,42,0.08); z-index: 10; border: 1px solid rgba(226,232,240,0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .overlay h1 { margin: 0; font-size: 18px; color: #0f172a; font-weight: 700; }
+        .legend { position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.85); padding: 15px; border-radius: 12px; box-shadow: 0 8px 32px rgba(15,23,42,0.08); z-index: 10; font-size: 13px; border: 1px solid rgba(226,232,240,0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: #334155; pointer-events: none;}
         .btn-controls { position: absolute; top: 20px; right: 20px; z-index: 10; display: flex; gap: 10px; align-items: center;}
-        button { padding: 8px 16px; border: none; background: #fff; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; font-weight: 600; color: #475569; transition: all 0.2s; }
-        button:hover { background: #f1f5f9; transform: translateY(-1px); }
-        #dash-search { padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; font-family: inherit; font-size: 14px; width: 220px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        button { padding: 8px 16px; border: none; background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(15,23,42,0.05); border: 1px solid rgba(226,232,240,0.8); font-weight: 600; color: #475569; transition: all 0.2s; }
+        button:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(15,23,42,0.08); color: #0f172a;}
+        #dash-search { padding: 8px 14px; background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(226,232,240,0.8); border-radius: 8px; outline: none; font-family: inherit; font-size: 14px; width: 220px; box-shadow: 0 4px 12px rgba(15,23,42,0.05); transition: all 0.2s;}
+        #dash-search:focus { background: #fff; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
         .side-panel {
             position: absolute;
             top: 20px;
             right: 20px;
             width: 380px;
             max-height: calc(100vh - 40px);
-            background: #ffffff;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            box-shadow: 0 12px 40px rgba(15,23,42,0.12);
             z-index: 100;
-            border: 1px solid #e2e8f0;
+            border: 1px solid rgba(226,232,240,0.8);
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
-        .side-panel-header { padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; font-weight: bold; color: #0f172a; font-size: 16px;}
+        .side-panel-header { padding: 15px 20px; border-bottom: 1px solid rgba(226,232,240,0.8); display: flex; justify-content: space-between; align-items: center; background: transparent; font-weight: bold; color: #0f172a; font-size: 16px;}
         .side-panel-content { padding: 20px; overflow-y: auto; font-size: 14px; color: #334155; line-height: 1.5; }
         .side-panel-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b; padding: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px;}
         .side-panel-close:hover { color: #0f172a; background: #e2e8f0; }

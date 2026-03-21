@@ -25,20 +25,30 @@ document.addEventListener('DOMContentLoaded', () => {
             container: document.getElementById('cy'),
             elements: elements,
             style: [
-                { selector: 'node', style: { 'text-wrap': 'wrap', 'text-valign': 'center', 'text-halign': 'center', 'width': 'label', 'height': 'label', 'font-family': 'system-ui, sans-serif' } },
-                { selector: 'node.root-node', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#0f172a', 'color': '#ffffff', 'font-weight': 'bold', 'font-size': 20, 'padding': '25px', 'text-max-width': '300px', 'border-width': 2, 'border-color': '#334155' } },
-                { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#2563eb', 'color': '#ffffff', 'font-weight': '600', 'font-size': 16, 'padding': '20px', 'text-max-width': '220px', 'border-width': 3, 'border-color': '#1d4ed8' } },
-                { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 2, 'border-color': '#3b82f6', 'color': '#0f172a', 'text-max-width': '180px', 'font-size': 14, 'padding': '15px' } },
-                { selector: 'node.chat', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#f8fafc', 'border-width': 2, 'border-style': 'dashed', 'border-color': '#0ea5e9', 'color': '#0369a1', 'text-max-width': '160px', 'font-size': 13, 'padding': '12px' } },
-                { selector: 'node.status-approved', style: { 'border-width': 3, 'border-color': '#10b981', 'background-color': '#ecfdf5' } },
-                { selector: 'node.status-draft', style: { 'border-width': 3, 'border-style': 'solid', 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
-                { selector: 'node.status-needs_revision', style: { 'border-width': 3, 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
-                { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#94a3b8', 'line-color': '#cbd5e1', 'width': 2, 'font-size': 10, 'color': '#94a3b8', 'text-background-opacity': 1, 'text-background-color': '#fff', 'text-background-padding': 2 } },
-                { selector: 'edge.root-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical', 'target-arrow-shape': 'none', 'width': 3 } },
-                { selector: 'edge.dept-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical' } },
+                {
+                    selector: 'node',
+                    style: {
+                        'text-wrap': 'wrap', 'text-valign': 'center', 'text-halign': 'center',
+                        'width': 'label', 'height': 'label', 'font-family': 'system-ui, -apple-system, sans-serif',
+                        'shadow-blur': 12, 'shadow-color': '#0f172a', 'shadow-opacity': 0.08, 'shadow-offset-y': 4
+                    }
+                },
+                { selector: 'node.root-node', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#0f172a', 'color': '#ffffff', 'font-weight': 'bold', 'font-size': 18, 'padding': '20px', 'text-max-width': 260, 'border-width': 0 } },
+                { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#2563eb', 'color': '#ffffff', 'font-weight': '600', 'font-size': 14, 'padding': '16px', 'text-max-width': 200, 'border-width': 0 } },
+                { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 1, 'border-color': '#cbd5e1', 'color': '#1e293b', 'text-max-width': 170, 'font-size': 13, 'font-weight': '500', 'padding': '12px 16px' } },
+                { selector: 'node.chat', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#f8fafc', 'border-width': 2, 'border-style': 'dashed', 'border-color': '#94a3b8', 'color': '#475569', 'text-max-width': 150, 'font-size': 12, 'padding': '10px 14px' } },
+
+                { selector: 'node.status-approved', style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' } },
+                { selector: 'node.status-draft', style: { 'border-width': 2, 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
+                { selector: 'node.status-needs_revision', style: { 'border-width': 2, 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
+                { selector: 'node.status-pending_review', style: { 'border-width': 2, 'border-color': '#3b82f6', 'background-color': '#eff6ff' } },
+
+                { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#cbd5e1', 'line-color': '#e2e8f0', 'width': 2, 'font-size': 10, 'color': '#64748b', 'text-background-opacity': 1, 'text-background-color': '#ffffff', 'text-background-padding': 3 } },
+                { selector: 'edge.root-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical', 'target-arrow-shape': 'none', 'width': 3, 'line-color': '#94a3b8' } },
+                { selector: 'edge.dept-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical', 'width': 1.5, 'line-color': '#cbd5e1', 'target-arrow-color': '#cbd5e1' } },
                 { selector: 'edge.chat-edge', style: { 'line-style': 'dashed', 'line-color': '#7dd3fc', 'target-arrow-color': '#7dd3fc' } }
             ],
-            layout: { name: elements.some(e => e.position) ? 'preset' : 'dagre', rankDir: 'TB', spacingFactor: 0.9, nodeSep: 50, rankSep: 80, padding: 30 },
+            layout: { name: elements.some(e => e.position) ? 'preset' : 'dagre', rankDir: 'TB', spacingFactor: 0.85, nodeSep: 40, rankSep: 70, padding: 30 },
             userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false
         });
 

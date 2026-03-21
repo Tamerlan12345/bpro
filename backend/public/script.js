@@ -1874,7 +1874,11 @@ ${brokenCode}
                                 'text-halign': 'center',
                                 'width': 'label',
                                 'height': 'label',
-                                'font-family': 'system-ui, -apple-system, sans-serif'
+                                'font-family': 'system-ui, -apple-system, sans-serif',
+                                'shadow-blur': 12,
+                                'shadow-color': '#0f172a',
+                                'shadow-opacity': 0.08,
+                                'shadow-offset-y': 4
                             }
                         },
                         {
@@ -1885,11 +1889,10 @@ ${brokenCode}
                                 'background-color': '#1e293b',
                                 'color': '#ffffff',
                                 'font-weight': 'bold',
-                                'font-size': 20,
-                                'padding': '25px',
-                                'text-max-width': 280,
-                                'border-width': 2,
-                                'border-color': '#0f172a'
+                                'font-size': 18,
+                                'padding': '20px',
+                                'text-max-width': 260,
+                                'border-width': 0
                             }
                         },
                         {
@@ -1900,11 +1903,10 @@ ${brokenCode}
                                 'background-color': '#2563eb',
                                 'color': '#ffffff',
                                 'font-weight': '600',
-                                'font-size': 15,
-                                'padding': '20px',
+                                'font-size': 14,
+                                'padding': '16px',
                                 'text-max-width': 200,
-                                'border-width': 3,
-                                'border-color': '#1d4ed8',
+                                'border-width': 0,
                                 'transition-property': 'opacity',
                                 'transition-duration': '0.3s'
                             }
@@ -1915,14 +1917,13 @@ ${brokenCode}
                                 'label': 'data(name)',
                                 'shape': 'round-rectangle',
                                 'background-color': '#ffffff',
-                                'border-width': 2,
-                                'border-color': '#3b82f6',
+                                'border-width': 1,
+                                'border-color': '#cbd5e1',
                                 'color': '#1e293b',
-                                'text-max-width': 160,
+                                'text-max-width': 170,
                                 'font-size': 13,
                                 'font-weight': '500',
-                                'padding': '15px',
-                                'background-opacity': 1
+                                'padding': '12px 16px'
                             }
                         },
                         {
@@ -1933,32 +1934,31 @@ ${brokenCode}
                                 'background-color': '#f0f9ff',
                                 'border-width': 2,
                                 'border-style': 'dashed',
-                                'border-color': '#0ea5e9',
-                                'color': '#0369a1',
-                                'text-max-width': 140,
+                                'border-color': '#94a3b8',
+                                'color': '#475569',
+                                'text-max-width': 150,
                                 'font-size': 12,
-                                'padding': '12px'
+                                'padding': '10px 14px'
                             }
                         },
-                        { selector: 'node.status-approved', style: { 'border-width': 3, 'border-color': '#10b981', 'background-color': '#ecfdf5' } },
-                        { selector: 'node.status-draft', style: { 'border-width': 3, 'border-style': 'solid', 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
-                        { selector: 'node.status-needs_revision', style: { 'border-width': 3, 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
-                        { selector: 'node.status-pending_review', style: { 'border-width': 3, 'border-color': '#8b5cf6', 'background-color': '#f5f3ff' } },
+                        { selector: 'node.status-approved', style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' } },
+                        { selector: 'node.status-draft', style: { 'border-width': 2, 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
+                        { selector: 'node.status-needs_revision', style: { 'border-width': 2, 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
+                        { selector: 'node.status-pending_review', style: { 'border-width': 2, 'border-color': '#3b82f6', 'background-color': '#eff6ff' } },
                         {
                             selector: 'edge',
                             style: {
                                 'label': 'data(label)',
                                 'curve-style': 'bezier',
                                 'target-arrow-shape': 'triangle',
-                                'target-arrow-color': '#94a3b8',
-                                'line-color': '#cbd5e1',
+                                'target-arrow-color': '#cbd5e1',
+                                'line-color': '#e2e8f0',
                                 'width': 2,
                                 'font-size': 10,
-                                'color': '#94a3b8',
+                                'color': '#64748b',
                                 'text-background-opacity': 1,
-                                'text-background-color': '#fff',
-                                'text-background-padding': 2,
-                                'arrow-scale': 1.2
+                                'text-background-color': '#ffffff',
+                                'text-background-padding': 3
                             }
                         },
                         {
@@ -1974,14 +1974,12 @@ ${brokenCode}
                         {
                             selector: 'edge.dept-edge',
                             style: {
-                                'line-color': '#94a3b8',
-                                'target-arrow-color': '#94a3b8',
-                                'width': 2,
+                                'line-color': '#cbd5e1',
+                                'target-arrow-color': '#cbd5e1',
+                                'width': 1.5,
                                 'curve-style': 'taxi',
                                 'taxi-direction': 'vertical',
                                 'line-style': 'solid',
-                                'font-size': 10,
-                                'color': '#94a3b8'
                             }
                         },
                         {
@@ -1996,9 +1994,9 @@ ${brokenCode}
                     layout: {
                         name: elements.some(e => e.position) ? 'preset' : 'dagre',
                         rankDir: 'TB',
-                        spacingFactor: 0.9,
-                        nodeSep: 50,
-                        rankSep: 80,
+                        spacingFactor: 0.85,
+                        nodeSep: 40,
+                        rankSep: 70,
                         padding: 30,
                         fit: true
                     }
@@ -2008,7 +2006,7 @@ ${brokenCode}
                 if (!document.getElementById('cy-legend')) {
                     const legend = document.createElement('div');
                     legend.id = 'cy-legend';
-                    legend.style.cssText = `position: absolute; bottom: 20px; right: 20px; background-color: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); z-index: 10; font-size: 13px; font-family: inherit; pointer-events: none; border: 1px solid #e2e8f0;`;
+                    legend.style.cssText = `position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 15px; border-radius: 12px; box-shadow: 0 8px 32px rgba(15,23,42,0.08); z-index: 10; font-size: 13px; font-family: inherit; pointer-events: none; border: 1px solid rgba(226,232,240,0.8);`;
                     legend.innerHTML = `
                         <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #1e293b;">Легенда статусов</h4>
                         <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #ecfdf5; border: 2px solid #10b981; margin-right: 10px; border-radius: 4px;"></span> Утвержден</div>
@@ -2255,9 +2253,9 @@ ${brokenCode}
                             const depts = cy.nodes('.department');
                             const root = cy.getElementById('root_centras');
 
-                            const spacingX = 280; // Отступ между колонками департаментов
-                            const startY = 150;   // Y координата департаментов
-                            const spacingY = 100;  // Шаг по вертикали для процессов
+                            const spacingX = 240; // Отступ между колонками департаментов
+                            const startY = 120;   // Y координата департаментов
+                            const spacingY = 90;  // Шаг по вертикали для процессов
 
                             let currentX = -((depts.length - 1) * spacingX) / 2; // Центрируем весь блок по X=0
 
@@ -2541,9 +2539,9 @@ ${brokenCode}
                 cy.layout({
                     name: elements.some(e => e.position) ? 'preset' : 'dagre',
                     rankDir: 'TB',
-                    spacingFactor: 0.9,
-                    nodeSep: 50,
-                    rankSep: 80,
+                    spacingFactor: 0.85,
+                    nodeSep: 40,
+                    rankSep: 70,
                     padding: 30
                 }).run();
             }
