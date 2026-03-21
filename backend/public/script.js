@@ -1996,10 +1996,10 @@ ${brokenCode}
                     layout: {
                         name: elements.some(e => e.position) ? 'preset' : 'dagre',
                         rankDir: 'TB',
-                        spacingFactor: 1.2,
-                        nodeSep: 80,
-                        rankSep: 100,
-                        padding: 50,
+                        spacingFactor: 0.9,
+                        nodeSep: 50,
+                        rankSep: 80,
+                        padding: 30,
                         fit: true
                     }
                 });
@@ -2255,9 +2255,9 @@ ${brokenCode}
                             const depts = cy.nodes('.department');
                             const root = cy.getElementById('root_centras');
 
-                            const spacingX = 450; // Отступ между колонками департаментов
+                            const spacingX = 280; // Отступ между колонками департаментов
                             const startY = 150;   // Y координата департаментов
-                            const spacingY = 120; // Шаг по вертикали для процессов
+                            const spacingY = 100;  // Шаг по вертикали для процессов
 
                             let currentX = -((depts.length - 1) * spacingX) / 2; // Центрируем весь блок по X=0
 
@@ -2494,10 +2494,10 @@ ${brokenCode}
                 cy.layout({
                     name: elements.some(e => e.position) ? 'preset' : 'dagre',
                     rankDir: 'TB',
-                    spacingFactor: 1.2,
-                    nodeSep: 80,
-                    rankSep: 100,
-                    padding: 50
+                    spacingFactor: 0.9,
+                    nodeSep: 50,
+                    rankSep: 80,
+                    padding: 30
                 }).run();
             }
         } catch (error) {

@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { selector: 'edge.dept-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical' } },
                 { selector: 'edge.chat-edge', style: { 'line-style': 'dashed', 'line-color': '#7dd3fc', 'target-arrow-color': '#7dd3fc' } }
             ],
-            layout: { name: elements.some(e => e.position) ? 'preset' : 'dagre', rankDir: 'TB', spacingFactor: 1.2, nodeSep: 80, rankSep: 100, padding: 50 },
+            layout: { name: elements.some(e => e.position) ? 'preset' : 'dagre', rankDir: 'TB', spacingFactor: 0.9, nodeSep: 50, rankSep: 80, padding: 30 },
             userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false
         });
 
