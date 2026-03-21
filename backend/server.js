@@ -8,7 +8,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config({ path: path.join(__dirname, '.env') });
+    require('dotenv').config({ path: path.join(__dirname, '.env') });
 }
 const express = require('express');
 const fetch = require('node-fetch');
@@ -29,36 +29,36 @@ const logger = pino();
 
 // Security Middleware
 app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        "default-src": ["'self'"],
-        "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"], // <-- Разрешаем CDN JS
-        "img-src": ["'self'", "data:", "blob:"], // <-- Разрешаем картинки-схемы (Mermaid)
-        "connect-src": ["'self'", "https://api.github.com", "https://cdn.jsdelivr.net"],
-      },
-    },
-  })
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                "default-src": ["'self'"],
+                "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"], // <-- Разрешаем CDN JS
+                "img-src": ["'self'", "data:", "blob:"], // <-- Разрешаем картинки-схемы (Mermaid)
+                "connect-src": ["'self'", "https://api.github.com", "https://cdn.jsdelivr.net"],
+            },
+        },
+    })
 );
 
 // Logging Middleware
 app.use(pinoHttp({
-  logger,
-  autoLogging: {
-    ignore: (req) => {
-      // Skip logging for health checks and static assets to reduce noise and I/O overhead
-      const isStatic = /\.(js|css|ico|png|jpg|jpeg|svg|woff|woff2)(\?|$)/.test(req.url);
-      const isHealth = req.url === '/health';
-      return isStatic || isHealth;
+    logger,
+    autoLogging: {
+        ignore: (req) => {
+            // Skip logging for health checks and static assets to reduce noise and I/O overhead
+            const isStatic = /\.(js|css|ico|png|jpg|jpeg|svg|woff|woff2)(\?|$)/.test(req.url);
+            const isHealth = req.url === '/health';
+            return isStatic || isHealth;
+        }
     }
-  }
 }));
 
 // Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { error: "Too many requests, please try again later." }
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { error: "Too many requests, please try again later." }
 });
 app.use(limiter);
 
@@ -69,13 +69,13 @@ const authLimiter = rateLimit({
 });
 
 function escapeHtml(text) {
-  if (!text) return text;
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    if (!text) return text;
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -278,7 +278,7 @@ const validateBody = (schema) => (req, res, next) => {
         next();
     } catch (error) {
         if (error instanceof z.ZodError) {
-             return res.status(400).json({ error: 'Validation Error', details: error.errors });
+            return res.status(400).json({ error: 'Validation Error', details: error.errors });
         }
         res.status(400).json({ error: 'Invalid Request' });
     }
@@ -469,7 +469,7 @@ app.post('/api/admin/users', isAuthenticated, isAdmin, validateBody(userCreateSc
         const name = email.split('@')[0]; // Simple fallback for name
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
-        
+
         const { rows } = await pool.query(
             `INSERT INTO users (name, full_name, email, hashed_password, role, department_id) 
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, full_name, email, role`,
@@ -492,11 +492,11 @@ app.patch('/api/admin/users/:id/password', isAuthenticated, isAdmin, validateBod
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         const result = await pool.query('UPDATE users SET hashed_password = $1 WHERE id = $2', [hashedPassword, id]);
-        
+
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
-        
+
         res.json({ message: 'Password updated successfully' });
     } catch (error) {
         logger.error(error, 'Error updating user password');
@@ -506,12 +506,12 @@ app.patch('/api/admin/users/:id/password', isAuthenticated, isAdmin, validateBod
 
 app.delete('/api/admin/users/:id', isAuthenticated, isAdmin, async (req, res) => {
     const { id } = req.params;
-    
+
     // Check if user is trying to delete themselves
     if (id === req.session.user.id) {
         return res.status(400).json({ error: 'You cannot delete your own account.' });
     }
-    
+
     try {
         const result = await pool.query('DELETE FROM users WHERE id = $1', [id]);
         if (result.rowCount === 0) {
@@ -806,7 +806,7 @@ app.put('/api/chats/:id/status', isAuthenticated, validateBody(statusSchema), as
     try {
         const { rows } = await pool.query('UPDATE chat_statuses SET status = $1 WHERE chat_id = $2 RETURNING *', [status, id]);
         if (rows.length === 0) return res.status(404).json({ error: 'Status not found' });
-        
+
         // --- NEW LOGIC FOR GLOBAL ARCHITECTURE ---
         if (status === 'approved') {
             try {
@@ -886,10 +886,10 @@ app.get('/api/admin/map', isAuthenticated, isAdmin, async (req, res) => {
         const departmentsRes = await pool.query('SELECT id, name, x, y, width, height, color FROM departments');
         const processesRes = await pool.query('SELECT * FROM business_processes');
         const relationsRes = await pool.query('SELECT * FROM process_relations');
-        
+
         // Also fetch chats that are not yet processes to show them in the map
         const chatsRes = await pool.query(`
-            SELECT c.id, c.name, c.department_id, cs.status 
+            SELECT c.id, c.name, c.department_id, c.x, c.y, cs.status 
             FROM chats c 
             JOIN chat_statuses cs ON c.id = cs.chat_id 
             WHERE c.id NOT IN (SELECT chat_id FROM business_processes WHERE chat_id IS NOT NULL)
@@ -944,12 +944,12 @@ ${JSON.stringify(mapContext, null, 2)}
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
-        
+
         const data = await apiResponse.json();
         let aiResult = data.candidates && data.candidates[0] ? data.candidates[0].content.parts[0].text : null;
-        
+
         if (!aiResult) throw new Error("Empty AI response");
-        
+
         aiResult = aiResult.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
         const parsed = JSON.parse(aiResult);
 
@@ -1006,7 +1006,7 @@ app.put('/api/admin/departments/:id/position', isAuthenticated, isAdmin, async (
         if (width !== undefined) { updates.push(`width = $${pidx++}`); params.push(width); }
         if (height !== undefined) { updates.push(`height = $${pidx++}`); params.push(height); }
         if (color !== undefined) { updates.push(`color = $${pidx++}`); params.push(color); }
-        
+
         if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
 
         const query = `UPDATE departments SET ${updates.join(', ')} WHERE id = $1`;
@@ -1016,6 +1016,22 @@ app.put('/api/admin/departments/:id/position', isAuthenticated, isAdmin, async (
     } catch (error) {
         logger.error(error, `Error updating position for department ${id}`);
         res.status(500).json({ error: 'Failed to update department position.' });
+    }
+});
+
+app.put('/api/admin/chats/:id/position', isAuthenticated, isAdmin, validateBody(positionSchema), async (req, res) => {
+    const { id } = req.params;
+    const { x, y } = req.body;
+    try {
+        const { rowCount } = await pool.query(
+            'UPDATE chats SET x = $1, y = $2 WHERE id = $3',
+            [x, y, id]
+        );
+        if (rowCount === 0) return res.status(404).json({ error: 'Chat not found' });
+        res.json({ success: true });
+    } catch (error) {
+        logger.error(error, `Error updating position for chat ${id}`);
+        res.status(500).json({ error: 'Failed to update position.' });
     }
 });
 
@@ -1074,7 +1090,7 @@ app.post('/api/admin/parse-documents', isAuthenticated, isAdmin, (req, res, next
     }
     try {
         const resultJSON = await parseDocumentsWithAI(req.files, process.env.GOOGLE_API_KEY);
-        
+
         const deptMap = {};
         if (resultJSON.departments) {
             for (const dName of resultJSON.departments) {
@@ -1096,7 +1112,7 @@ app.post('/api/admin/parse-documents', isAuthenticated, isAdmin, (req, res, next
                 );
                 procMap[proc.name] = rows[0].id;
             }
-            
+
             for (const proc of resultJSON.processes) {
                 if (proc.connections && Array.isArray(proc.connections)) {
                     for (const targetName of proc.connections) {
@@ -1147,10 +1163,10 @@ ${prompt}
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
         });
-        
+
         const data = await apiResponse.json();
         const report = data.candidates && data.candidates[0] ? data.candidates[0].content.parts[0].text : 'Ошибка аудита';
-        
+
         // Save report to db
         await pool.query(
             'INSERT INTO ai_audit_reports (prompt_used, report_text) VALUES ($1, $2)',
@@ -1165,42 +1181,42 @@ ${prompt}
 });
 
 app.post('/api/generate', isAuthenticated, async (req, res) => {
-  const { prompt, chat_id } = req.body;
-  const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
-  
-  if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
-  if (!GOOGLE_API_KEY) return res.status(500).json({ error: 'API key is not configured' });
-  
-  try {
-    let contextStr = '';
-    if (chat_id) {
-       const chatRes = await pool.query('SELECT department_id FROM chats WHERE id = $1', [chat_id]);
-       if (chatRes.rows.length > 0) {
-           const dId = chatRes.rows[0].department_id;
-           const bpRes = await pool.query("SELECT name FROM business_processes WHERE department_id = $1 AND status = 'approved'", [dId]);
-           if (bpRes.rows.length > 0) {
-               contextStr = 'КОНТЕКСТ УТВЕРЖДЕННЫХ ПРОЦЕССОВ ВАШЕГО ДЕПАРТАМЕНТА:\n' + bpRes.rows.map(r => `- ${r.name}`).join('\n') + '\nСТРОГО УЧИТЫВАЙ ЭТИ ПРОЦЕССЫ ПРИ ГЕНЕРАЦИИ.\n\n';
-           }
-       }
-    }
-    const finalPrompt = contextStr + prompt;
+    const { prompt, chat_id } = req.body;
+    const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
 
-    const apiResponse = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt }] }] })
-    });
-    if (!apiResponse.ok) {
-      const errorData = await apiResponse.json();
-      return res.status(apiResponse.status).json({ error: 'Failed to fetch from Google API', details: errorData });
+    if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+    if (!GOOGLE_API_KEY) return res.status(500).json({ error: 'API key is not configured' });
+
+    try {
+        let contextStr = '';
+        if (chat_id) {
+            const chatRes = await pool.query('SELECT department_id FROM chats WHERE id = $1', [chat_id]);
+            if (chatRes.rows.length > 0) {
+                const dId = chatRes.rows[0].department_id;
+                const bpRes = await pool.query("SELECT name FROM business_processes WHERE department_id = $1 AND status = 'approved'", [dId]);
+                if (bpRes.rows.length > 0) {
+                    contextStr = 'КОНТЕКСТ УТВЕРЖДЕННЫХ ПРОЦЕССОВ ВАШЕГО ДЕПАРТАМЕНТА:\n' + bpRes.rows.map(r => `- ${r.name}`).join('\n') + '\nСТРОГО УЧИТЫВАЙ ЭТИ ПРОЦЕССЫ ПРИ ГЕНЕРАЦИИ.\n\n';
+                }
+            }
+        }
+        const finalPrompt = contextStr + prompt;
+
+        const apiResponse = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt }] }] })
+        });
+        if (!apiResponse.ok) {
+            const errorData = await apiResponse.json();
+            return res.status(apiResponse.status).json({ error: 'Failed to fetch from Google API', details: errorData });
+        }
+        const data = await apiResponse.json();
+        res.status(200).json(data);
+    } catch (error) {
+        logger.error(error);
+        res.status(500).json({ error: 'An internal server error occurred.' });
     }
-    const data = await apiResponse.json();
-    res.status(200).json(data);
-  } catch (error) {
-    logger.error(error);
-    res.status(500).json({ error: 'An internal server error occurred.' });
-  }
 });
 
 app.post('/api/chats/:id/validate', isAuthenticated, async (req, res) => {
@@ -1221,7 +1237,7 @@ ${process_text}
 
 Ответь кратко, есть ли ошибки логики (например, дублирование функций или конфликт полномочий). Если все ок, напиши 'Ошибок не найдено'.
         `;
-        
+
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
         const apiResponse = await fetch(API_URL, {
@@ -1229,10 +1245,10 @@ ${process_text}
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
-        
+
         const data = await apiResponse.json();
         const analysis = data.candidates && data.candidates[0] ? data.candidates[0].content.parts[0].text : 'Ошибок не найдено';
-        
+
         res.json({ analysis });
     } catch (error) {
         logger.error(error, 'Error during copilot validation');
@@ -1287,8 +1303,8 @@ const startServer = async () => {
 
         logger.info('Initializing database connection...');
         if (!pool) {
-             const config = parse(process.env.DATABASE_URL);
-             pool = new Pool({
+            const config = parse(process.env.DATABASE_URL);
+            pool = new Pool({
                 ...config,
                 ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
             });

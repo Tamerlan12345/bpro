@@ -730,7 +730,7 @@ ${brokenCode}
             showNotification("Нельзя сохранить пустую версию.", "error");
             return;
         }
-        
+
         setButtonLoading(button, true, 'Copilot проверяет...');
         try {
             const copilotRes = await fetchWithAuth(`/api/chats/${chatId}/validate`, {
@@ -739,7 +739,7 @@ ${brokenCode}
                 body: JSON.stringify({ process_text })
             });
             const validateData = await copilotRes.json();
-            
+
             if (validateData.analysis && validateData.analysis.trim() !== 'Ошибок не найдено' && validateData.analysis.trim().length > 3) {
                 const proceed = confirm(`⚠️ Внимание от AI Copilot:\n\n${validateData.analysis}\n\nВы уверены, что хотите продолжить сохранение?`);
                 if (!proceed) {
@@ -747,7 +747,7 @@ ${brokenCode}
                     return;
                 }
             }
-            
+
             setButtonLoading(button, true, 'Сохранение с ИИ...');
             const result = await generateProcessArtifacts(process_text);
             const { standardDescription, mermaidCode } = result;
@@ -989,7 +989,7 @@ ${brokenCode}
         try {
             const response = await fetchWithAuth('/api/admin/users');
             const users = await response.json();
-            
+
             // Populate table
             usersListBody.innerHTML = users.map(user => `
                 <tr>
@@ -1089,11 +1089,11 @@ ${brokenCode}
                     <span>${dept.name}</span>
                     <button class="button-danger delete-department-btn" data-dept-id="${dept.id}" title="Удалить департамент">Удалить</button>
                 </div>`).join('');
-            
+
             // Also update the department select for user creation
-            newUserDeptSelect.innerHTML = '<option value="">Без департамента</option>' + 
+            newUserDeptSelect.innerHTML = '<option value="">Без департамента</option>' +
                 departments.map(dept => `<option value="${dept.id}">${dept.name}</option>`).join('');
-                
+
         } catch (error) {
             departmentList.innerHTML = `<div class="error-text">Не удалось загрузить департаменты: ${error.message}</div>`;
         }
@@ -1746,16 +1746,18 @@ ${brokenCode}
                 console.error('Map loading error or unauthorized:', data?.error);
                 return;
             }
-            
+
             const departments = data.departments || [];
             const processes = data.processes || [];
             const relations = data.relations || [];
+            const active_chats = data.active_chats || [];
 
             const elements = [];
 
             departments.forEach(dept => {
                 elements.push({
                     data: { id: `dept_${dept.id}`, name: dept.name, type: 'department' },
+                    position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined,
                     classes: 'department'
                 });
             });
@@ -1768,13 +1770,49 @@ ${brokenCode}
                         description: proc.description || 'Описание отсутствует',
                         goal: proc.goal || 'Цель не указана',
                         owner: proc.owner || 'Не назначен',
-                        parent: proc.department_id ? `dept_${proc.department_id}` : undefined,
                         status: proc.status,
                         type: 'process'
                     },
                     position: (proc.x !== null && proc.y !== null) ? { x: parseFloat(proc.x), y: parseFloat(proc.y) } : undefined,
                     classes: `process status-${proc.status}`
                 });
+
+                if (proc.department_id) {
+                    elements.push({
+                        data: {
+                            id: `edge_dept_proc_${proc.id}`,
+                            source: `dept_${proc.department_id}`,
+                            target: `proc_${proc.id}`,
+                            label: 'Процесс'
+                        },
+                        classes: 'dept-edge'
+                    });
+                }
+            });
+
+            active_chats.forEach(chat => {
+                elements.push({
+                    data: {
+                        id: `chat_${chat.id}`,
+                        name: chat.name,
+                        status: chat.status,
+                        type: 'chat'
+                    },
+                    position: (chat.x !== null && chat.y !== null) ? { x: parseFloat(chat.x), y: parseFloat(chat.y) } : undefined,
+                    classes: `chat status-${chat.status}`
+                });
+
+                if (chat.department_id) {
+                    elements.push({
+                        data: {
+                            id: `edge_dept_chat_${chat.id}`,
+                            source: `dept_${chat.department_id}`,
+                            target: `chat_${chat.id}`,
+                            label: 'Чат'
+                        },
+                        classes: 'dept-edge chat-edge'
+                    });
+                }
             });
 
             relations.forEach(rel => {
@@ -1794,76 +1832,111 @@ ${brokenCode}
                     container: document.getElementById('cy'),
                     elements: elements,
                     style: [
-                        { 
-                            selector: 'node.department', 
-                            style: { 
-                                'label': 'data(name)', 
-                                'shape': 'round-rectangle', 
-                                'background-color': '#f8fafc', 
-                                'border-width': 1, 
-                                'border-color': '#cbd5e1', 
-                                'border-style': 'dashed',
-                                'color': '#64748b', 
-                                'text-valign': 'top', 
-                                'text-margin-y': -25, 
-                                'font-weight': '600', 
-                                'font-size': 14, 
-                                'padding': 15,
-                                'min-width': 200,
-                                'min-height': 120,
-                                'text-background-opacity': 1,
-                                'text-background-color': '#f8fafc',
-                                'text-background-padding': 3,
-                                'text-background-shape': 'roundrectangle'
-                            } 
+                        {
+                            selector: 'node.department',
+                            style: {
+                                'label': 'data(name)',
+                                'shape': 'round-rectangle',
+                                'background-color': '#2563eb',
+                                'color': '#ffffff',
+                                'text-valign': 'center',
+                                'text-halign': 'center',
+                                'font-weight': '600',
+                                'font-size': 16,
+                                'padding': 20,
+                                'min-width': 160,
+                                'min-height': 60,
+                                'text-wrap': 'wrap',
+                                'text-max-width': 180
+                            }
                         },
-                        { 
-                            selector: 'node.process', 
-                            style: { 
-                                'label': 'data(name)', 
-                                'shape': 'round-rectangle', 
-                                'background-color': '#ffffff', 
-                                'border-width': 2, 
-                                'border-color': '#3b82f6', 
-                                'color': '#1e293b', 
-                                'text-valign': 'center', 
-                                'text-halign': 'center', 
-                                'text-wrap': 'wrap', 
-                                'text-max-width': 160, 
-                                'font-size': 13, 
+                        {
+                            selector: 'node.process',
+                            style: {
+                                'label': 'data(name)',
+                                'shape': 'round-rectangle',
+                                'background-color': '#ffffff',
+                                'border-width': 2,
+                                'border-color': '#3b82f6',
+                                'color': '#1e293b',
+                                'text-valign': 'center',
+                                'text-halign': 'center',
+                                'text-wrap': 'wrap',
+                                'text-max-width': 160,
+                                'font-size': 13,
                                 'padding': 15,
                                 'min-width': 120,
                                 'min-height': 50,
                                 'background-opacity': 1
-                            } 
+                            }
                         },
-                        { selector: 'node.chat-node', style: { 'border-style': 'double', 'background-color': '#f0f9ff' } },
+                        {
+                            selector: 'node.chat',
+                            style: {
+                                'label': 'data(name)',
+                                'shape': 'round-rectangle',
+                                'background-color': '#f0f9ff',
+                                'border-width': 2,
+                                'border-style': 'dashed',
+                                'border-color': '#0ea5e9',
+                                'color': '#0369a1',
+                                'text-valign': 'center',
+                                'text-halign': 'center',
+                                'text-wrap': 'wrap',
+                                'text-max-width': 140,
+                                'font-size': 12,
+                                'padding': 12,
+                                'min-width': 110,
+                                'min-height': 40
+                            }
+                        },
                         { selector: 'node.status-approved', style: { 'border-color': '#10b981', 'background-color': '#ecfdf5' } },
                         { selector: 'node.status-draft', style: { 'border-style': 'solid', 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
-                        { 
-                            selector: 'edge', 
-                            style: { 
-                                'label': 'data(label)', 
-                                'curve-style': 'bezier', 
-                                'target-arrow-shape': 'triangle', 
-                                'target-arrow-color': '#94a3b8', 
-                                'line-color': '#cbd5e1', 
-                                'width': 2, 
-                                'font-size': 10, 
-                                'color': '#94a3b8', 
-                                'text-background-opacity': 1, 
-                                'text-background-color': '#fff', 
+                        { selector: 'node.status-needs_revision', style: { 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
+                        { selector: 'node.status-pending_review', style: { 'border-color': '#8b5cf6', 'background-color': '#f5f3ff' } },
+                        {
+                            selector: 'edge',
+                            style: {
+                                'label': 'data(label)',
+                                'curve-style': 'bezier',
+                                'target-arrow-shape': 'triangle',
+                                'target-arrow-color': '#94a3b8',
+                                'line-color': '#cbd5e1',
+                                'width': 2,
+                                'font-size': 10,
+                                'color': '#94a3b8',
+                                'text-background-opacity': 1,
+                                'text-background-color': '#fff',
                                 'text-background-padding': 2,
                                 'arrow-scale': 1.2
-                            } 
+                            }
+                        },
+                        {
+                            selector: 'edge.dept-edge',
+                            style: {
+                                'line-color': '#94a3b8',
+                                'target-arrow-color': '#94a3b8',
+                                'width': 2,
+                                'line-style': 'dashed',
+                                'font-size': 10,
+                                'color': '#94a3b8'
+                            }
+                        },
+                        {
+                            selector: 'edge.chat-edge',
+                            style: {
+                                'line-color': '#7dd3fc',
+                                'target-arrow-color': '#7dd3fc',
+                                'line-style': 'dotted'
+                            }
                         }
                     ],
-                    layout: { 
+                    layout: {
                         name: elements.some(e => e.position) ? 'preset' : 'dagre',
                         rankDir: 'LR',
-                        spacingFactor: 1.2,
-                        nodeSep: 60,
-                        rankSep: 120,
+                        spacingFactor: 1.3,
+                        nodeSep: 80,
+                        rankSep: 150,
                         padding: 50
                     }
                 });
@@ -1872,8 +1945,8 @@ ${brokenCode}
                 const eh = cy.edgehandles({
                     snap: true,
                     handleNodes: 'node.process',
-                    handlePosition: function( node ){ return 'right middle'; }, // sets position of handle
-                    complete: async function( sourceNode, targetNode, addedEles ) {
+                    handlePosition: function (node) { return 'right middle'; }, // sets position of handle
+                    complete: async function (sourceNode, targetNode, addedEles) {
                         // when edge is completed, add relation via API
                         try {
                             const res = await fetchWithAuth('/api/admin/relations', {
@@ -1886,22 +1959,22 @@ ${brokenCode}
                                     is_manual: true
                                 })
                             });
-                            if(res.ok) {
+                            if (res.ok) {
                                 showNotification('Связь создана', 'success');
                             } else {
                                 addedEles.remove();
                                 showNotification('Ошибка создания связи', 'error');
                             }
-                        } catch(err) {
+                        } catch (err) {
                             addedEles.remove();
                             showNotification('Ошибка: ' + err.message, 'error');
                         }
                     }
                 });
 
-                document.getElementById('cy-add-edge').onclick = function() {
+                document.getElementById('cy-add-edge').onclick = function () {
                     const btn = this;
-                    if(btn.classList.contains('active')) {
+                    if (btn.classList.contains('active')) {
                         eh.disableDrawMode();
                         btn.classList.remove('active');
                         btn.style.backgroundColor = '';
@@ -1914,9 +1987,9 @@ ${brokenCode}
                     }
                 };
 
-                document.getElementById('cy-add-node').onclick = async function() {
+                document.getElementById('cy-add-node').onclick = async function () {
                     const depts = cy.nodes('.department');
-                    if(depts.length === 0) {
+                    if (depts.length === 0) {
                         showNotification('Сначала создайте департамент (Через админ-панель или по пустому месту)', 'error');
                         return;
                     }
@@ -1939,21 +2012,21 @@ ${brokenCode}
 
                 const aiLayoutBtn = document.getElementById('cy-ai-layout');
                 if (aiLayoutBtn) {
-                    aiLayoutBtn.onclick = async function() {
+                    aiLayoutBtn.onclick = async function () {
                         const btn = this;
                         const originalText = btn.innerText;
                         btn.innerText = '🪄 ИИ Думает...';
                         btn.disabled = true;
-                        
+
                         try {
                             const res = await fetchWithAuth('/api/admin/map/ai-layout', { method: 'POST' });
                             const data = await res.json();
-                            if(data.layout && Array.isArray(data.layout)) {
+                            if (data.layout && Array.isArray(data.layout)) {
                                 cy.batch(() => {
                                     data.layout.forEach(item => {
                                         let eleType = item.type === 'process' ? 'proc_' : 'dept_';
                                         let ele = cy.getElementById(eleType + item.id);
-                                        if(ele.length > 0) {
+                                        if (ele.length > 0) {
                                             ele.animate({ position: { x: item.x, y: item.y } }, { duration: 1000 });
                                         }
                                     });
@@ -1963,7 +2036,7 @@ ${brokenCode}
                                     data.layout.forEach(item => {
                                         let eleType = item.type === 'process' ? 'proc_' : 'dept_';
                                         let ele = cy.getElementById(eleType + item.id);
-                                        if(ele.length > 0) {
+                                        if (ele.length > 0) {
                                             ele.emit('dragfree'); // trigger save
                                         }
                                     });
@@ -1971,7 +2044,7 @@ ${brokenCode}
                             } else {
                                 showNotification('Ошибка данных макета', 'error');
                             }
-                        } catch(e) {
+                        } catch (e) {
                             showNotification('Ошибка: ' + e.message, 'error');
                         } finally {
                             btn.innerText = originalText;
@@ -1985,11 +2058,11 @@ ${brokenCode}
                 if (autoLayoutBtn) {
                     autoLayoutBtn.onclick = () => {
                         if (confirm('Сбросить ручные настройки и выровнять карту автоматически?')) {
-                            cy.layout({ 
-                                name: 'dagre', 
-                                rankDir: 'LR', 
-                                nodeSep: 60, 
-                                rankSep: 120 
+                            cy.layout({
+                                name: 'dagre',
+                                rankDir: 'LR',
+                                nodeSep: 60,
+                                rankSep: 120
                             }).run();
                             showNotification('Авто-выравнивание завершено', 'success');
                         }
@@ -1997,10 +2070,10 @@ ${brokenCode}
                 }
 
                 // Save node and department positions after drag
-                cy.on('dragfree', 'node.process, node.department', async function(evt) {
+                cy.on('dragfree', 'node.process, node.department, node.chat', async function (evt) {
                     const node = evt.target;
                     const pos = node.position();
-                    
+
                     try {
                         if (node.hasClass('process')) {
                             const processId = node.id().replace('proc_', '');
@@ -2014,7 +2087,14 @@ ${brokenCode}
                             await fetchWithAuth(`/api/admin/departments/${deptId}/position`, {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ x: pos.x, y: pos.y, width: node.width(), height: node.height() })
+                                body: JSON.stringify({ x: pos.x, y: pos.y })
+                            });
+                        } else if (node.hasClass('chat')) {
+                            const chatId = node.id().replace('chat_', '');
+                            await fetchWithAuth(`/api/admin/chats/${chatId}/position`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ x: pos.x, y: pos.y })
                             });
                         }
                     } catch (err) {
@@ -2070,7 +2150,7 @@ ${brokenCode}
                     };
 
                     document.getElementById('panel-delete').onclick = async () => {
-                        if(confirm(`Удалить процесс "${nodeData.name}"?`)) {
+                        if (confirm(`Удалить процесс "${nodeData.name}"?`)) {
                             try {
                                 const res = await fetchWithAuth(`/api/admin/processes/${nodeData.id.replace('proc_', '')}`, { method: 'DELETE' });
                                 if (res.ok) {
@@ -2085,23 +2165,23 @@ ${brokenCode}
                     };
                 };
 
-                cy.on('tap', 'node.process', function(evt){
+                cy.on('tap', 'node.process', function (evt) {
                     openSidePanel(evt.target.data());
                 });
 
                 // Context menu for background (create department)
                 const contextMenu = document.getElementById('cy-context-menu');
-                cy.on('cxttap', function(event){
-                    if(event.target === cy){
+                cy.on('cxttap', function (event) {
+                    if (event.target === cy) {
                         contextMenu.style.display = 'block';
                         contextMenu.style.left = event.renderedPosition.x + 'px';
                         contextMenu.style.top = event.renderedPosition.y + 'px';
                         contextMenu.innerHTML = `<button id="ctx-add-dept" class="button-secondary" style="border: none; background: transparent; cursor: pointer; padding: 5px 10px; width: 100%; text-align: left;">➕ Добавить департамент</button>`;
-                        
+
                         document.getElementById('ctx-add-dept').onclick = async () => {
                             contextMenu.style.display = 'none';
                             const name = prompt('Название департамента:');
-                            if(name) {
+                            if (name) {
                                 try {
                                     await fetchWithAuth('/api/departments', {
                                         method: 'POST',
@@ -2119,10 +2199,10 @@ ${brokenCode}
                         // Context menu for department
                         const deptId = event.target.id().replace('dept_', '');
                         const deptName = event.target.data('name');
-                        
+
                         // Improved interaction: use prompt for name but allow multiple actions
                         const action = prompt(`Департамент: ${deptName}\n1 - Добавить процесс\n2 - Удалить департамент\n\nВведите номер действия (1 или 2):`);
-                        
+
                         if (action === '1') {
                             const name = prompt('Введите название нового процесса:');
                             if (name) {
@@ -2156,7 +2236,7 @@ ${brokenCode}
                     }
                 });
 
-                cy.on('tap', function(event){
+                cy.on('tap', function (event) {
                     contextMenu.style.display = 'none';
                 });
 
@@ -2169,12 +2249,12 @@ ${brokenCode}
             } else {
                 cy.elements().remove();
                 cy.add(elements);
-                cy.layout({ 
+                cy.layout({
                     name: elements.some(e => e.position) ? 'preset' : 'dagre',
                     rankDir: 'LR',
-                    spacingFactor: 1.2,
-                    nodeSep: 60,
-                    rankSep: 120,
+                    spacingFactor: 1.3,
+                    nodeSep: 80,
+                    rankSep: 150,
                     padding: 50
                 }).run();
             }
@@ -2188,7 +2268,7 @@ ${brokenCode}
     if (cyZoomIn) cyZoomIn.addEventListener('click', () => cy.zoom(cy.zoom() * 1.2));
     if (cyZoomOut) cyZoomOut.addEventListener('click', () => cy.zoom(cy.zoom() * 0.8));
     if (cyFit) cyFit.addEventListener('click', () => cy.fit());
-    
+
     // Quick hook to load map when admin panel starts
     window.loadProcessMap = loadProcessMap;
 
@@ -2214,11 +2294,11 @@ ${brokenCode}
     function switchAdminTab(targetTab) {
         // Hide all views
         [adminViewUsers, adminViewMap].forEach(v => {
-            if(v) v.style.display = 'none';
+            if (v) v.style.display = 'none';
         });
         // Remove active from all tabs
         [adminTabUsers, adminTabMap].forEach(t => {
-            if(t) t.classList.remove('active');
+            if (t) t.classList.remove('active');
         });
 
         if (targetTab === 'users') {

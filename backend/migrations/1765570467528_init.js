@@ -93,14 +93,6 @@ exports.up = (pgm) => {
 
   pgm.createIndex('session', 'expire', { name: 'IDX_session_expire', ifNotExists: true });
 
-  // AI AUDIT REPORTS
-  pgm.createTable('ai_audit_reports', {
-    id: { type: 'uuid', primaryKey: true, default: pgm.func('gen_random_uuid()') },
-    prompt_used: 'text',
-    report_text: 'text',
-    created_at: { type: 'timestamp', default: pgm.func('current_timestamp') },
-  }, { ifNotExists: true });
-
   // FUNCTION (Адаптировано под UUID)
   pgm.createFunction(
     'create_chat_with_status',
@@ -134,7 +126,6 @@ exports.up = (pgm) => {
 
 exports.down = (pgm) => {
   // Down migration is optional if you only go forward, but good practice
-  pgm.dropTable('ai_audit_reports', { ifExists: true });
   pgm.dropFunction('create_chat_with_status', [
     { name: 'department_id_arg', type: 'uuid' },
     { name: 'name_arg', type: 'text' },
