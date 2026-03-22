@@ -2067,7 +2067,7 @@ ${brokenCode}
                                 'text-max-width': 170,
                                 'font-size': 13,
                                 'font-weight': '500',
-                                'padding': '12px 16px'
+                                'padding': '14px'
                             }
                         },
                         {
@@ -2082,7 +2082,7 @@ ${brokenCode}
                                 'color': '#475569',
                                 'text-max-width': 150,
                                 'font-size': 12,
-                                'padding': '10px 14px'
+                                'padding': '12px'
                             }
                         },
                         { selector: 'node.status-approved', style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' } },
@@ -2138,10 +2138,10 @@ ${brokenCode}
                     layout: {
                         name: elements.some(e => e.position) ? 'preset' : 'dagre',
                         rankDir: 'TB',
-                        spacingFactor: 0.85,
-                        nodeSep: 40,
-                        rankSep: 70,
-                        padding: 30,
+                        spacingFactor: 1.2,
+                        nodeSep: 60,
+                        rankSep: 80,
+                        padding: 50,
                         fit: true
                     }
                 });
