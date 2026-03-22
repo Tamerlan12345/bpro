@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { selector: 'node.status-pending_review', style: { 'border-width': 2, 'border-color': '#3b82f6', 'background-color': '#eff6ff' } },
 
                 { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#cbd5e1', 'line-color': '#e2e8f0', 'width': 2, 'font-size': 10, 'color': '#64748b', 'text-background-opacity': 1, 'text-background-color': '#ffffff', 'text-background-padding': 3 } },
-                { selector: 'edge.root-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical', 'target-arrow-shape': 'none', 'width': 3, 'line-color': '#94a3b8' } },
+                { selector: 'edge.root-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical', 'taxi-turn': 20, 'target-arrow-shape': 'none', 'width': 3, 'line-color': '#94a3b8' } },
                 { selector: 'edge.dept-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical', 'width': 1.5, 'line-color': '#cbd5e1', 'target-arrow-color': '#cbd5e1' } },
                 { selector: 'edge.chat-edge', style: { 'line-style': 'dashed', 'line-color': '#7dd3fc', 'target-arrow-color': '#7dd3fc' } }
             ],

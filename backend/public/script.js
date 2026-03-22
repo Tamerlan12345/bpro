@@ -2119,6 +2119,7 @@ ${brokenCode}
                                 'width': 3,
                                 'curve-style': 'taxi',
                                 'taxi-direction': 'vertical',
+                                'taxi-turn': 20,
                                 'target-arrow-shape': 'none'
                             }
                         },
@@ -2194,9 +2195,10 @@ ${brokenCode}
                         if (n.hasClass('chat')) chats++;
                         const st = n.data('status');
                         if (stats[st] !== undefined) stats[st]++;
+                        else if (st === 'completed') stats['approved']++; // or track separately if needed
                     });
 
-                    tooltip.innerHTML = `<strong>🏢 ${node.data('rawName')}</strong>\n\n📊 <b>Всего процессов:</b> ${processes}\n💬 <b>Всего чатов:</b> ${chats}\n\n✅ Утвержденных: ${stats.approved}\n📝 Черновиков: ${stats.draft}\n⏳ На проверке: ${stats.pending_review}\n❌ Нужны правки: ${stats.needs_revision}`;
+                    tooltip.innerHTML = `<strong>🏢 ${node.data('rawName')}</strong>\n\n📊 <b>Всего процессов:</b> ${processes}\n💬 <b>Всего чатов:</b> ${chats}\n\n✅ Утвержденных: ${stats.approved}\n📝 Черновиков: ${stats.draft}\n⏳ На проверке: ${stats.pending_review}\n❌ Нужны правки: ${stats.needs_revision}\n🏁 Завершенных: ${stats.completed || 0}`;
                     tooltip.style.display = 'block';
                 });
                 cy.on('mousemove', 'node.department', function(e) {
@@ -2386,7 +2388,8 @@ ${brokenCode}
                         toggleAiLinksBtn.onclick = () => {
                             aiLinksVisible = !aiLinksVisible;
                             toggleAiLinksBtn.innerHTML = aiLinksVisible ? '👁️ Скрыть связи ИИ' : '👁️ Показать связи ИИ';
-                            cy.edges('.ai-relation').style('display', aiLinksVisible ? 'element' : 'none');
+                            // Скрываем все связи, которые не являются структурными (root, dept, chat)
+                            cy.edges().filter(e => !e.hasClass('root-edge') && !e.hasClass('dept-edge') && !e.hasClass('chat-edge')).style('display', aiLinksVisible ? 'element' : 'none');
                         };
                     }
                 }
@@ -2532,7 +2535,7 @@ ${brokenCode}
                     autoLayoutBtn.onclick = () => {
                         if (confirm('Выровнять все департаменты по горизонтали, а их процессы СТРОГО вертикально вниз? (Текущие координаты будут перезаписаны)')) {
                             // КАСТОМНЫЙ АЛГОРИТМ ИДЕАЛЬНОЙ ИЕРАРХИИ
-                            const depts = cy.nodes('.department');
+                            const depts = cy.nodes('.department').sort((a,b) => (a.data('rawName') || '').localeCompare(b.data('rawName') || ''));
                             const root = cy.getElementById('root_centras');
 
                             const spacingX = 280; // Отступ между колонками департаментов
