@@ -2138,9 +2138,10 @@ ${brokenCode}
                     layout: {
                         name: elements.some(e => e.position) ? 'preset' : 'dagre',
                         rankDir: 'TB',
-                        spacingFactor: 1.2,
-                        nodeSep: 60,
-                        rankSep: 80,
+                        nodeDimensionsIncludeLabels: true,
+                        spacingFactor: 1.0,
+                        nodeSep: 50,
+                        rankSep: 60,
                         padding: 50,
                         fit: true
                     }
