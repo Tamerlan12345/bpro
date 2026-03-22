@@ -2370,12 +2370,27 @@ ${brokenCode}
                                 const cleanJson = res.replace(/```json/g, '').replace(/```/g, '').trim();
                                 const links = JSON.parse(cleanJson);
                                 
+                                let addedCount = 0;
+                                const processedIds = new Set();
+
                                 links.forEach(link => {
-                                    if(cy.getElementById(link.source).length && cy.getElementById(link.target).length) {
-                                        cy.add({ data: { id: `ai_rel_${link.source}_${link.target}`, source: link.source, target: link.target, label: link.reason }, classes: 'ai-relation' });
+                                    if (!link.source || !link.target || link.source === link.target) return;
+                                    
+                                    const edgeId = `ai_rel_${link.source}_${link.target}`;
+                                    if (processedIds.has(edgeId)) return;
+                                    processedIds.add(edgeId);
+
+                                    if (cy.getElementById(link.source).length && cy.getElementById(link.target).length) {
+                                        if (cy.getElementById(edgeId).length === 0) {
+                                            cy.add({ 
+                                                data: { id: edgeId, source: link.source, target: link.target, label: link.reason || '' }, 
+                                                classes: 'ai-relation' 
+                                            });
+                                            addedCount++;
+                                        }
                                     }
                                 });
-                                showNotification(`ИИ нашел ${links.length} связей!`, 'success');
+                                showNotification(`ИИ нашел ${addedCount} новых связей!`, 'success');
                                 toggleAiLinksBtn.style.display = 'inline-block';
                             } catch (e) {
                                 showNotification('Ошибка анализа: ' + e.message, 'error');
