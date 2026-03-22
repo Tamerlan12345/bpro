@@ -2,6 +2,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let cy;
 
     fetch('/api/dash/map').then(r => r.json()).then(data => {
+        // Добавляем стили для тултипа прямо в dash
+        const style = document.createElement('style');
+        style.innerHTML = `
+            #cy-tooltip {
+                position: absolute; display: none; background: rgba(15, 23, 42, 0.95);
+                color: #fff; padding: 12px; border-radius: 8px; font-size: 13px; line-height: 1.5;
+                pointer-events: none; z-index: 9999; backdrop-filter: blur(4px);
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2); white-space: pre-wrap; border: 1px solid rgba(255,255,255,0.1);
+            }
+        `;
+        document.head.appendChild(style);
+
         const elements = [{ data: { id: 'root_centras', name: 'Бизнес-процессы АО СК Сентрас Иншуранс', type: 'root' }, classes: 'root-node' }];
 
         (data.departments || []).forEach(dept => {
@@ -63,6 +75,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 else n.style('opacity', 0.15);
             });
             cy.edges().style('opacity', 0.15);
+        });
+
+        // --- ВСПЛЫВАЮЩЕЕ ОКНО (TOOLTIP) ДЛЯ ДЕПАРТАМЕНТОВ ---
+        let tooltip = document.createElement('div');
+        tooltip.id = 'cy-tooltip';
+        document.body.appendChild(tooltip);
+
+        cy.on('mouseover', 'node.department', function (e) {
+            const node = e.target;
+            const outgoers = node.outgoers('node');
+            let processes = 0, chats = 0;
+            let stats = { approved: 0, draft: 0, needs_revision: 0, pending_review: 0 };
+
+            outgoers.forEach(n => {
+                if (n.hasClass('process')) processes++;
+                if (n.hasClass('chat')) chats++;
+                const st = n.data('status');
+                if (stats[st] !== undefined) stats[st]++;
+            });
+
+            tooltip.innerHTML = `<strong>🏢 ${node.data('rawName')}</strong>\n\n📊 <b>Всего процессов:</b> ${processes}\n💬 <b>Всего чатов:</b> ${chats}\n\n✅ Утвержденных: ${stats.approved}\n📝 Черновиков: ${stats.draft}\n⏳ На проверке: ${stats.pending_review}\n❌ Нужны правки: ${stats.needs_revision}`;
+            tooltip.style.display = 'block';
+        });
+        cy.on('mousemove', 'node.department', function (e) {
+            tooltip.style.left = (e.originalEvent.pageX + 15) + 'px';
+            tooltip.style.top = (e.originalEvent.pageY + 15) + 'px';
+        });
+        cy.on('mouseout', 'node.department', function () {
+            tooltip.style.display = 'none';
         });
 
         const sidePanel = document.getElementById('dash-side-panel');

@@ -22,7 +22,7 @@ async function extractTextFromFile(filePath, mimeType) {
             return '';
         }
     }
-    
+
     // Default fallback for text files
     try {
         return fs.readFileSync(filePath, 'utf8');
@@ -65,7 +65,7 @@ async function parseDocumentsWithAI(files, processEnvGoogleApiKey) {
     const results = { departments: [], processes: [] };
     const deptSet = new Set();
     const MAX_CHUNK_LENGTH = 100000; // rough equivalent for ~30k tokens
-    
+
     // Process each document individually (1 file = 1 process)
     for (const file of files) {
         try {
@@ -81,15 +81,15 @@ async function parseDocumentsWithAI(files, processEnvGoogleApiKey) {
                 for (let i = 0; i < text.length; i += MAX_CHUNK_LENGTH) {
                     chunks.push(text.substring(i, i + MAX_CHUNK_LENGTH));
                 }
-                
+
                 let blockResults = [];
                 for (let i = 0; i < chunks.length; i++) {
                     console.log(`Processing block ${i + 1}/${chunks.length} for ${file.originalname}...`);
                     try {
                         const blockResult = await processTextBlock(chunks[i], processEnvGoogleApiKey, i + 1);
-                        blockResults.push(`--- ИТОГИ ЧАСТИ ${i+1} ---\n${blockResult}`);
+                        blockResults.push(`--- ИТОГИ ЧАСТИ ${i + 1} ---\n${blockResult}`);
                     } catch (e) {
-                        console.error(`Error processing block ${i+1}:`, e);
+                        console.error(`Error processing block ${i + 1}:`, e);
                     }
                 }
                 finalAnalysisContent = blockResults.join('\n\n');
@@ -142,7 +142,7 @@ ${finalAnalysisContent}
             }
 
             const parsed = JSON.parse(jsonText);
-            
+
             if (parsed.department) {
                 deptSet.add(parsed.department);
             }

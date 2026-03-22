@@ -150,6 +150,13 @@ document.addEventListener('DOMContentLoaded', () => {
         #cy-search-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
         #diagram-container .djs-palette, #diagram-container .bjs-powered-by { display: none !important; }
         #mermaid-editor-preview { height: 70vh; width: 100%; border: 1px solid #cbd5e1; background: #fff; }
+        #cy-tooltip {
+            position: absolute; display: none; background: rgba(15, 23, 42, 0.95);
+            color: #fff; padding: 12px; border-radius: 8px; font-size: 13px; line-height: 1.5;
+            pointer-events: none; z-index: 9999; backdrop-filter: blur(4px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); white-space: pre-wrap;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
     `;
     document.head.appendChild(globalStyle);
 
@@ -2168,6 +2175,38 @@ ${brokenCode}
                     document.getElementById('cy').appendChild(legend);
                 }
 
+                // --- ВСПЛЫВАЮЩЕЕ ОКНО (TOOLTIP) ДЛЯ ДЕПАРТАМЕНТОВ ---
+                let tooltip = document.getElementById('cy-tooltip');
+                if (!tooltip) {
+                    tooltip = document.createElement('div');
+                    tooltip.id = 'cy-tooltip';
+                    document.body.appendChild(tooltip);
+                }
+
+                cy.on('mouseover', 'node.department', function(e) {
+                    const node = e.target;
+                    const outgoers = node.outgoers('node');
+                    let processes = 0, chats = 0;
+                    let stats = { approved: 0, draft: 0, needs_revision: 0, pending_review: 0 };
+                    
+                    outgoers.forEach(n => {
+                        if (n.hasClass('process')) processes++;
+                        if (n.hasClass('chat')) chats++;
+                        const st = n.data('status');
+                        if (stats[st] !== undefined) stats[st]++;
+                    });
+
+                    tooltip.innerHTML = `<strong>🏢 ${node.data('rawName')}</strong>\n\n📊 <b>Всего процессов:</b> ${processes}\n💬 <b>Всего чатов:</b> ${chats}\n\n✅ Утвержденных: ${stats.approved}\n📝 Черновиков: ${stats.draft}\n⏳ На проверке: ${stats.pending_review}\n❌ Нужны правки: ${stats.needs_revision}`;
+                    tooltip.style.display = 'block';
+                });
+                cy.on('mousemove', 'node.department', function(e) {
+                    tooltip.style.left = (e.originalEvent.pageX + 15) + 'px';
+                    tooltip.style.top = (e.originalEvent.pageY + 15) + 'px';
+                });
+                cy.on('mouseout', 'node.department', function() {
+                    tooltip.style.display = 'none';
+                });
+
                 let toggleChatsMapBtn = document.getElementById('cy-toggle-chats');
                 if (!toggleChatsMapBtn) {
                     const tb = document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
@@ -2287,6 +2326,67 @@ ${brokenCode}
                                     deptNode.style('opacity', isAllCollapsed ? 0.6 : 1);
                                 });
                             }
+                        };
+                    }
+                }
+
+                // --- ИИ ОЦЕНКА СВЯЗЕЙ ---
+                let aiLinkBtn = document.getElementById('cy-ai-link-btn');
+                let toggleAiLinksBtn = document.getElementById('cy-toggle-ai-links');
+                
+                if (!aiLinkBtn) {
+                    const tb = document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
+                    if (tb) {
+                        aiLinkBtn = document.createElement('button');
+                        aiLinkBtn.id = 'cy-ai-link-btn';
+                        aiLinkBtn.className = 'button-primary';
+                        aiLinkBtn.style.marginLeft = '10px';
+                        aiLinkBtn.innerHTML = '🪄 Связь процессов (ИИ)';
+                        tb.appendChild(aiLinkBtn);
+
+                        toggleAiLinksBtn = document.createElement('button');
+                        toggleAiLinksBtn.id = 'cy-toggle-ai-links';
+                        toggleAiLinksBtn.className = 'button-secondary';
+                        toggleAiLinksBtn.style.marginLeft = '6px';
+                        toggleAiLinksBtn.style.display = 'none';
+                        toggleAiLinksBtn.innerHTML = '👁️ Скрыть связи ИИ';
+                        tb.appendChild(toggleAiLinksBtn);
+
+                        aiLinkBtn.onclick = async () => {
+                            const nodes = cy.nodes('.process');
+                            if(nodes.length < 2) return showNotification('Недостаточно процессов для анализа', 'error');
+                            
+                            setButtonLoading(aiLinkBtn, true, 'Анализ...');
+                            const processesData = nodes.map(n => ({ id: n.id(), name: n.data('rawName'), desc: n.data('description') }));
+                            
+                            const prompt = `Ты — бизнес-архитектор. Проанализируй этот список процессов и найди логические связи (кто кому передает данные, кто за кем следует). 
+Верни СТРОГО JSON-массив объектов: [{"source": "id_источника", "target": "id_цели", "reason": "краткое описание связи"}]. Не пиши markdown, только голый JSON.
+Процессы: ${JSON.stringify(processesData)}`;
+
+                            try {
+                                const res = await callGeminiAPI(prompt);
+                                const cleanJson = res.replace(/```json/g, '').replace(/```/g, '').trim();
+                                const links = JSON.parse(cleanJson);
+                                
+                                links.forEach(link => {
+                                    if(cy.getElementById(link.source).length && cy.getElementById(link.target).length) {
+                                        cy.add({ data: { id: `ai_rel_${link.source}_${link.target}`, source: link.source, target: link.target, label: link.reason }, classes: 'ai-relation' });
+                                    }
+                                });
+                                showNotification(`ИИ нашел ${links.length} связей!`, 'success');
+                                toggleAiLinksBtn.style.display = 'inline-block';
+                            } catch (e) {
+                                showNotification('Ошибка анализа: ' + e.message, 'error');
+                            } finally {
+                                setButtonLoading(aiLinkBtn, false, '🪄 Связь процессов (ИИ)');
+                            }
+                        };
+
+                        let aiLinksVisible = true;
+                        toggleAiLinksBtn.onclick = () => {
+                            aiLinksVisible = !aiLinksVisible;
+                            toggleAiLinksBtn.innerHTML = aiLinksVisible ? '👁️ Скрыть связи ИИ' : '👁️ Показать связи ИИ';
+                            cy.edges('.ai-relation').style('display', aiLinksVisible ? 'element' : 'none');
                         };
                     }
                 }
@@ -2435,9 +2535,9 @@ ${brokenCode}
                             const depts = cy.nodes('.department');
                             const root = cy.getElementById('root_centras');
 
-                            const spacingX = 240; // Отступ между колонками департаментов
+                            const spacingX = 280; // Отступ между колонками департаментов
                             const startY = 120;   // Y координата департаментов
-                            const spacingY = 90;  // Шаг по вертикали для процессов
+                            const spacingY = 85;  // Шаг по вертикали для процессов (плотнее для ровной линии)
 
                             let currentX = -((depts.length - 1) * spacingX) / 2; // Центрируем весь блок по X=0
 
