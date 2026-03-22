@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let cy;
 
     fetch('/api/dash/map').then(r => r.json()).then(data => {
-        const elements = [{ data: { id: 'root_centras', name: '👑 Процессы компании Сентрас', type: 'root' }, classes: 'root-node' }];
+        const elements = [{ data: { id: 'root_centras', name: 'Бизнес-процессы АО СК Сентрас Иншуранс', type: 'root' }, classes: 'root-node' }];
 
         (data.departments || []).forEach(dept => {
             elements.push({ data: { id: 'dept_' + dept.id, name: '🏢 ' + dept.name, rawName: dept.name, collapsed: false }, position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined, classes: 'department' });
