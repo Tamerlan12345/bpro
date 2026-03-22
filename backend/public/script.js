@@ -2136,12 +2136,16 @@ ${brokenCode}
                         }
                     ],
                     layout: {
-                        name: elements.some(e => e.position) ? 'preset' : 'dagre',
-                        rankDir: 'TB',
+                        name: elements.some(e => e.position) ? 'preset' : 'klay',
                         nodeDimensionsIncludeLabels: true,
-                        spacingFactor: 1.0,
-                        nodeSep: 50,
-                        rankSep: 60,
+                        klay: {
+                            direction: 'DOWN',
+                            spacing: 50,
+                            edgeSpacingFactor: 1.0,
+                            inLayerSpacingFactor: 1.0,
+                            thoroughness: 10,
+                            compactComponents: true
+                        },
                         padding: 50,
                         fit: true
                     }
@@ -2710,12 +2714,18 @@ ${brokenCode}
                 cy.elements().remove();
                 cy.add(elements);
                 cy.layout({
-                    name: elements.some(e => e.position) ? 'preset' : 'dagre',
-                    rankDir: 'TB',
-                    spacingFactor: 0.85,
-                    nodeSep: 40,
-                    rankSep: 70,
-                    padding: 30
+                    name: elements.some(e => e.position) ? 'preset' : 'klay',
+                    nodeDimensionsIncludeLabels: true,
+                    klay: {
+                        direction: 'DOWN',
+                        spacing: 50,
+                        edgeSpacingFactor: 1.0,
+                        inLayerSpacingFactor: 1.0,
+                        thoroughness: 10,
+                        compactComponents: true
+                    },
+                    padding: 50,
+                    fit: true
                 }).run();
             }
         } catch (error) {
