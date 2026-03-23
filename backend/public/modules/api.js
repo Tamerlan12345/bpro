@@ -4,7 +4,7 @@
 import State from './state.js';
 import { showNotification } from './ui.js';
 
-const apiFetch = async (url, options = {}) => {
+export const apiFetch = async (url, options = {}) => {
     const defaultHeaders = {
         'Content-Type': 'application/json',
         'X-CSRF-Token': State.csrfToken
