@@ -118,127 +118,122 @@
                             <tbody id="users-list-body"></tbody>
                         </table>
                     </div>
-                </div>
 
-                <div class="admin-section">
-                    <h3>Создать новый департамент</h3>
-                    <form id="create-department-form" onsubmit="event.preventDefault();">
-                        <div class="form-group">
-                            <label for="user-for-new-department">Назначить пользователю (владелец):</label>
-                            <select id="user-for-new-department" autocomplete="off"></select>
-                        </div>
-                        <div class="form-group">
-                            <label for="new-department-name">Название департамента:</label>
-                            <input type="text" id="new-department-name" placeholder="Название департамента"
-                                autocomplete="organization">
-                        </div>
-                        <div class="form-group">
-                            <label for="new-department-password">Пароль (для входа в чаты):</label>
-                            <input type="password" id="new-department-password" placeholder="Пароль"
-                                autocomplete="new-password">
-                        </div>
-                        <button id="create-department-btn" class="button-primary">Создать</button>
-                    </form>
-                </div>
-
-                <div class="admin-section">
-                    <h3>Управление чатами</h3>
-                    <div class="admin-main-view">
-                        <div id="department-list-container">
-                            <h4>Департаменты</h4>
-                            <div id="department-list"></div>
-                        </div>
-                        <div id="chat-list-container">
-                            <h4 id="chat-list-header">Чаты</h4>
-                            <div id="chat-list"></div>
-                            <form id="create-chat-form" style="display: none;" onsubmit="event.preventDefault();">
-                                <h5>Создать новый чат для <span id="selected-department-name"></span></h5>
-                                <input type="text" id="new-chat-name" placeholder="Название чата" autocomplete="name">
-                                <input type="password" id="new-chat-password" placeholder="Пароль чата"
+                    <div class="admin-section">
+                        <h3>Создать новый департамент</h3>
+                        <form id="create-department-form" onsubmit="event.preventDefault();">
+                            <div class="form-group">
+                                <label for="user-for-new-department">Назначить пользователю (владелец):</label>
+                                <select id="user-for-new-department" autocomplete="off"></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-department-name">Название департамента:</label>
+                                <input type="text" id="new-department-name" placeholder="Название департамента"
+                                    autocomplete="organization">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-department-password">Пароль (для входа в чаты):</label>
+                                <input type="password" id="new-department-password" placeholder="Пароль"
                                     autocomplete="new-password">
-                                <button id="create-chat-btn" class="button-primary">Создать</button>
-                            </form>
+                            </div>
+                            <button id="create-department-btn" class="button-primary">Создать</button>
+                        </form>
+                    </div>
+
+                    <div class="admin-section">
+                        <h3>Управление чатами</h3>
+                        <div class="admin-main-view">
+                            <div id="department-list-container">
+                                <h4>Департаменты</h4>
+                                <div id="department-list"></div>
+                            </div>
+                            <div id="chat-list-container">
+                                <h4 id="chat-list-header">Чаты</h4>
+                                <div id="chat-list"></div>
+                                <form id="create-chat-form" style="display: none;" onsubmit="event.preventDefault();">
+                                    <h5>Создать новый чат для <span id="selected-department-name"></span></h5>
+                                    <input type="text" id="new-chat-name" placeholder="Название чата" autocomplete="name">
+                                    <input type="password" id="new-chat-password" placeholder="Пароль чата"
+                                        autocomplete="new-password">
+                                    <button id="create-chat-btn" class="button-primary">Создать</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-section">
+                        <h3>Чаты на проверке</h3>
+                        <div class="admin-tabs">
+                            <button id="in-review-tab" class="tab-link active">На проверке</button>
+                            <button id="pending-tab" class="tab-link">В работе</button>
+                            <button id="completed-tab" class="tab-link">Завершенные</button>
+                        </div>
+                        <div id="in-review" class="tab-content">
+                            <ul id="in-review-list"></ul>
+                        </div>
+                        <div id="pending" class="tab-content">
+                            <ul id="pending-list"></ul>
+                        </div>
+                        <div id="completed" class="tab-content">
+                            <ul id="completed-list"></ul>
                         </div>
                     </div>
                 </div>
 
-                <div class="admin-section">
-                    <h3>Чаты на проверке</h3>
-                    <div class="admin-tabs">
-                        <button id="in-review-tab" class="tab-link active">На проверке</button>
-                        <button id="pending-tab" class="tab-link">В работе</button>
-                        <button id="completed-tab" class="tab-link">Завершенные</button>
+
+            <div id="admin-view-map" class="admin-view-content hidden">
+                <div class="admin-section" style="padding: 0; margin-top: 0;">
+                    <div class="map-header">
+                        <h3>Карта Процессов (Mind Map)</h3>
+                        <div class="map-controls">
+                            <button id="refresh-map-btn" class="button-secondary" title="Обновить данные">🔄 Обновить</button>
+                            <button id="auto-layout-btn" class="button-secondary" title="Сбросить позиции и выровнять">📐 Выровнять</button>
+                            <button id="global-audit-btn" class="button-primary" title="Запустить ИИ Аудит">🔍 Глобальный ИИ Аудит</button>
+                        </div>
                     </div>
-                    <div id="in-review" class="tab-content">
-                        <ul id="in-review-list"></ul>
+
+                    <div id="cy-container" class="cy-container" style="position: relative; overflow: hidden; height: 75vh;">
+                        <div id="cy" style="width: 100%; height: 100%;"></div>
+                        <div id="cy-context-menu" class="context-menu"
+                            style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); border-radius: 4px; padding: 5px;">
+                        </div>
+                        <div class="cy-toolbar">
+                            <button id="cy-zoom-in" title="Приблизить">+</button>
+                            <button id="cy-zoom-out" title="Отдалить">-</button>
+                            <button id="cy-fit" title="По размеру">⏹</button>
+                            <button id="cy-add-node" title="Добавить Процесс" class="button-secondary">➕ Процесс</button>
+                            <button id="cy-add-edge" title="Связь (Вручную)" class="button-secondary">🔗 Связь</button>
+                            <button id="cy-ai-layout" title="ИИ Макет" class="button-secondary">🪄 ИИ Макет</button>
+                        </div>
+
+                        <!-- Side Panel -->
+                        <div id="cy-side-panel" class="side-panel hidden glass">
+                            <div class="panel-header"
+                                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 15px; margin-bottom: 15px;">
+                                <h3 id="panel-title" style="margin: 0; font-size: 18px; font-weight: 700;">Редактирование</h3>
+                                <button id="close-panel-btn"
+                                    style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted-color);">&times;</button>
+                            </div>
+                            <div id="panel-content">
+                                <!-- Dynamic content based on selection -->
+                            </div>
+                        </div>
                     </div>
-                    <div id="pending" class="tab-content">
-                        <ul id="pending-list"></ul>
-                    </div>
-                    <div id="completed" class="tab-content">
-                        <ul id="completed-list"></ul>
+
+                    <div class="admin-section mass-import-integrated" style="margin-top: var(--space-xl);">
+                        <h3>📥 Массовый импорт документов</h3>
+                        <p>Загрузите регламенты (.docx, .txt) для автоматического наполнения карты через ИИ.</p>
+                        <div class="import-controls">
+                            <input type="file" id="mass-upload-input" accept=".txt,.pdf,.docx" multiple>
+                            <button id="mass-upload-btn" class="button-primary">Анализировать и добавить</button>
+                        </div>
+                        <div id="mass-upload-status" class="upload-status"></div>
                     </div>
                 </div>
             </div>
-    </div><!-- End of Users View -->
+        </div>
 
-    <div id="admin-view-map" class="admin-view-content hidden">
-        <div class="admin-section">
-            <div class="map-header">
-                <h3>Карта Процессов (Mind Map)</h3>
-                <div class="map-controls">
-                    <button id="refresh-map-btn" class="button-secondary" title="Обновить данные">🔄
-                        Обновить</button>
-                    <button id="auto-layout-btn" class="button-secondary" title="Сбросить позиции и выровнять">📐
-                        Авто-выравнивание</button>
-                    <button id="global-audit-btn" class="button-primary" title="Запустить ИИ Аудит">🔍
-                        Глобальный ИИ Аудит</button>
-                </div>
-            </div>
-            <p class="map-hint">Глобальный взгляд на архитектуру процессов. Используйте левую кнопку для
-                передвижения, колесо для зума. Клик по процессу откроет детали.</p>
-
-            <div id="cy-container" class="cy-container" style="position: relative; overflow: hidden;">
-                <div id="cy" style="width: 100%; height: 100%;"></div>
-                <div id="cy-context-menu" class="context-menu"
-                    style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); border-radius: 4px; padding: 5px;">
-                </div>
-                <div class="cy-toolbar">
-                    <button id="cy-zoom-in" title="Приблизить">+</button>
-                    <button id="cy-zoom-out" title="Отдалить">-</button>
-                    <button id="cy-fit" title="По размеру">⏹</button>
-                    <button id="cy-add-node" title="Добавить Процесс" class="button-secondary">➕
-                        Процесс</button>
-                    <button id="cy-add-edge" title="Связь (Вручную)" class="button-secondary">🔗
-                        Связь</button>
-                    <button id="cy-ai-layout" title="ИИ Макет" class="button-secondary">🪄 ИИ Макет</button>
-                </div>
-
-                <!-- Side Panel -->
-                <div id="cy-side-panel" class="side-panel hidden glass">
-                    <div class="panel-header"
-                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
-                        <h3 id="panel-title" style="margin: 0; font-size: 16px;">Редактирование</h3>
-                        <button id="close-panel-btn"
-                            style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
-                    </div>
-                    <div id="panel-content">
-                        <!-- Dynamic content based on selection -->
-                    </div>
-                </div>
-            </div>
-
-            <div class="admin-section mass-import-integrated">
-                <h3>📥 Массовый импорт документов</h3>
-                <p>Загрузите регламенты (.docx, .txt) для автоматического наполнения карты через ИИ.</p>
-                <div class="import-controls">
-                    <input type="file" id="mass-upload-input" accept=".txt,.pdf,.docx" multiple>
-                    <button id="mass-upload-btn" class="button-primary">Анализировать и добавить</button>
-                </div>
-                <div id="mass-upload-status" class="upload-status"></div>
-            </div>
-
-            <div id="process-info-modal" class="modal hidden">
+   <div id="process-info-modal" class="modal hidden">
                 <div class="modal-content premium-modal">
                     <button class="close-btn" id="close-process-info-btn" aria-label="Закрыть">&times;</button>
                     <div class="modal-header">
@@ -265,8 +260,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
 
     </div>
