@@ -27,7 +27,9 @@ const apiFetch = async (url, options = {}) => {
         }
         return await response.json();
     } catch (error) {
-        showNotification(error.message, 'error');
+        if (!options.silent) {
+            showNotification(error.message, 'error');
+        }
         throw error;
     }
 };
@@ -46,7 +48,7 @@ export const fetchCsrfToken = async () => {
     return null;
 };
 
-export const checkSession = () => apiFetch('/api/auth/session');
+export const checkSession = () => apiFetch('/api/auth/session', { silent: true });
 
 export const login = (email, password) => apiFetch('/api/auth/login', {
     method: 'POST',
