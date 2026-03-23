@@ -8,13 +8,14 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const { createDatabaseConfig } = require('../utils/databaseConfig');
+const { resolveMigrationRunner } = require('./migrateRunner');
 
 async function main() {
     if (!process.env.DATABASE_URL) {
         throw new Error('DATABASE_URL is required for migrations.');
     }
 
-    const { default: runner } = await import('node-pg-migrate');
+    const runner = await resolveMigrationRunner();
     const direction = process.argv[2] || 'up';
     const countArg = process.argv[3];
     const count = countArg && !Number.isNaN(Number(countArg)) ? Number(countArg) : undefined;
@@ -36,7 +37,13 @@ async function main() {
     });
 }
 
-main().catch((error) => {
-    console.error(error);
-    process.exit(1);
-});
+if (require.main === module) {
+    main().catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });
+}
+
+module.exports = {
+    main,
+};
