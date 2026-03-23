@@ -110,8 +110,8 @@ export const generateDiagramFromText = async (processDescription) => {
     return code.replace(/```xml/g, '').replace(/```/g, '').trim();
 };
 
-export const getDepartments = () => apiFetch('/api/admin/departments');
-export const getChats = (deptId) => apiFetch(`/api/admin/departments/${deptId}/chats`);
+export const getDepartments = () => apiFetch('/api/departments');
+export const getChats = (deptId) => apiFetch(`/api/chats?department_id=${deptId}`);
 export const getComments = (chatId) => apiFetch(`/api/chats/${chatId}/comments`);
 export const postComment = (chatId, content) => apiFetch(`/api/chats/${chatId}/comments`, {
     method: 'POST',

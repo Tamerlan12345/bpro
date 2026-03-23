@@ -28,7 +28,7 @@
                     <h2>Вход в систему</h2>
                     <p>Введите ваш Email и пароль.</p>
                     <label for="user-email">Email</label>
-                    <input type="email" id="user-email" placeholder="example@bizpro.ai">
+                    <input type="email" id="user-email" placeholder="example@bizpro.ai" autocomplete="username">
                     <label for="user-password">Пароль</label>
                     <input type="password" id="user-password" placeholder="Пароль" autocomplete="current-password">
                     <button id="user-login-btn" class="button-primary">Войти</button>
@@ -49,6 +49,7 @@
                     <p>Выберите чат, кликнув на него, а затем введите пароль.</p>
                     <div id="chat-selection-container"></div>
                     <label for="chat-password">Пароль чата</label>
+                    <input type="text" name="username" autocomplete="username" style="display: none;" value="chat-user">
                     <input type="password" id="chat-password" placeholder="Пароль выбранного чата"
                         autocomplete="current-password">
                     <button id="chat-login-btn" class="button-primary">Войти в чат</button>
@@ -66,33 +67,34 @@
 
                 <div id="admin-view-users" class="admin-view-content" style="display: block;">
                     <div class="admin-section">
-                        <h3>Управление пользователями</h3>
-                        <div class="form-group">
-                            <label for="new-user-fullname">ФИО:</label>
-                            <input type="text" id="new-user-fullname" placeholder="Иванов Иван Иванович">
-                        </div>
-                        <div class="form-group">
-                            <label for="new-user-email">Email:</label>
-                            <input type="email" id="new-user-email" placeholder="email@example.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="new-user-dept">Департамент:</label>
-                            <select id="new-user-dept">
-                                <option value="">Без департамента</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="new-user-password">Пароль:</label>
-                            <input type="password" id="new-user-password" placeholder="Мин. 8 символов">
-                        </div>
-                        <div class="form-group">
-                            <label for="new-user-role">Роль:</label>
-                            <select id="new-user-role">
-                                <option value="user">Пользователь</option>
-                                <option value="admin">Администратор</option>
-                            </select>
-                        </div>
-                        <button id="create-user-btn" class="button-primary">Создать пользователя</button>
+                        <form id="create-user-form" onsubmit="event.preventDefault();">
+                            <div class="form-group">
+                                <label for="new-user-fullname">ФИО:</label>
+                                <input type="text" id="new-user-fullname" placeholder="Иванов Иван Иванович" autocomplete="name">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-user-email">Email:</label>
+                                <input type="email" id="new-user-email" placeholder="email@example.com" autocomplete="username">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-user-dept">Департамент:</label>
+                                <select id="new-user-dept">
+                                    <option value="">Без департамента</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-user-password">Пароль:</label>
+                                <input type="password" id="new-user-password" placeholder="Мин. 8 символов" autocomplete="new-password">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-user-role">Роль:</label>
+                                <select id="new-user-role">
+                                    <option value="user">Пользователь</option>
+                                    <option value="admin">Администратор</option>
+                                </select>
+                            </div>
+                            <button id="create-user-btn" class="button-primary">Создать пользователя</button>
+                        </form>
                     </div>
                     <div class="admin-table-container">
                         <table id="users-table">
@@ -112,21 +114,21 @@
 
                 <div class="admin-section">
                     <h3>Создать новый департамент</h3>
-                    <div id="create-department-form">
+                    <form id="create-department-form" onsubmit="event.preventDefault();">
                         <div class="form-group">
                             <label for="user-for-new-department">Назначить пользователю (владелец):</label>
-                            <select id="user-for-new-department"></select>
+                            <select id="user-for-new-department" autocomplete="off"></select>
                         </div>
                         <div class="form-group">
                             <label for="new-department-name">Название департамента:</label>
-                            <input type="text" id="new-department-name" placeholder="Название департамента">
+                            <input type="text" id="new-department-name" placeholder="Название департамента" autocomplete="organization">
                         </div>
                         <div class="form-group">
                             <label for="new-department-password">Пароль (для входа в чаты):</label>
-                            <input type="password" id="new-department-password" placeholder="Пароль">
+                            <input type="password" id="new-department-password" placeholder="Пароль" autocomplete="new-password">
                         </div>
                         <button id="create-department-btn" class="button-primary">Создать</button>
-                    </div>
+                    </form>
                 </div>
 
                 <div class="admin-section">
@@ -139,12 +141,12 @@
                         <div id="chat-list-container">
                             <h4 id="chat-list-header">Чаты</h4>
                             <div id="chat-list"></div>
-                            <div id="create-chat-form" style="display: none;">
+                            <form id="create-chat-form" style="display: none;" onsubmit="event.preventDefault();">
                                 <h5>Создать новый чат для <span id="selected-department-name"></span></h5>
-                                <input type="text" id="new-chat-name" placeholder="Название чата">
-                                <input type="password" id="new-chat-password" placeholder="Пароль чата">
+                                <input type="text" id="new-chat-name" placeholder="Название чата" autocomplete="name">
+                                <input type="password" id="new-chat-password" placeholder="Пароль чата" autocomplete="new-password">
                                 <button id="create-chat-btn" class="button-primary">Создать</button>
-                            </div>
+                            </form>
                         </div>
                     </div>
                 </div>

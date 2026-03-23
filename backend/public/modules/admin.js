@@ -201,12 +201,23 @@ export const loadAdminDepartments = async () => {
             list.querySelectorAll('.delete-dept-btn').forEach(btn => {
                 btn.onclick = (e) => {
                     e.stopPropagation();
-                    handleDeleteDepartment(btn.dataset.userId);
+                    handleDeleteDepartment(btn.dataset.deptId);
                 };
             });
         }
     } catch (error) {
         ui.showNotification("Не удалось загрузить департаменты", "error");
+    }
+};
+
+export const handleDeleteDepartment = async (deptId) => {
+    if (!confirm('Вы уверены, что хотите удалить этот департамент?')) return;
+    try {
+        await api.apiFetch(`/api/departments/${deptId}`, { method: 'DELETE' });
+        ui.showNotification('Департамент удален', 'success');
+        loadAdminDepartments();
+    } catch (error) {
+        ui.showNotification(`Ошибка удаления: ${error.message}`, 'error');
     }
 };
 
