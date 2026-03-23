@@ -1541,41 +1541,47 @@ input:checked + .slider:before {
     background-color: var(--light-bg-color);
 }
 
-/* --- Process Map Premium Styles (Miro-like) --- */
-.map-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-md);
-}
-
-.map-controls {
-    display: flex;
-    gap: var(--space-sm);
-}
-
-.map-hint {
-    font-size: var(--font-sm);
-    color: var(--text-muted-color);
-    margin-bottom: var(--space-lg);
-}
-
 .cy-container {
     position: relative;
     width: 100%;
-    height: 700px;
+    height: 80vh;
     background-color: #f8fafc;
     background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
     background-size: 30px 30px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.05);
 }
 
 #cy {
     width: 100%;
     height: 100%;
+}
+
+.map-header {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(255, 255, 255, 0.85);
+    padding: 15px 25px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+    z-index: 100;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    backdrop-filter: blur(12px);
+    display: block !important;
+}
+
+.map-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.map-controls {
+    display: none !important; /* Move controls to the bottom or keep in header? Dash hides them in overlay */
 }
 
 .cy-toolbar {
