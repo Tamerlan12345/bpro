@@ -48,28 +48,50 @@ const buildElements = (data) => {
     const { departments = [], processes = [], relations = [], active_chats = [] } = data;
     const elements = [];
 
-    // Root node
-    elements.push({
-        data: { id: 'root', name: 'Бизнес-процессы', type: 'root' },
-        classes: 'root-node'
-    });
-
+    // 1. Departments (Containers)
     departments.forEach(dept => {
         elements.push({
             data: { id: `dept_${dept.id}`, name: dept.name, type: 'department' },
             classes: 'department'
         });
-        elements.push({ data: { source: 'root', target: `dept_${dept.id}` } });
     });
 
+    // 2. Processes (Approved)
     processes.forEach(proc => {
         elements.push({
-            data: { id: `proc_${proc.id}`, name: proc.name, type: 'process' },
+            data: { 
+                id: `proc_${proc.id}`, 
+                name: proc.name, 
+                type: 'process',
+                parent: proc.department_id ? `dept_${proc.department_id}` : undefined
+            },
             classes: `process status-${proc.status}`
         });
-        if (proc.department_id) {
-            elements.push({ data: { source: `dept_${proc.department_id}`, target: `proc_${proc.id}` } });
-        }
+    });
+
+    // 3. Active Chats (Drafts/In Review)
+    active_chats.forEach(chat => {
+        elements.push({
+            data: { 
+                id: `chat_${chat.id}`, 
+                name: chat.name, 
+                type: 'chat',
+                parent: chat.department_id ? `dept_${chat.department_id}` : undefined
+            },
+            classes: `process status-chat status-${chat.status}`
+        });
+    });
+
+    // 4. Relations
+    relations.forEach(rel => {
+        elements.push({
+            data: { 
+                id: rel.id,
+                source: `proc_${rel.source_process_id}`, 
+                target: `proc_${rel.target_process_id}`,
+                label: rel.relation_type
+            }
+        });
     });
 
     return elements;
@@ -81,13 +103,57 @@ const getMapStyle = () => [
         style: {
             'label': 'data(name)',
             'text-valign': 'center',
+            'text-halign': 'center',
+            'font-size': '12px',
+            'color': '#0f172a',
             'width': 'label',
             'height': 'label',
-            'padding': '10px'
+            'padding': '15px',
+            'border-width': 1,
+            'border-color': '#e2e8f0',
+            'background-color': '#ffffff',
+            'shape': 'round-rectangle'
         }
     },
-    { selector: '.department', style: { 'background-color': '#2563eb', 'color': '#fff' } },
-    { selector: '.process', style: { 'background-color': '#fff', 'border-width': 1 } }
+    {
+        selector: ':parent',
+        style: {
+            'text-valign': 'top',
+            'text-halign': 'center',
+            'background-opacity': 0.05,
+            'background-color': '#2563eb',
+            'border-width': 2,
+            'border-color': '#2563eb',
+            'shape': 'rectangle',
+            'padding': '30px'
+        }
+    },
+    { 
+        selector: '.status-approved', 
+        style: { 'background-color': '#ecfdf5', 'border-color': '#10b981', 'border-width': 2 } 
+    },
+    { 
+        selector: '.status-draft, .status-pending_review', 
+        style: { 'background-color': '#fffbeb', 'border-color': '#f59e0b', 'border-width': 2 } 
+    },
+    { 
+        selector: '.status-chat', 
+        style: { 'border-style': 'dashed' } 
+    },
+    {
+        selector: 'edge',
+        style: {
+            'width': 2,
+            'line-color': '#94a3b8',
+            'target-arrow-color': '#94a3b8',
+            'target-arrow-shape': 'triangle',
+            'curve-style': 'bezier',
+            'label': 'data(label)',
+            'font-size': '10px',
+            'text-rotation': 'autorotate',
+            'text-margin-y': -10
+        }
+    }
 ];
 
 const setupInteractions = () => {
