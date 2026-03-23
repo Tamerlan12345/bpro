@@ -1,17 +1,42 @@
-/**
+﻿/**
  * Admin Panel module
  */
 import State from './state.js';
 import * as api from './api.js';
 import * as ui from './ui.js';
 
+const getCreateChatFormElements = () => ({
+    form: document.getElementById('create-chat-form'),
+    header: document.getElementById('chat-list-header'),
+    selectedName: document.getElementById('selected-department-name'),
+    nameInput: document.getElementById('new-chat-name'),
+    passwordInput: document.getElementById('new-chat-password')
+});
+
+const toggleCreateChatForm = (dept) => {
+    const { form, header, selectedName } = getCreateChatFormElements();
+    if (!form) return;
+
+    if (!dept) {
+        form.style.display = 'none';
+        if (header) header.textContent = 'Чаты';
+        if (selectedName) selectedName.textContent = '';
+        return;
+    }
+
+    if (header) header.textContent = `Чаты в "${dept.name}"`;
+    if (selectedName) selectedName.textContent = dept.name;
+    form.style.display = 'flex';
+};
+
 export const loadDepartments = async () => {
     try {
         const depts = await api.getDepartments();
         ui.clearContainer('department-list');
-        depts.forEach(dept => {
+        depts.forEach((dept) => {
             const card = createDepartmentCard(dept);
-            document.getElementById('department-list').appendChild(card);
+            const list = document.getElementById('department-list');
+            if (list) list.appendChild(card);
         });
     } catch (err) {
         console.error('Failed to load departments:', err);
@@ -26,18 +51,23 @@ const createDepartmentCard = (dept) => {
         <button class="button-secondary edit-dept-btn">Изменить</button>
     `;
     div.onclick = () => selectDepartment(dept);
+    const editBtn = div.querySelector('.edit-dept-btn');
+    if (editBtn) {
+        editBtn.onclick = (e) => e.stopPropagation();
+    }
     return div;
 };
 
-export const selectDepartment = async (dept) => {
+export const selectDepartment = async (dept, options = {}) => {
     State.selectedDepartment = dept;
     ui.showNotification(`Выбран департамент: ${dept.name}`);
-    // Load chats for this dept
+    toggleCreateChatForm(options.admin ? dept : null);
+
     try {
         const chats = await api.getChats(dept.id);
         renderChatList(chats);
     } catch (err) {
-         console.error('Failed to load chats:', err);
+        console.error('Failed to load chats:', err);
     }
 };
 
@@ -55,12 +85,11 @@ const renderChatList = (chats, containerId = 'chat-list') => {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    chats.forEach(chat => {
+    chats.forEach((chat) => {
         const item = document.createElement('div');
-        // If it's the selection container, use chat-card style, otherwise chat-item
         const isSelection = containerId === 'chat-selection-container';
         item.className = isSelection ? 'chat-card' : 'chat-item';
-        
+
         if (isSelection) {
             item.dataset.chatId = chat.id;
             item.dataset.chatName = chat.name;
@@ -69,38 +98,27 @@ const renderChatList = (chats, containerId = 'chat-list') => {
                 <span class="chat-name">${chat.name}</span>
             `;
             item.onclick = () => {
-                container.querySelectorAll('.chat-card').forEach(c => c.classList.remove('selected'));
+                container.querySelectorAll('.chat-card').forEach((card) => card.classList.remove('selected'));
                 item.classList.add('selected');
             };
         } else {
             item.innerHTML = `
-                <span>${chat.name}</span> 
+                <span>${chat.name}</span>
                 <button class="button-primary chat-open-btn">Открыть</button>
             `;
             const openBtn = item.querySelector('.chat-open-btn');
-            openBtn.onclick = () => {
-                const mainApp = document.querySelector('.container');
-                const adminPanel = document.getElementById('admin-panel');
-                const authWrapper = document.querySelector('.auth-wrapper');
-                
-                // Set state
-                State.chatId = chat.id;
-                
-                // Show main app (this function is in main.js but we need to trigger it or simulate it)
-                // Since this is in admin.js, we emit a custom event or use the window object if main.js exposed it.
-                // Main.js has showMainApp, but it's not exported.
-                // However, showMainApp is reachable via state changes if we re-trigger.
-                // Better approach: main.js should handle the navigation.
-                
-                window.dispatchEvent(new CustomEvent('open-chat', { detail: { id: chat.id, name: chat.name } }));
-            };
+            if (openBtn) {
+                openBtn.onclick = () => {
+                    State.chatId = chat.id;
+                    window.dispatchEvent(new CustomEvent('open-chat', { detail: { id: chat.id, name: chat.name } }));
+                };
+            }
         }
-        
+
         container.appendChild(item);
     });
 };
 
-// ... more admin logic
 export const loadDepartmentsForSelection = async () => {
     const container = document.getElementById('department-selection-container');
     const errorEl = document.getElementById('department-selection-error');
@@ -112,20 +130,21 @@ export const loadDepartmentsForSelection = async () => {
             container.innerHTML = '<p class="placeholder-text">Для вас не назначено ни одного департамента.</p>';
             return;
         }
-        container.innerHTML = departments.map(dept => `
+
+        container.innerHTML = departments.map((dept) => `
             <div class="department-card" data-dept-id="${dept.id}" data-dept-name="${dept.name}">
                 <span class="dept-icon">🏢</span>
                 <span class="dept-name">${dept.name}</span>
             </div>
         `).join('');
 
-        // Add event listeners to cards
-        container.querySelectorAll('.department-card').forEach(card => {
+        container.querySelectorAll('.department-card').forEach((card) => {
             card.addEventListener('click', () => {
                 State.selectedDepartment = {
                     id: card.dataset.deptId,
                     name: card.dataset.deptName
                 };
+                toggleCreateChatForm(null);
                 ui.hide('department-selection');
                 ui.show('chat-login');
                 loadChats(State.selectedDepartment.id, 'chat-selection-container');
@@ -145,6 +164,12 @@ export const loadAdminPanel = async () => {
             loadAdminPending(),
             loadAdminCompleted()
         ]);
+
+        if (State.sessionUser?.role === 'admin' && State.selectedDepartment?.id) {
+            toggleCreateChatForm(State.selectedDepartment);
+        } else {
+            toggleCreateChatForm(null);
+        }
     } catch (error) {
         ui.showNotification(`Ошибка загрузки данных админ-панели: ${error.message}`, 'error');
     }
@@ -158,7 +183,7 @@ export const loadAdminUsers = async () => {
     try {
         const users = await api.apiFetch('/api/admin/users');
         if (tableBody) {
-            tableBody.innerHTML = users.map(user => `
+            tableBody.innerHTML = users.map((user) => `
                 <tr>
                     <td>${user.full_name || user.name}</td>
                     <td>${user.email}</td>
@@ -170,30 +195,30 @@ export const loadAdminUsers = async () => {
                     </td>
                 </tr>
             `).join('');
-            const options = users.map(user => `
+
+            const options = users.map((user) => `
                 <option value="${user.id}">${user.full_name || user.name} (${user.email})</option>
             `).join('');
 
             if (userForNewDeptSelect) {
                 userForNewDeptSelect.innerHTML = `<option value="">Выберите владельца</option>` + options;
             }
-            
+
             if (newUserDeptSelect) {
                 const depts = await api.getDepartments();
-                newUserDeptSelect.innerHTML = `<option value="">Без департамента</option>` + 
-                    depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+                newUserDeptSelect.innerHTML = `<option value="">Без департамента</option>` +
+                    depts.map((dept) => `<option value="${dept.id}">${dept.name}</option>`).join('');
             }
 
-            // Re-bind dynamic buttons
-            tableBody.querySelectorAll('.delete-user-btn').forEach(btn => {
+            tableBody.querySelectorAll('.delete-user-btn').forEach((btn) => {
                 btn.onclick = () => handleDeleteUser(btn.dataset.userId);
             });
-            tableBody.querySelectorAll('.change-password-btn').forEach(btn => {
+            tableBody.querySelectorAll('.change-password-btn').forEach((btn) => {
                 btn.onclick = () => handleChangePassword(btn.dataset.userId);
             });
         }
     } catch (error) {
-        ui.showNotification("Не удалось загрузить список пользователей", "error");
+        ui.showNotification('Не удалось загрузить список пользователей', 'error');
     }
 };
 
@@ -205,7 +230,7 @@ export const handleCreateUser = async () => {
     const role = document.getElementById('new-user-role').value;
 
     if (!full_name || !email || !password) {
-        ui.showNotification("ФИО, Email и Пароль обязательны", "error");
+        ui.showNotification('ФИО, Email и Пароль обязательны', 'error');
         return;
     }
 
@@ -215,10 +240,10 @@ export const handleCreateUser = async () => {
             method: 'POST',
             body: JSON.stringify({ full_name, email, password, department_id, role })
         });
-        ui.showNotification("Пользователь успешно создан", "success");
+        ui.showNotification('Пользователь успешно создан', 'success');
         loadAdminUsers();
     } catch (error) {
-        ui.showNotification(`Ошибка: ${error.message}`, "error");
+        ui.showNotification(`Ошибка: ${error.message}`, 'error');
     } finally {
         ui.toggleLoading('create-user-btn', false);
     }
@@ -255,23 +280,23 @@ export const loadAdminDepartments = async () => {
     try {
         const departments = await api.getDepartments();
         if (list) {
-            list.innerHTML = departments.map(dept => `
+            list.innerHTML = departments.map((dept) => `
                 <div class="department-card" data-dept-id="${dept.id}" data-dept-name="${dept.name}">
                     <span>${dept.name}</span>
                     <button class="button-danger delete-dept-btn" data-dept-id="${dept.id}">Удалить</button>
                 </div>`).join('');
-            
-            list.querySelectorAll('.department-card').forEach(card => {
+
+            list.querySelectorAll('.department-card').forEach((card) => {
                 card.onclick = () => {
                     const dept = {
                         id: card.dataset.deptId,
                         name: card.dataset.deptName
                     };
-                    selectDepartment(dept);
+                    selectDepartment(dept, { admin: true });
                 };
             });
 
-            list.querySelectorAll('.delete-dept-btn').forEach(btn => {
+            list.querySelectorAll('.delete-dept-btn').forEach((btn) => {
                 btn.onclick = (e) => {
                     e.stopPropagation();
                     handleDeleteDepartment(btn.dataset.deptId);
@@ -279,7 +304,7 @@ export const loadAdminDepartments = async () => {
             });
         }
     } catch (error) {
-        ui.showNotification("Не удалось загрузить департаменты", "error");
+        ui.showNotification('Не удалось загрузить департаменты', 'error');
     }
 };
 
@@ -288,6 +313,11 @@ export const handleDeleteDepartment = async (deptId) => {
     try {
         await api.apiFetch(`/api/departments/${deptId}`, { method: 'DELETE' });
         ui.showNotification('Департамент удален', 'success');
+        if (State.selectedDepartment && String(State.selectedDepartment.id) === String(deptId)) {
+            State.selectedDepartment = null;
+            toggleCreateChatForm(null);
+            renderChatList([]);
+        }
         loadAdminDepartments();
     } catch (error) {
         ui.showNotification(`Ошибка удаления: ${error.message}`, 'error');
@@ -319,13 +349,53 @@ export const handleCreateDepartment = async () => {
     }
 };
 
+export const handleCreateChat = async () => {
+    const dept = State.selectedDepartment;
+    const { nameInput, passwordInput } = getCreateChatFormElements();
+    const chatName = nameInput?.value.trim();
+    const chatPassword = passwordInput?.value;
+
+    if (!dept || !dept.id) {
+        ui.showNotification('Сначала выберите департамент.', 'error');
+        return;
+    }
+
+    if (!chatName || !chatPassword) {
+        ui.showNotification('Заполните название и пароль чата.', 'error');
+        return;
+    }
+
+    ui.toggleLoading('create-chat-btn', true, 'Создание...');
+    try {
+        await api.apiFetch('/api/chats', {
+            method: 'POST',
+            body: JSON.stringify({
+                department_id: dept.id,
+                name: chatName,
+                password: chatPassword
+            })
+        });
+
+        if (nameInput) nameInput.value = '';
+        if (passwordInput) passwordInput.value = '';
+        ui.showNotification('Чат успешно создан.', 'success');
+
+        const chats = await api.getChats(dept.id);
+        renderChatList(chats);
+        toggleCreateChatForm(dept);
+    } catch (error) {
+        ui.showNotification(`Не удалось создать чат: ${error.message}`, 'error');
+    } finally {
+        ui.toggleLoading('create-chat-btn', false);
+    }
+};
+
 export const handleRunGlobalAudit = async () => {
     const promptEl = document.getElementById('audit-prompt');
     const resultArea = document.getElementById('global-audit-result-area');
     const resultText = document.getElementById('global-audit-text');
-    const runBtn = document.getElementById('run-global-audit-btn');
 
-    const prompt = promptEl.value.trim();
+    const prompt = promptEl?.value.trim();
     if (!prompt) {
         ui.showNotification('Введите запрос для анализа', 'error');
         return;
@@ -355,13 +425,13 @@ export const handleRunGlobalAudit = async () => {
 const renderAdminChatList = (chats, containerId) => {
     const list = document.getElementById(containerId);
     if (!list) return;
-    
+
     if (chats.length === 0) {
         list.innerHTML = '<li class="placeholder-text">Нет чатов в этом статусе</li>';
         return;
     }
-    
-    list.innerHTML = chats.map(item => `
+
+    list.innerHTML = chats.map((item) => `
         <li>
             <a href="javascript:void(0)" class="admin-chat-link" data-chat-id="${item.chat_id}" data-chat-name="${item.chats.name}">
                 <span><strong>${item.chats.name}</strong> (${item.departments.name})</span>
@@ -369,15 +439,15 @@ const renderAdminChatList = (chats, containerId) => {
             </a>
         </li>
     `).join('');
-    
-    list.querySelectorAll('.admin-chat-link').forEach(link => {
+
+    list.querySelectorAll('.admin-chat-link').forEach((link) => {
         link.onclick = (e) => {
             e.preventDefault();
-            window.dispatchEvent(new CustomEvent('open-chat', { 
-                detail: { 
-                    id: link.dataset.chatId, 
-                    name: link.dataset.chatName 
-                } 
+            window.dispatchEvent(new CustomEvent('open-chat', {
+                detail: {
+                    id: link.dataset.chatId,
+                    name: link.dataset.chatName
+                }
             }));
         };
     });

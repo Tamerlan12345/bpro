@@ -283,6 +283,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
             await api.logout();
+            State.sessionUser = null;
+            State.selectedDepartment = null;
+            State.resetChatState();
             window.location.reload();
         });
     }
@@ -297,6 +300,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bind('run-global-audit-btn', 'click', admin.handleRunGlobalAudit);
     bind('create-user-btn', 'click', admin.handleCreateUser);
     bind('create-department-btn', 'click', admin.handleCreateDepartment);
+    bind('create-chat-btn', 'click', admin.handleCreateChat);
     bind('refresh-map-btn', 'click', () => map.initProcessMap('cy'));
 
     bind('user-login-btn', 'click', handleUserLogin);
