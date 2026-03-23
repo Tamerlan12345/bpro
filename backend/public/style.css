@@ -122,6 +122,47 @@ body {
     color: inherit;
 }
 
+/* --- Tabs Styling --- */
+.admin-tabs {
+    display: flex;
+    gap: var(--space-sm);
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: var(--space-lg);
+    padding-bottom: 2px;
+}
+
+.tab-link {
+    background: none !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+    padding: var(--space-smd) var(--space-lg) !important;
+    color: var(--text-muted-color) !important;
+    font-weight: 500 !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-link:hover {
+    color: var(--primary-color) !important;
+    background-color: var(--bg-primary-light) !important;
+}
+
+.tab-link.active {
+    color: var(--primary-color) !important;
+    border-bottom-color: var(--primary-color) !important;
+    font-weight: 600 !important;
+}
+
+.tab-content {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 * {
     box-sizing: border-box;
 }

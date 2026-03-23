@@ -59,3 +59,29 @@ export const hide = (idOrEl) => {
     const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
     if (el) el.classList.add('hidden');
 };
+
+/**
+ * Setup tab switching logic
+ * @param {Array} tabs - Array of { btnId, contentId } objects
+ */
+export const setupTabs = (tabs) => {
+    tabs.forEach(({ btnId, contentId }) => {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+
+        btn.addEventListener('click', () => {
+            // Deactivate all
+            tabs.forEach(t => {
+                const b = document.getElementById(t.btnId);
+                const c = document.getElementById(t.contentId);
+                if (b) b.classList.remove('active');
+                if (c) c.classList.add('hidden');
+            });
+
+            // Activate current
+            btn.classList.add('active');
+            const content = document.getElementById(contentId);
+            if (content) content.classList.remove('hidden');
+        });
+    });
+};

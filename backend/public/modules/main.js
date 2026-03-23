@@ -298,6 +298,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     bind('save-version-btn', 'click', handleSaveVersion);
     bind('render-diagram-btn', 'click', handleRenderDiagram);
 
+    // 5. Setup Admin Tabs
+    ui.setupTabs([
+        { btnId: 'admin-tab-users', contentId: 'admin-view-users' },
+        { btnId: 'admin-tab-map', contentId: 'admin-view-map' }
+    ]);
+
+    ui.setupTabs([
+        { btnId: 'in-review-tab', contentId: 'in-review' },
+        { btnId: 'pending-tab', contentId: 'pending' },
+        { btnId: 'completed-tab', contentId: 'completed' }
+    ]);
+
     // Audio Controls
     bind('start-record-btn', 'click', () => {
         audio.startRecording();
