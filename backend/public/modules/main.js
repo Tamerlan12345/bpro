@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (State.sessionUser.role === 'admin') {
                     ui.hide(loginContainer);
                     ui.show(adminPanel);
-                    admin.loadDepartments();
+                    admin.loadAdminPanel();
                 } else {
                     ui.hide(userLogin);
                     ui.show(departmentSelection);
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (State.sessionUser.role === 'admin') {
                 ui.hide(loginContainer);
                 ui.show(adminPanel);
-                admin.loadDepartments();
+                admin.loadAdminPanel();
             } else {
                 ui.hide(userLogin);
                 ui.show(departmentSelection);
@@ -312,6 +312,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (btnId === 'admin-tab-map') {
             map.initProcessMap('cy');
         }
+    });
+
+    // 6. Navigation Event Listeners
+    window.addEventListener('open-chat', async (e) => {
+        const { id, name } = e.detail;
+        State.chatId = id;
+        showMainApp(name);
     });
 
     ui.setupTabs([

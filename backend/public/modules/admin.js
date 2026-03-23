@@ -75,11 +75,24 @@ const renderChatList = (chats, containerId = 'chat-list') => {
         } else {
             item.innerHTML = `
                 <span>${chat.name}</span> 
-                <button class="button-primary chat-open-btn" data-chat-id="${chat.id}">Открыть</button>
+                <button class="button-primary chat-open-btn">Открыть</button>
             `;
             const openBtn = item.querySelector('.chat-open-btn');
             openBtn.onclick = () => {
-                window.location.href = `/chat/${chat.id}`;
+                const mainApp = document.querySelector('.container');
+                const adminPanel = document.getElementById('admin-panel');
+                const authWrapper = document.querySelector('.auth-wrapper');
+                
+                // Set state
+                State.chatId = chat.id;
+                
+                // Show main app (this function is in main.js but we need to trigger it or simulate it)
+                // Since this is in admin.js, we emit a custom event or use the window object if main.js exposed it.
+                // Main.js has showMainApp, but it's not exported.
+                // However, showMainApp is reachable via state changes if we re-trigger.
+                // Better approach: main.js should handle the navigation.
+                
+                window.dispatchEvent(new CustomEvent('open-chat', { detail: { id: chat.id, name: chat.name } }));
             };
         }
         
@@ -127,9 +140,11 @@ export const loadAdminPanel = async () => {
     try {
         await Promise.all([
             loadAdminUsers(),
-            loadAdminDepartments()
+            loadAdminDepartments(),
+            loadAdminReviews(),
+            loadAdminPending(),
+            loadAdminCompleted()
         ]);
-        // ... more list loads (in_review, completed, etc)
     } catch (error) {
         ui.showNotification(`Ошибка загрузки данных админ-панели: ${error.message}`, 'error');
     }
@@ -321,5 +336,63 @@ export const handleRunGlobalAudit = async () => {
         ui.showNotification(err.message || 'Ошибка аудита', 'error');
     } finally {
         ui.toggleLoading('run-global-audit-btn', false);
+    }
+};
+
+const renderAdminChatList = (chats, containerId) => {
+    const list = document.getElementById(containerId);
+    if (!list) return;
+    
+    if (chats.length === 0) {
+        list.innerHTML = '<li class="placeholder-text">Нет чатов в этом статусе</li>';
+        return;
+    }
+    
+    list.innerHTML = chats.map(item => `
+        <li>
+            <a href="javascript:void(0)" class="admin-chat-link" data-chat-id="${item.chat_id}" data-chat-name="${item.chats.name}">
+                <span><strong>${item.chats.name}</strong> (${item.departments.name})</span>
+                <span class="status-badge">${item.status}</span>
+            </a>
+        </li>
+    `).join('');
+    
+    list.querySelectorAll('.admin-chat-link').forEach(link => {
+        link.onclick = (e) => {
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent('open-chat', { 
+                detail: { 
+                    id: link.dataset.chatId, 
+                    name: link.dataset.chatName 
+                } 
+            }));
+        };
+    });
+};
+
+export const loadAdminReviews = async () => {
+    try {
+        const chats = await api.apiFetch('/api/admin/chats/in_review');
+        renderAdminChatList(chats, 'in-review-list');
+    } catch (err) {
+        console.error('Failed to load reviews:', err);
+    }
+};
+
+export const loadAdminPending = async () => {
+    try {
+        const chats = await api.apiFetch('/api/admin/chats/pending');
+        renderAdminChatList(chats, 'pending-list');
+    } catch (err) {
+        console.error('Failed to load pending:', err);
+    }
+};
+
+export const loadAdminCompleted = async () => {
+    try {
+        const chats = await api.apiFetch('/api/admin/chats/completed');
+        renderAdminChatList(chats, 'completed-list');
+    } catch (err) {
+        console.error('Failed to load completed:', err);
     }
 };
