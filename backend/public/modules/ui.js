@@ -63,8 +63,9 @@ export const hide = (idOrEl) => {
 /**
  * Setup tab switching logic
  * @param {Array} tabs - Array of { btnId, contentId } objects
+ * @param {Function} onActivate - Optional callback(btnId, contentId)
  */
-export const setupTabs = (tabs) => {
+export const setupTabs = (tabs, onActivate) => {
     tabs.forEach(({ btnId, contentId }) => {
         const btn = document.getElementById(btnId);
         if (!btn) return;
@@ -74,7 +75,12 @@ export const setupTabs = (tabs) => {
             tabs.forEach(t => {
                 const b = document.getElementById(t.btnId);
                 const c = document.getElementById(t.contentId);
-                if (b) b.classList.remove('active');
+                if (b) {
+                    b.classList.remove('active');
+                    // For premium/modern look, reset styles if they were applied inline
+                    b.style.fontWeight = ''; 
+                    b.style.color = '';
+                }
                 if (c) c.classList.add('hidden');
             });
 
@@ -82,6 +88,9 @@ export const setupTabs = (tabs) => {
             btn.classList.add('active');
             const content = document.getElementById(contentId);
             if (content) content.classList.remove('hidden');
+
+            // Trigger callback
+            if (onActivate) onActivate(btnId, contentId);
         });
     });
 };

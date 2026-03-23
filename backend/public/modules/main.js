@@ -302,7 +302,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     ui.setupTabs([
         { btnId: 'admin-tab-users', contentId: 'admin-view-users' },
         { btnId: 'admin-tab-map', contentId: 'admin-view-map' }
-    ]);
+    ], (btnId) => {
+        if (btnId === 'admin-tab-map') {
+            map.initProcessMap('cy');
+        }
+    });
 
     ui.setupTabs([
         { btnId: 'in-review-tab', contentId: 'in-review' },
