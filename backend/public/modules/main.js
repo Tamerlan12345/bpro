@@ -36,28 +36,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await api.checkSession();
             if (data.user) {
                 State.sessionUser = data.user;
-                logoutBtn.style.display = 'block';
-                authWrapper.style.display = 'flex';
+                ui.show(logoutBtn);
+                authWrapper.style.display = 'flex'; // This one is layout-critical, maybe keep or use flex class
                 
                 if (State.sessionUser.role === 'admin') {
-                    loginContainer.style.display = 'none';
-                    adminPanel.style.display = 'block';
+                    ui.hide(loginContainer);
+                    ui.show(adminPanel);
                     admin.loadDepartments();
                 } else {
-                    if (userLogin) userLogin.style.display = 'none';
-                    departmentSelection.style.display = 'block';
+                    ui.hide(userLogin);
+                    ui.show(departmentSelection);
                     admin.loadDepartmentsForSelection();
                 }
             } else {
                 authWrapper.style.display = 'flex';
-                loginContainer.style.display = 'block';
-                if (userLogin) userLogin.style.display = 'block';
+                ui.show(loginContainer);
+                ui.show(userLogin);
             }
         } catch (error) {
             console.error('Session check failed:', error);
             authWrapper.style.display = 'flex';
-            loginContainer.style.display = 'block';
-            if (userLogin) userLogin.style.display = 'block';
+            ui.show(loginContainer);
+            ui.show(userLogin);
         }
     };
 
@@ -74,15 +74,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const user = await api.login(emailInput.value, passwordInput.value);
             State.sessionUser = user;
             if (errorEl) errorEl.textContent = '';
-            logoutBtn.style.display = 'block';
+            ui.show(logoutBtn);
 
             if (State.sessionUser.role === 'admin') {
-                loginContainer.style.display = 'none';
-                adminPanel.style.display = 'block';
+                ui.hide(loginContainer);
+                ui.show(adminPanel);
                 admin.loadDepartments();
             } else {
-                if (userLogin) userLogin.style.display = 'none';
-                departmentSelection.style.display = 'block';
+                ui.hide(userLogin);
+                ui.show(departmentSelection);
                 admin.loadDepartmentsForSelection();
             }
         } catch (error) {
@@ -133,8 +133,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const showMainApp = (chatName) => {
-        authWrapper.style.display = 'none';
-        mainContainer.style.display = 'block';
+        ui.hide(authWrapper);
+        ui.show(mainContainer);
         
         const chatNameHeader = document.getElementById('chat-name-header');
         const deptName = State.selectedDepartment ? State.selectedDepartment.name : 'Департамент';
@@ -155,12 +155,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
 
         const goBackHandler = () => {
-            mainContainer.style.display = 'none';
+            ui.hide(mainContainer);
             authWrapper.style.display = 'flex';
             if (State.sessionUser && State.sessionUser.role === 'admin') {
-                adminPanel.style.display = 'block';
+                ui.show(adminPanel);
             } else {
-                chatLogin.style.display = 'block';
+                ui.show(chatLogin);
             }
         };
 
@@ -200,19 +200,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!version) {
             processDescriptionInput.value = '';
-            placeholderContent.style.display = 'flex';
+            ui.show(placeholderContent);
             diagramContainer.innerHTML = '';
             return;
         }
 
         processDescriptionInput.value = version.process_text;
         if (version.mermaid_code) {
-            placeholderContent.style.display = 'none';
-            diagramContainer.style.display = 'flex';
+            ui.hide(placeholderContent);
+            ui.show(diagramContainer);
             await diagram.renderBPMN(version.mermaid_code);
         } else {
-            placeholderContent.style.display = 'flex';
-            diagramContainer.style.display = 'none';
+            ui.show(placeholderContent);
+            ui.hide(diagramContainer);
         }
     };
 
@@ -260,8 +260,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const mermaidCode = await api.generateDiagramFromText(process_text);
             if (mermaidCode) {
-                document.querySelector('.placeholder-content').style.display = 'none';
-                document.getElementById('diagram-container').style.display = 'flex';
+                ui.hide(document.querySelector('.placeholder-content'));
+                ui.show('diagram-container');
                 await diagram.renderBPMN(mermaidCode);
             }
         } catch (error) {
@@ -283,12 +283,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Admin & Map Controls
     bind('global-audit-btn', 'click', () => {
-        const modal = document.getElementById('global-audit-modal');
-        if (modal) modal.style.display = 'block';
+        ui.show('global-audit-modal');
     });
     bind('close-global-audit-modal', 'click', () => {
-        const modal = document.getElementById('global-audit-modal');
-        if (modal) modal.style.display = 'none';
+        ui.hide('global-audit-modal');
     });
     bind('run-global-audit-btn', 'click', admin.handleRunGlobalAudit);
     bind('create-user-btn', 'click', admin.handleCreateUser);
@@ -303,18 +301,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Audio Controls
     bind('start-record-btn', 'click', () => {
         audio.startRecording();
-        const startBtn = document.getElementById('start-record-btn');
-        const stopBtn = document.getElementById('stop-record-btn');
-        if (startBtn) startBtn.style.display = 'none';
-        if (stopBtn) stopBtn.style.display = 'inline-flex';
+        ui.hide('start-record-btn');
+        ui.show('stop-record-btn');
     });
 
     bind('stop-record-btn', 'click', () => {
         audio.stopRecording();
-        const startBtn = document.getElementById('start-record-btn');
-        const stopBtn = document.getElementById('stop-record-btn');
-        if (stopBtn) stopBtn.style.display = 'none';
-        if (startBtn) startBtn.style.display = 'inline-flex';
+        ui.hide('stop-record-btn');
+        ui.show('start-record-btn');
     });
 
     bind('process-btn', 'click', audio.processAudio);

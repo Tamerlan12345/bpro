@@ -78,8 +78,8 @@ export const loadDepartmentsForSelection = async () => {
                     id: card.dataset.deptId,
                     name: card.dataset.deptName
                 };
-                document.getElementById('department-selection').style.display = 'none';
-                document.getElementById('chat-login').style.display = 'block';
+                ui.hide('department-selection');
+                ui.show('chat-login');
                 loadChats(State.selectedDepartment.id);
             });
         });
@@ -259,7 +259,7 @@ export const handleRunGlobalAudit = async () => {
     }
 
     ui.toggleLoading('run-global-audit-btn', true, 'Обработка...');
-    if (resultArea) resultArea.style.display = 'none';
+    if (resultArea) ui.hide(resultArea);
 
     try {
         const data = await api.apiFetch('/api/admin/audit', {
@@ -269,7 +269,7 @@ export const handleRunGlobalAudit = async () => {
 
         if (resultText) {
             resultText.innerText = data.result;
-            resultArea.style.display = 'block';
+            ui.show(resultArea);
         }
         ui.showNotification('Анализ успешно завершен', 'success');
     } catch (err) {

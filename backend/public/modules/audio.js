@@ -21,7 +21,7 @@ export const startRecording = async () => {
             const playback = document.getElementById('audio-playback');
             if (playback) {
                 playback.src = audioUrl;
-                playback.style.display = 'block';
+                ui.show(playback);
             }
         };
 

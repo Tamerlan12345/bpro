@@ -20,10 +20,10 @@
     <div class="auth-wrapper">
         <header class="app-header">
             <h1><a href="/">BizMap AI</a></h1>
-            <button id="logout-btn" class="button-secondary" style="display: none;">Выйти</button>
+            <button id="logout-btn" class="button-secondary hidden">Выйти</button>
         </header>
         <main>
-            <div id="login-container" class="login-container">
+            <div id="login-container" class="login-container glass">
                 <form id="user-login" class="login-form" onsubmit="event.preventDefault();">
                     <h2>Вход в систему</h2>
                     <p>Введите ваш Email и пароль.</p>
@@ -35,7 +35,7 @@
                     <p id="user-error" class="error-message"></p>
                 </form>
 
-                <div id="department-selection" class="login-form" style="display: none;">
+                <div id="department-selection" class="login-form hidden">
                     <h2>Выбор департамента</h2>
                     <p>Выберите департамент для работы.</p>
                     <div id="department-selection-container"></div>
@@ -44,12 +44,12 @@
                 </div>
 
                 <!-- Step 3: Chat Selection -->
-                <form id="chat-login" class="login-form" style="display: none;" onsubmit="event.preventDefault();">
+                <form id="chat-login" class="login-form hidden" onsubmit="event.preventDefault();">
                     <h2>Выбор чата</h2>
                     <p>Выберите чат, кликнув на него, а затем введите пароль.</p>
                     <div id="chat-selection-container"></div>
                     <label for="chat-password">Пароль чата</label>
-                    <input type="text" name="username" autocomplete="username" style="display: none;" value="chat-user">
+                    <input type="text" name="username" autocomplete="username" class="hidden" value="chat-user">
                     <input type="password" id="chat-password" placeholder="Пароль выбранного чата"
                         autocomplete="current-password">
                     <button id="chat-login-btn" class="button-primary">Войти в чат</button>
@@ -57,7 +57,7 @@
                 </form>
             </div>
 
-            <div id="admin-panel" style="display: none;">
+            <div id="admin-panel" class="hidden glass">
                 <h2>Панель администратора</h2>
 
                 <div class="admin-tabs" style="margin-bottom: 20px;">
@@ -158,7 +158,7 @@
                         <button id="pending-tab" class="tab-link">В работе</button>
                         <button id="completed-tab" class="tab-link">Завершенные</button>
                     </div>
-                    <div id="in-review" class="tab-content" style="display: block;">
+                    <div id="in-review" class="tab-content block">
                         <ul id="in-review-list"></ul>
                     </div>
                     <div id="pending" class="tab-content">
@@ -169,7 +169,7 @@
                     </div>
                 </div>
 
-                <div id="admin-view-map" class="admin-view-content" style="display: none;">
+                <div id="admin-view-map" class="admin-view-content hidden">
                     <div class="admin-section">
                         <div class="map-header">
                             <h3>Карта Процессов (Mind Map)</h3>
@@ -202,8 +202,7 @@
                             </div>
 
                             <!-- Side Panel -->
-                            <div id="cy-side-panel" class="side-panel"
-                                style="display: none; position: absolute; top: 0; right: 0; width: 320px; height: 100%; background: #fff; border-left: 1px solid #e2e8f0; z-index: 10; padding: 15px; box-shadow: -2px 0 5px rgba(0,0,0,0.05); overflow-y: auto;">
+                            <div id="cy-side-panel" class="side-panel hidden glass">
                                 <div class="panel-header"
                                     style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
                                     <h3 id="panel-title" style="margin: 0; font-size: 16px;">Редактирование</h3>
@@ -226,7 +225,7 @@
                             <div id="mass-upload-status" class="upload-status"></div>
                         </div>
 
-                        <div id="process-info-modal" class="modal" style="display: none; z-index: 10000;">
+                        <div id="process-info-modal" class="modal hidden">
                             <div class="modal-content premium-modal">
                                 <button class="close-btn" id="close-process-info-btn"
                                     aria-label="Закрыть">&times;</button>
@@ -262,7 +261,7 @@
         </main>
     </div>
 
-    <div class="container" style="display: none;">
+    <div class="container hidden">
         <header>
             <button id="back-to-admin-btn" style="display: none;">← Назад в админ-панель</button>
             <h1 id="chat-name-header">BizMap AI Agent</h1>
@@ -297,7 +296,7 @@
                         <audio id="audio-playback" controls class="audio-playback"></audio>
                     </div>
 
-                    <div id="initial-process-block" class="initial-process-block" style="display: none;">
+                    <div id="initial-process-block" class="initial-process-block hidden">
                         <label>Оригинальное описание (Статичное)</label>
                         <div id="initial-process-content" class="initial-process-content"></div>
                     </div>
@@ -348,9 +347,9 @@
                             <p>Здесь появится интерактивная схема процесса</p>
                             <button id="render-diagram-btn" class="button-secondary">Создать схему</button>
                         </div>
-                        <div id="diagram-container" class="diagram-container" style="display: none;"></div>
+                        <div id="diagram-container" class="diagram-container hidden"></div>
                     </div>
-                    <div id="diagram-toolbar" class="diagram-toolbar" style="display: none;">
+                    <div id="diagram-toolbar" class="diagram-toolbar hidden">
                         <button id="regenerate-diagram-btn" title="Перегенерировать схему"
                             aria-label="Перегенерировать схему">Перегенерировать</button>
                         <button id="edit-diagram-btn" title="Редактировать схему" aria-label="Редактировать схему"
@@ -419,7 +418,7 @@
     <!-- <script src="script.js?v=3"></script> -->
     <script type="module" src="modules/main.js"></script>
 
-    <div id="transcription-review-modal" class="modal" style="display: none;">
+    <div id="transcription-review-modal" class="modal hidden">
         <div class="modal-content">
             <button class="close-btn" aria-label="Закрыть">&times;</button>
             <h2>Проверка и обработка транскрибации</h2>
@@ -440,7 +439,7 @@
         </div>
     </div>
 
-    <div id="mermaid-editor-modal" class="modal" style="display: none;">
+    <div id="mermaid-editor-modal" class="modal hidden">
         <div class="modal-content large">
             <button class="close-btn" aria-label="Закрыть">&times;</button>
             <h2>Редактор схемы Mermaid</h2>
@@ -467,7 +466,7 @@
     </div>
 
     <!-- Global AI Audit Modal -->
-    <div id="global-audit-modal" class="modal" style="display: none;">
+    <div id="global-audit-modal" class="modal hidden">
         <div class="modal-content">
             <button class="close-btn" id="close-global-audit-modal" aria-label="Закрыть">&times;</button>
             <h2>Глобальный ИИ Аудит</h2>

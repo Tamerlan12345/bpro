@@ -7,3 +7,6 @@ sessions/
 
 # Log files
 *.log
+.agents/
+skills-lock.json
+skills

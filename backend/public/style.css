@@ -2,23 +2,23 @@
 
 /* --- Global Variables & Resets --- */
 :root {
-    /* Modern Color Palette (Inspired by Tailwind Slate/Blue/Emerald) */
-    --primary-color: #3b82f6;
-    --primary-hover-color: #2563eb;
-    --primary-active-color: #1d4ed8;
+    /* Modern Color Palette (Tailwind Slate/Blue/Emerald Inspired) */
+    --primary-color: #3b82f6;           /* Blue 500 */
+    --primary-hover-color: #2563eb;     /* Blue 600 */
+    --primary-active-color: #1d4ed8;    /* Blue 700 */
     
-    --secondary-color: #64748b;
-    --secondary-hover-color: #475569;
+    --secondary-color: #64748b;         /* Slate 500 */
+    --secondary-hover-color: #475569;    /* Slate 600 */
     
-    --accent-color: #10b981;
-    --accent-hover-color: #059669;
+    --accent-color: #10b981;            /* Emerald 500 */
+    --accent-hover-color: #059669;      /* Emerald 600 */
     
-    --light-bg-color: #f8fafc;
+    --light-bg-color: #f8fafc;          /* Slate 50 */
     --white-color: #ffffff;
-    --border-color: #e2e8f0;
+    --border-color: #e2e8f0;            /* Slate 200 */
     
-    --text-color: #1e293b;
-    --text-muted-color: #64748b;
+    --text-color: #1e293b;              /* Slate 900 */
+    --text-muted-color: #475569;        /* Slate 600 */
     
     /* Semantic Colors */
     --color-success: #10b981;
@@ -61,6 +61,27 @@
     --font-2xl: 1.5rem;    /* 24px */
     --font-3xl: 1.875rem;  /* 30px */
     --font-4xl: 2.25rem;   /* 36px */
+
+    /* Z-Index System */
+    --z-negative: -1;
+    --z-base: 0;
+    --z-fab: 10;
+    --z-drawer: 20;
+    --z-header: 30;
+    --z-modal: 100;
+    --z-tooltip: 1000;
+}
+
+.glass {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07) !important;
+}
+
+.hidden {
+    display: none !important;
 }
 
 body {
@@ -313,7 +334,7 @@ button.button-primary:hover {
 
 button.button-primary:active {
     background-color: var(--primary-active-color);
-    transform: translateY(0);
+    transform: scale(0.98);
 }
 
 button.button-danger {
@@ -328,7 +349,7 @@ button.button-danger:hover {
 }
 
 button.button-danger:active {
-    transform: translateY(0);
+    transform: scale(0.98);
 }
 
 #apply-improvements-btn {
@@ -345,7 +366,7 @@ button.button-danger:active {
 }
 
 #apply-improvements-btn:active:not(:disabled) {
-    transform: translateY(0);
+    transform: scale(0.98);
 }
 
 button:disabled {
@@ -786,10 +807,11 @@ input:checked + .slider:before {
 }
 
 /* --- Modal Close Button --- */
+
 .close-btn {
     position: absolute;
-    top: 1.25rem;
-    right: 1.25rem;
+    top: 1rem;
+    right: 1rem;
     width: 32px;
     height: 32px;
     display: flex;
@@ -799,11 +821,10 @@ input:checked + .slider:before {
     border: 1px solid var(--border-color);
     border-radius: 50%;
     font-size: 1.25rem;
-    font-weight: 500;
     cursor: pointer;
     color: var(--text-muted-color);
-    transition: all 0.2s ease;
-    z-index: 10;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: var(--z-fab);
     line-height: 1;
     padding: 0;
 }
@@ -818,6 +839,10 @@ input:checked + .slider:before {
 .close-btn:focus {
     outline: none;
     box-shadow: 0 0 0 3px var(--focus-ring-color);
+}
+
+.close-btn:active {
+    transform: rotate(90deg) scale(0.9);
 }
 #admin-panel h2, #admin-panel h3, #admin-panel h4, #admin-panel h5 {
     font-weight: 600;
@@ -926,7 +951,7 @@ input:checked + .slider:before {
 .modal {
     display: none; /* Hidden by default */
     position: fixed; /* Stay in place */
-    z-index: 100; /* Sit on top */
+    z-index: var(--z-modal); /* Sit on top */
     left: 0;
     top: 0;
     width: 100%;
@@ -1530,9 +1555,9 @@ input:checked + .slider:before {
 
 /* Premium Modal Enhancements */
 .premium-modal {
-    max-width: 650px !important;
-    border-radius: var(--radius-lg) !important;
-    padding: 0 !important;
+    max-width: 650px;
+    border-radius: var(--radius-lg);
+    padding: 0;
     overflow: hidden;
 }
 

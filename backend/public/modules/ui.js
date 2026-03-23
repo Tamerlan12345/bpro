@@ -50,4 +50,12 @@ export const clearContainer = (id) => {
     if (el) el.innerHTML = '';
 };
 
-// ... more UI helpers as needed
+export const show = (idOrEl) => {
+    const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+    if (el) el.classList.remove('hidden');
+};
+
+export const hide = (idOrEl) => {
+    const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+    if (el) el.classList.add('hidden');
+};
