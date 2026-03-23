@@ -165,6 +165,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     };
 
+    const showSection = (el, display = 'block') => {
+        if (!el) return;
+        el.classList.remove('hidden');
+        el.style.display = display;
+    };
+
+    const hideSection = (el) => {
+        if (!el) return;
+        el.classList.add('hidden');
+        el.style.display = 'none';
+    };
+
 
 
     function showNotification(message, type = 'success') {
@@ -502,12 +514,15 @@ ${brokenCode}
             logoutBtn.style.display = 'block';
 
             if (sessionUser.role === 'admin') {
-                loginContainer.style.display = 'none';
-                adminPanel.style.display = 'block';
+                hideSection(loginContainer);
+                showSection(adminPanel);
                 await loadAdminPanel();
             } else {
                 if (userLogin) userLogin.style.display = 'none';
-                departmentSelection.style.display = 'block';
+                showSection(loginContainer, 'block');
+                showSection(departmentSelection);
+                hideSection(chatLogin);
+                hideSection(adminPanel);
                 await loadDepartmentsForSelection();
             }
         } catch (error) {
@@ -543,8 +558,8 @@ ${brokenCode}
             id: card.dataset.deptId,
             name: card.dataset.deptName
         };
-        departmentSelection.style.display = 'none';
-        chatLogin.style.display = 'block';
+        hideSection(departmentSelection);
+        showSection(chatLogin);
         loadChats(selectedDepartment.id);
     }
 
@@ -642,9 +657,9 @@ ${brokenCode}
             mainContainer.style.display = 'none';
             authWrapper.style.display = 'flex';
             if (sessionUser && sessionUser.role === 'admin') {
-                adminPanel.style.display = 'block';
+                showSection(adminPanel);
             } else {
-                chatLogin.style.display = 'block';
+                showSection(chatLogin);
             }
         };
 
@@ -664,32 +679,34 @@ ${brokenCode}
                 logoutBtn.style.display = 'block';
                 authWrapper.style.display = 'flex'; // Keep the wrapper visible
                 if (sessionUser.role === 'admin') {
-                    loginContainer.style.display = 'none';
-                    adminPanel.style.display = 'block';
+                    hideSection(loginContainer);
+                    showSection(adminPanel);
                     await loadAdminPanel();
                 } else {
-                    loginContainer.style.display = 'block';
+                    showSection(loginContainer, 'block');
                     if (userLogin) userLogin.style.display = 'none';
-                    departmentSelection.style.display = 'block';
+                    showSection(departmentSelection);
+                    hideSection(chatLogin);
+                    hideSection(adminPanel);
                     await loadDepartmentsForSelection();
                 }
             } else {
                 authWrapper.style.display = 'flex';
                 mainContainer.style.display = 'none';
-                loginContainer.style.display = 'block';
+                showSection(loginContainer, 'block');
                 if (userLogin) userLogin.style.display = 'block';
-                departmentSelection.style.display = 'none';
-                chatLogin.style.display = 'none';
-                adminPanel.style.display = 'none';
+                hideSection(departmentSelection);
+                hideSection(chatLogin);
+                hideSection(adminPanel);
             }
         } catch (error) {
             authWrapper.style.display = 'flex';
             mainContainer.style.display = 'none';
-            loginContainer.style.display = 'block';
+            showSection(loginContainer, 'block');
             if (userLogin) userLogin.style.display = 'block';
-            departmentSelection.style.display = 'none';
-            chatLogin.style.display = 'none';
-            adminPanel.style.display = 'none';
+            hideSection(departmentSelection);
+            hideSection(chatLogin);
+            hideSection(adminPanel);
         }
     }
 
