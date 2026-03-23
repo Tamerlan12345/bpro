@@ -1,3 +1,1 @@
-import layoutCore from './map-layout-core.js';
-
-export const { buildStructuredLayout } = layoutCore;
+export { buildStructuredLayout } from './map-layout-core.mjs';
