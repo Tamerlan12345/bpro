@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
     await page.goto(appUrl);
 
     // Login as Admin
-    await page.fill('#user-name', 'admin');
+    await page.fill('#user-email', 'admin@example.com');
     await page.fill('#user-password', 'adminpassword'); // Assuming default is 'adminpassword' if not set
     // Check server.js default if env not set
     // In server.js: process.env.ADMIN_INITIAL_PASSWORD
@@ -35,7 +35,7 @@ const { chromium } = require('playwright');
 
     // 2. User Verification
     // Login as User
-    await page.fill('#user-name', 'user');
+    await page.fill('#user-email', 'user@example.com');
     await page.fill('#user-password', 'userpassword');
     await page.click('#user-login-btn');
 

@@ -9,7 +9,7 @@ const path = require('path');
     try {
         await page.goto(appUrl);
         // Login as admin
-        await page.fill('#user-name', 'admin');
+        await page.fill('#user-email', 'admin@example.com');
         await page.fill('#user-password', 'adminpassword');
         await page.click('#user-login-btn');
 
@@ -39,7 +39,7 @@ const path = require('path');
     try {
          await page.goto(appUrl);
         // Login as User
-        await page.fill('#user-name', 'user');
+        await page.fill('#user-email', 'user@example.com');
         await page.fill('#user-password', 'userpassword');
         await page.click('#user-login-btn');
 

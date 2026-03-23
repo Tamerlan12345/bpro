@@ -28,6 +28,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const adminPanel = document.getElementById('admin-panel');
     const mainContainer = document.querySelector('.container');
     const logoutBtn = document.getElementById('logout-btn');
+    const showAuthWrapper = () => {
+        ui.show(authWrapper);
+        authWrapper.style.display = 'flex';
+    };
 
     // 3. Initialize App State & Session
     const checkSession = async () => {
@@ -36,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (data.user) {
                 State.sessionUser = data.user;
                 ui.show(logoutBtn);
-                authWrapper.style.display = 'flex'; // This one is layout-critical, maybe keep or use flex class
+                showAuthWrapper();
                 
                 if (State.sessionUser.role === 'admin') {
                     ui.hide(loginContainer);
@@ -48,7 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     admin.loadDepartmentsForSelection();
                 }
             } else {
-                authWrapper.style.display = 'flex';
+                showAuthWrapper();
                 ui.show(loginContainer);
                 ui.show(userLogin);
             }
@@ -57,7 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!error.message.includes('401')) {
                 console.error('Session check failed:', error);
             }
-            authWrapper.style.display = 'flex';
+            showAuthWrapper();
             ui.show(loginContainer);
             ui.show(userLogin);
         }
@@ -161,10 +165,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const goBackHandler = () => {
             ui.hide(mainContainer);
-            authWrapper.style.display = 'flex';
+            showAuthWrapper();
             if (State.sessionUser && State.sessionUser.role === 'admin') {
                 ui.show(adminPanel);
             } else {
+                ui.show(loginContainer);
                 ui.show(chatLogin);
             }
         };
