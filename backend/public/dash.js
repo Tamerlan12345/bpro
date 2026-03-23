@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
         height: 'label',
         padding: '16px',
         'line-height': 1.25,
-        'font-family': 'system-ui, -apple-system, sans-serif'
+        'font-family': '"Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
     };
 
     fetch('/api/dash/map').then(r => r.json()).then(data => {
@@ -28,17 +28,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const elements = [{ data: { id: 'root_centras', name: 'Бизнес-процессы АО СК Сентрас Иншуранс', type: 'root' }, classes: 'root-node' }];
 
         (data.departments || []).forEach(dept => {
-            elements.push({ data: { id: 'dept_' + dept.id, name: '🏢 ' + dept.name, rawName: dept.name, collapsed: false }, position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined, classes: 'department' });
+            elements.push({ data: { id: 'dept_' + dept.id, name: dept.name, rawName: dept.name, collapsed: false }, position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined, classes: 'department' });
             elements.push({ data: { id: 'edge_root_dept_' + dept.id, source: 'root_centras', target: 'dept_' + dept.id }, classes: 'root-edge' });
         });
 
         (data.processes || []).forEach(proc => {
-            elements.push({ data: { id: 'proc_' + proc.id, name: '⚙️ ' + proc.name, rawName: proc.name, description: proc.description, status: proc.status, type: 'process' }, position: (proc.x !== null && proc.y !== null) ? { x: parseFloat(proc.x), y: parseFloat(proc.y) } : undefined, classes: 'process status-' + proc.status });
+            elements.push({ data: { id: 'proc_' + proc.id, name: proc.name, rawName: proc.name, description: proc.description, status: proc.status, type: 'process' }, position: (proc.x !== null && proc.y !== null) ? { x: parseFloat(proc.x), y: parseFloat(proc.y) } : undefined, classes: 'process status-' + proc.status });
             if (proc.department_id) elements.push({ data: { id: 'edge_dept_proc_' + proc.id, source: 'dept_' + proc.department_id, target: 'proc_' + proc.id }, classes: 'dept-edge' });
         });
 
         (data.active_chats || []).forEach(chat => {
-            elements.push({ data: { id: 'chat_' + chat.id, name: '💬 ' + chat.name, rawName: chat.name, description: chat.description, status: chat.status, type: 'chat' }, position: (chat.x !== null && chat.y !== null) ? { x: parseFloat(chat.x), y: parseFloat(chat.y) } : undefined, classes: 'chat status-' + chat.status });
+            elements.push({ data: { id: 'chat_' + chat.id, name: chat.name, rawName: chat.name, description: chat.description, status: chat.status, type: 'chat' }, position: (chat.x !== null && chat.y !== null) ? { x: parseFloat(chat.x), y: parseFloat(chat.y) } : undefined, classes: 'chat status-' + chat.status });
             if (chat.department_id) elements.push({ data: { id: 'edge_dept_chat_' + chat.id, source: 'dept_' + chat.department_id, target: 'chat_' + chat.id }, classes: 'dept-edge chat-edge' });
         });
 
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (stats[st] !== undefined) stats[st]++;
             });
 
-            tooltip.innerHTML = `<strong>🏢 ${node.data('rawName')}</strong>\n\n📊 <b>Всего процессов:</b> ${processes}\n💬 <b>Всего чатов:</b> ${chats}\n\n✅ Утвержденных: ${stats.approved}\n📝 Черновиков: ${stats.draft}\n⏳ На проверке: ${stats.pending_review}\n❌ Нужны правки: ${stats.needs_revision}`;
+            tooltip.innerHTML = `<strong>${node.data('rawName')}</strong>\n\n<b>Всего процессов:</b> ${processes}\n<b>Всего чатов:</b> ${chats}\n\nУтвержденных: ${stats.approved}\nЧерновиков: ${stats.draft}\nНа проверке: ${stats.pending_review}\nНужны правки: ${stats.needs_revision}`;
             tooltip.style.display = 'block';
         });
         cy.on('mousemove', 'node.department', function (e) {
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnToggleCollapse) {
             btnToggleCollapse.addEventListener('click', () => {
                 isAllCollapsed = !isAllCollapsed;
-                btnToggleCollapse.innerText = isAllCollapsed ? '🔼 Развернуть все' : '🔽 Свернуть все';
+                btnToggleCollapse.innerText = isAllCollapsed ? 'Развернуть все' : 'Свернуть все';
                 cy.nodes('.department').forEach(deptNode => {
                     const outEdges = deptNode.outgoers('edge.dept-edge');
                     const childNodes = outEdges.targets();

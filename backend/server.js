@@ -1078,7 +1078,7 @@ app.get('/dash', (req, res) => {
     <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        body { margin: 0; font-family: system-ui, sans-serif; background: #f8fafc; overflow: hidden; }
+        body { margin: 0; font-family: "Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; background: #f8fafc; overflow: hidden; }
         #cy { 
             width: 100vw; height: 100vh; display: block; 
             background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
@@ -1112,15 +1112,15 @@ app.get('/dash', (req, res) => {
         .side-panel-content { padding: 20px; overflow-y: auto; font-size: 14px; color: #334155; line-height: 1.5; }
         .side-panel-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b; padding: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px;}
         .side-panel-close:hover { color: #0f172a; background: #e2e8f0; }
-        .markdown-body { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 10px; font-family: system-ui, sans-serif; font-size: 13px;}
+        .markdown-body { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 10px; font-family: "Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; font-size: 13px;}
         .markdown-body p { margin-top: 0; }
     </style>
 </head>
 <body>
     <div class="overlay"><h1>Карта Бизнес-Процессов</h1><p style="margin: 5px 0 0 0; font-size: 13px; color: #64748b;">Режим чтения</p></div>
     <div class="btn-controls">
-        <input type="text" id="dash-search" placeholder="🔍 Поиск процессов...">
-        <button id="btn-toggle-collapse">🔽 Свернуть все</button>
+        <input type="text" id="dash-search" placeholder="Поиск процессов...">
+        <button id="btn-toggle-collapse">Свернуть все</button>
         <button id="btn-fit">По размеру экрана</button>
         <button id="btn-zoom-in">+</button>
         <button id="btn-zoom-out">-</button>

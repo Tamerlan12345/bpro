@@ -1938,7 +1938,7 @@ ${brokenCode}
 
             departments.forEach(dept => {
                 elements.push({
-                    data: { id: `dept_${dept.id}`, name: '🏢 ' + dept.name, type: 'department', collapsed: false, rawName: dept.name },
+                    data: { id: `dept_${dept.id}`, name: dept.name, type: 'department', collapsed: false, rawName: dept.name },
                     position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined,
                     classes: 'department'
                 });
@@ -1953,7 +1953,7 @@ ${brokenCode}
                 elements.push({
                     data: {
                         id: `proc_${proc.id}`,
-                        name: '⚙️ ' + proc.name,
+                        name: proc.name,
                         rawName: proc.name,
                         description: proc.description || 'Описание отсутствует',
                         goal: proc.goal || 'Цель не указана',
@@ -1982,7 +1982,7 @@ ${brokenCode}
                 elements.push({
                     data: {
                         id: `chat_${chat.id}`,
-                        name: '💬 ' + chat.name,
+                        name: chat.name,
                         rawName: chat.name,
                         status: chat.status,
                         type: 'chat'
@@ -2029,7 +2029,7 @@ ${brokenCode}
                                 'text-halign': 'center',
                                 'width': 'max-content',
                                 'height': 'max-content',
-                                'font-family': 'system-ui, -apple-system, sans-serif'
+                                'font-family': '"Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
                             }
                         },
                         {
@@ -2206,7 +2206,7 @@ ${brokenCode}
                         else if (st === 'completed') stats['approved']++; // or track separately if needed
                     });
 
-                    tooltip.innerHTML = `<strong>🏢 ${node.data('rawName')}</strong>\n\n📊 <b>Всего процессов:</b> ${processes}\n💬 <b>Всего чатов:</b> ${chats}\n\n✅ Утвержденных: ${stats.approved}\n📝 Черновиков: ${stats.draft}\n⏳ На проверке: ${stats.pending_review}\n❌ Нужны правки: ${stats.needs_revision}\n🏁 Завершенных: ${stats.completed || 0}`;
+                    tooltip.innerHTML = `<strong>${node.data('rawName')}</strong>\n\n<b>Всего процессов:</b> ${processes}\n<b>Всего чатов:</b> ${chats}\n\nУтвержденных: ${stats.approved}\nЧерновиков: ${stats.draft}\nНа проверке: ${stats.pending_review}\nНужны правки: ${stats.needs_revision}\nЗавершенных: ${stats.completed || 0}`;
                     tooltip.style.display = 'block';
                 });
                 cy.on('mousemove', 'node.department', function (e) {
@@ -2319,13 +2319,13 @@ ${brokenCode}
                         toggleCollapseBtn.id = 'cy-toggle-collapse';
                         toggleCollapseBtn.className = 'button-secondary';
                         toggleCollapseBtn.style.marginLeft = '10px';
-                        toggleCollapseBtn.innerText = '🔽 Свернуть все';
+                        toggleCollapseBtn.innerText = 'Свернуть все';
                         tb.appendChild(toggleCollapseBtn);
 
                         let isAllCollapsed = false;
                         toggleCollapseBtn.onclick = () => {
                             isAllCollapsed = !isAllCollapsed;
-                            toggleCollapseBtn.innerText = isAllCollapsed ? '🔼 Развернуть все' : '🔽 Свернуть все';
+                            toggleCollapseBtn.innerText = isAllCollapsed ? 'Развернуть все' : 'Свернуть все';
                             if (cy) {
                                 cy.nodes('.department').forEach(deptNode => {
                                     const outEdges = deptNode.outgoers('edge.dept-edge');
@@ -2515,7 +2515,7 @@ ${brokenCode}
                     aiLayoutBtn.onclick = async function () {
                         const btn = this;
                         const originalText = btn.innerText;
-                        btn.innerText = '🪄 ИИ Думает...';
+                        btn.innerText = 'ИИ рассчитывает...';
                         btn.disabled = true;
 
                         try {
@@ -2555,7 +2555,7 @@ ${brokenCode}
 
                 const autoLayoutBtn = document.getElementById('auto-layout-btn');
                 if (autoLayoutBtn) {
-                    autoLayoutBtn.onclick = () => {
+                    autoLayoutBtn.onclick = async () => {
                         if (confirm('Выровнять все департаменты по горизонтали, а их процессы СТРОГО вертикально вниз? (Текущие координаты будут перезаписаны)')) {
                             // КАСТОМНЫЙ АЛГОРИТМ ИДЕАЛЬНОЙ ИЕРАРХИИ
                             const depts = cy.nodes('.department').sort((a, b) => (a.data('rawName') || '').localeCompare(b.data('rawName') || ''));
@@ -2602,6 +2602,7 @@ ${brokenCode}
                             cy.fit(cy.nodes(), 50);
 
                             // Сохраняем новые координаты в БД
+                            const saveRequests = [];
                             cy.nodes('.department, .process, .chat').forEach(node => {
                                 const pos = node.position();
                                 let ep = '';
@@ -2609,8 +2610,15 @@ ${brokenCode}
                                 else if (node.hasClass('process')) ep = `/api/admin/processes/${node.id().replace('proc_', '')}/position`;
                                 else if (node.hasClass('chat')) ep = `/api/admin/chats/${node.id().replace('chat_', '')}/position`;
 
-                                if (ep) fetchWithAuth(ep, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x: pos.x, y: pos.y }) }).catch(e => e);
+                                if (ep) {
+                                    saveRequests.push(fetchWithAuth(ep, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ x: pos.x, y: pos.y })
+                                    }));
+                                }
                             });
+                            await Promise.all(saveRequests);
 
                             showNotification('Авто-выравнивание завершено', 'success');
                         }
