@@ -10,7 +10,6 @@ import * as audio from './audio.js';
 import * as map from './map.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('BizMap AI Initializing...');
 
     const bind = (id, event, handler) => {
         const el = document.getElementById(id);

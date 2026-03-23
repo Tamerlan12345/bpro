@@ -26,6 +26,11 @@ const { parseDocumentsWithAI } = require('./services/aiParserService');
 
 const app = express();
 const logger = pino();
+const sessionSecret = process.env.SESSION_SECRET || 'dev-insecure-session-secret-change-me';
+
+if (!process.env.SESSION_SECRET && process.env.NODE_ENV !== 'test') {
+    logger.warn('SESSION_SECRET is not set. Using development fallback secret.');
+}
 
 // Security Middleware
 app.use(
@@ -58,9 +63,18 @@ app.use(pinoHttp({
 }));
 
 // Rate Limiting
+const limiterWindowMs = Number.parseInt(process.env.RATE_LIMIT_WINDOW_MS || '', 10);
+const limiterMax = Number.parseInt(process.env.RATE_LIMIT_MAX || '', 10);
+const isStaticAssetRequest = (req) => /\.(css|js|ico|png|jpg|jpeg|svg|woff|woff2|map)(\?|$)/i.test(req.path);
+const isPositionPersistenceRequest = (req) => (
+    req.method === 'PUT'
+    && /^\/api\/admin\/(processes|departments|chats)\/[^/]+\/position$/.test(req.path)
+);
+
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
+    windowMs: Number.isFinite(limiterWindowMs) && limiterWindowMs > 0 ? limiterWindowMs : 15 * 60 * 1000,
+    max: Number.isFinite(limiterMax) && limiterMax > 0 ? limiterMax : 100,
+    skip: (req) => isPositionPersistenceRequest(req) || isStaticAssetRequest(req),
     message: { error: "Too many requests, please try again later." }
 });
 app.use(limiter);
@@ -190,7 +204,7 @@ app.use(session({
             pool: pool,
             tableName: 'session'
         }),
-    secret: process.env.SESSION_SECRET,
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {

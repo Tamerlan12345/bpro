@@ -1,6 +1,17 @@
 const fs = require('fs');
 const mammoth = require('mammoth');
-const pdf = require('pdf-parse');
+
+let pdfParseFn = null;
+async function getPdfParser() {
+    if (pdfParseFn) {
+        return pdfParseFn;
+    }
+
+    // Lazy-load to avoid initializing heavy native deps when PDF parsing is not used.
+    const loaded = require('pdf-parse');
+    pdfParseFn = loaded;
+    return pdfParseFn;
+}
 
 async function extractTextFromFile(filePath, mimeType) {
     if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || filePath.endsWith('.docx')) {
@@ -15,7 +26,8 @@ async function extractTextFromFile(filePath, mimeType) {
     } else if (mimeType === 'application/pdf' || filePath.toLowerCase().endsWith('.pdf')) {
         try {
             const dataBuffer = fs.readFileSync(filePath);
-            const data = await pdf(dataBuffer);
+            const parsePdf = await getPdfParser();
+            const data = await parsePdf(dataBuffer);
             return data.text;
         } catch (error) {
             console.error('PDF extraction error:', error);

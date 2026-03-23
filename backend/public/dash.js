@@ -41,8 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     selector: 'node',
                     style: {
                         'text-wrap': 'wrap', 'text-valign': 'center', 'text-halign': 'center',
-                        'width': 'label', 'height': 'label', 'font-family': 'system-ui, -apple-system, sans-serif',
-                        'shadow-blur': 12, 'shadow-color': '#0f172a', 'shadow-opacity': 0.08, 'shadow-offset-y': 4
+                        'width': 'max-content', 'height': 'max-content', 'font-family': 'system-ui, -apple-system, sans-serif'
                     }
                 },
                 { selector: 'node.root-node', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#0f172a', 'color': '#ffffff', 'font-weight': 'bold', 'font-size': 18, 'padding': '20px', 'text-max-width': 260, 'border-width': 0 } },
@@ -55,7 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 { selector: 'node.status-needs_revision', style: { 'border-width': 2, 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
                 { selector: 'node.status-pending_review', style: { 'border-width': 2, 'border-color': '#3b82f6', 'background-color': '#eff6ff' } },
 
-                { selector: 'edge', style: { 'label': 'data(label)', 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#cbd5e1', 'line-color': '#e2e8f0', 'width': 2, 'font-size': 10, 'color': '#64748b', 'text-background-opacity': 1, 'text-background-color': '#ffffff', 'text-background-padding': 3 } },
+                { selector: 'edge', style: { 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'target-arrow-color': '#cbd5e1', 'line-color': '#e2e8f0', 'width': 2, 'text-background-opacity': 1, 'text-background-color': '#ffffff', 'text-background-padding': 3 } },
+                { selector: 'edge[label]', style: { 'label': 'data(label)', 'font-size': 10, 'color': '#64748b', 'text-background-opacity': 1, 'text-background-color': '#ffffff', 'text-background-padding': 3 } },
                 { selector: 'edge.root-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical', 'taxi-turn': 20, 'target-arrow-shape': 'none', 'width': 3, 'line-color': '#94a3b8' } },
                 { selector: 'edge.dept-edge', style: { 'curve-style': 'taxi', 'taxi-direction': 'vertical', 'width': 1.5, 'line-color': '#cbd5e1', 'target-arrow-color': '#cbd5e1' } },
                 { selector: 'edge.chat-edge', style: { 'line-style': 'dashed', 'line-color': '#7dd3fc', 'target-arrow-color': '#7dd3fc' } }

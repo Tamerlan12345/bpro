@@ -9,7 +9,7 @@ let cy = null;
 let tooltip = null;
 
 const ROOT_ID = 'root_company';
-const ROOT_LABEL = 'Бизнес-процессы BizPro AI';
+const ROOT_LABEL = 'Бизнес-процессы АО СК Сентрас Иншуранс';
 
 export const initProcessMap = async (containerId) => {
     const container = document.getElementById(containerId);
@@ -34,7 +34,6 @@ export const initProcessMap = async (containerId) => {
             elements,
             style: getMapStyle(),
             layout: getInitialLayout(elements),
-            wheelSensitivity: 0.15,
             selectionType: 'single',
             userZoomingEnabled: true,
             userPanningEnabled: true,
@@ -295,9 +294,13 @@ const saveCurrentLayout = async () => {
     if (!cy) return;
 
     const nodesToSave = cy.nodes('.department, .process, .chat').toArray();
-    await Promise.all(nodesToSave.map((node) => saveNodePosition(node).catch((error) => {
-        console.error(`Failed to save node position for ${node.id()}:`, error);
-    })));
+    for (const node of nodesToSave) {
+        try {
+            await saveNodePosition(node);
+        } catch (error) {
+            console.error(`Failed to save node position for ${node.id()}:`, error);
+        }
+    }
 };
 
 const applyStructuredLayout = async () => {
@@ -339,13 +342,9 @@ const getMapStyle = () => [
             'text-wrap': 'wrap',
             'text-valign': 'center',
             'text-halign': 'center',
-            width: 'label',
-            height: 'label',
-            'font-family': 'system-ui, -apple-system, sans-serif',
-            'shadow-blur': 12,
-            'shadow-color': '#0f172a',
-            'shadow-opacity': 0.08,
-            'shadow-offset-y': 4
+            width: 'max-content',
+            height: 'max-content',
+            'font-family': 'system-ui, -apple-system, sans-serif'
         }
     },
     {
@@ -427,12 +426,20 @@ const getMapStyle = () => [
     {
         selector: 'edge',
         style: {
-            label: 'data(label)',
             'curve-style': 'bezier',
             'target-arrow-shape': 'triangle',
             'target-arrow-color': '#cbd5e1',
             'line-color': '#e2e8f0',
             width: 2,
+            'text-background-opacity': 1,
+            'text-background-color': '#ffffff',
+            'text-background-padding': 3
+        }
+    },
+    {
+        selector: 'edge[label]',
+        style: {
+            label: 'data(label)',
             'font-size': 10,
             color: '#64748b',
             'text-background-opacity': 1,

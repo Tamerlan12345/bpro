@@ -2023,13 +2023,9 @@ ${brokenCode}
                                 'text-wrap': 'wrap',
                                 'text-valign': 'center',
                                 'text-halign': 'center',
-                                'width': 'label',
-                                'height': 'label',
-                                'font-family': 'system-ui, -apple-system, sans-serif',
-                                'shadow-blur': 12,
-                                'shadow-color': '#0f172a',
-                                'shadow-opacity': 0.08,
-                                'shadow-offset-y': 4
+                                'width': 'max-content',
+                                'height': 'max-content',
+                                'font-family': 'system-ui, -apple-system, sans-serif'
                             }
                         },
                         {
@@ -2099,12 +2095,20 @@ ${brokenCode}
                         {
                             selector: 'edge',
                             style: {
-                                'label': 'data(label)',
                                 'curve-style': 'bezier',
                                 'target-arrow-shape': 'triangle',
                                 'target-arrow-color': '#cbd5e1',
                                 'line-color': '#e2e8f0',
                                 'width': 2,
+                                'text-background-opacity': 1,
+                                'text-background-color': '#ffffff',
+                                'text-background-padding': 3
+                            }
+                        },
+                        {
+                            selector: 'edge[label]',
+                            style: {
+                                'label': 'data(label)',
                                 'font-size': 10,
                                 'color': '#64748b',
                                 'text-background-opacity': 1,
