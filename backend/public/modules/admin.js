@@ -41,14 +41,49 @@ export const selectDepartment = async (dept) => {
     }
 };
 
-const renderChatList = (chats) => {
-    ui.clearContainer('chat-list');
+export const loadChats = async (deptId, containerId = 'chat-list') => {
+    try {
+        const chats = await api.getChats(deptId);
+        renderChatList(chats, containerId);
+    } catch (err) {
+        console.error('Failed to load chats:', err);
+    }
+};
+
+const renderChatList = (chats, containerId = 'chat-list') => {
+    ui.clearContainer(containerId);
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
     chats.forEach(chat => {
         const item = document.createElement('div');
-        item.className = 'chat-item';
-        item.innerHTML = `<span>${chat.name}</span> <button class="button-primary">Открыть</button>`;
-        item.onclick = () => window.location.href = `/chat/${chat.id}`; // Simple navigation for now or SPA logic
-        document.getElementById('chat-list').appendChild(item);
+        // If it's the selection container, use chat-card style, otherwise chat-item
+        const isSelection = containerId === 'chat-selection-container';
+        item.className = isSelection ? 'chat-card' : 'chat-item';
+        
+        if (isSelection) {
+            item.dataset.chatId = chat.id;
+            item.dataset.chatName = chat.name;
+            item.innerHTML = `
+                <span class="chat-icon">💬</span>
+                <span class="chat-name">${chat.name}</span>
+            `;
+            item.onclick = () => {
+                container.querySelectorAll('.chat-card').forEach(c => c.classList.remove('selected'));
+                item.classList.add('selected');
+            };
+        } else {
+            item.innerHTML = `
+                <span>${chat.name}</span> 
+                <button class="button-primary chat-open-btn" data-chat-id="${chat.id}">Открыть</button>
+            `;
+            const openBtn = item.querySelector('.chat-open-btn');
+            openBtn.onclick = () => {
+                window.location.href = `/chat/${chat.id}`;
+            };
+        }
+        
+        container.appendChild(item);
     });
 };
 
@@ -80,7 +115,7 @@ export const loadDepartmentsForSelection = async () => {
                 };
                 ui.hide('department-selection');
                 ui.show('chat-login');
-                loadChats(State.selectedDepartment.id);
+                loadChats(State.selectedDepartment.id, 'chat-selection-container');
             });
         });
     } catch (error) {
@@ -198,6 +233,16 @@ export const loadAdminDepartments = async () => {
                     <button class="button-danger delete-dept-btn" data-dept-id="${dept.id}">Удалить</button>
                 </div>`).join('');
             
+            list.querySelectorAll('.department-card').forEach(card => {
+                card.onclick = () => {
+                    const dept = {
+                        id: card.dataset.deptId,
+                        name: card.dataset.deptName
+                    };
+                    selectDepartment(dept);
+                };
+            });
+
             list.querySelectorAll('.delete-dept-btn').forEach(btn => {
                 btn.onclick = (e) => {
                     e.stopPropagation();

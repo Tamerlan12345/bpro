@@ -54,7 +54,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ui.show(userLogin);
             }
         } catch (error) {
-            console.error('Session check failed:', error);
+            // 401 is expected if not logged in - don't log as error to avoid user confusion
+            if (!error.message.includes('401')) {
+                console.error('Session check failed:', error);
+            }
             authWrapper.style.display = 'flex';
             ui.show(loginContainer);
             ui.show(userLogin);
@@ -67,7 +70,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const loginBtn = document.getElementById('user-login-btn');
         const errorEl = document.getElementById('user-error');
         
-        if (!emailInput.value || !passwordInput.value) return;
+        if (!emailInput.value || !passwordInput.value) {
+            if (errorEl) errorEl.textContent = 'Введите Email и пароль';
+            return;
+        }
 
         ui.toggleLoading('user-login-btn', true, 'Вход...');
         try {

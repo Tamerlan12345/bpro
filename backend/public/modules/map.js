@@ -13,15 +13,30 @@ export const initProcessMap = async (containerId) => {
 
     try {
         const data = await api.apiFetch('/api/admin/map');
-        if (!data || data.error) return;
+        console.log('Map data received:', data);
+        if (!data || data.error) {
+            console.error('Map data error or empty:', data);
+            return;
+        }
 
         const elements = buildElements(data);
+        console.log(`Initializing Process Map in #${containerId} with ${elements.length} elements`);
         cy = cytoscape({
             container,
             elements,
             style: getMapStyle(),
-            layout: { name: 'klay', padding: 50 }
+            layout: { name: 'klay', padding: 50 },
+            wheelSensitivity: 0.2
         });
+
+        // Force resize and fit after a short delay to ensure dimensions are ready
+        setTimeout(() => {
+            if (cy) {
+                cy.resize();
+                cy.fit();
+                console.log('Cytoscape map resized and fit');
+            }
+        }, 100);
 
         setupInteractions();
     } catch (err) {

@@ -381,9 +381,18 @@ button {
 button.button-primary {
     background: linear-gradient(135deg, var(--primary-color), var(--primary-hover-color));
     color: var(--white-color);
-    width: 100%;
+    width: auto;
+    min-width: 120px;
+    padding: var(--space-smd) var(--space-xl);
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
     border: none;
+    font-weight: 600;
+}
+
+.login-form button.button-primary,
+.modal-footer button.button-primary,
+.comment-form button.button-primary {
+    width: 100%;
 }
 
 button.button-primary:hover {
@@ -1392,15 +1401,19 @@ input:checked + .slider:before {
 }
 
 .department-card {
-    padding: var(--space-md);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    padding: var(--space-md) var(--space-lg);
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: var(--radius-lg);
     cursor: pointer;
-    transition: all 0.2s ease-in-out;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     justify-content: flex-start;
     align-items: center;
     gap: var(--space-md);
+    box-shadow: var(--shadow-sm);
+    min-height: 60px;
 }
 
 .department-card button {
@@ -1448,12 +1461,19 @@ input:checked + .slider:before {
 }
 
 .chat-item {
-    padding: var(--space-smd) var(--space-md);
-    background-color: var(--light-bg-color);
-    border-radius: var(--radius-md);
+    padding: var(--space-md) var(--space-lg);
+    background: var(--white-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: all 0.2s ease;
+}
+
+.chat-item:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-sm);
 }
 
 @media (max-width: 768px) {
