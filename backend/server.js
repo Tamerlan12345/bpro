@@ -23,6 +23,7 @@ const multer = require('multer');
 const { z } = require('zod');
 const csrf = require('csurf');
 const { parseDocumentsWithAI } = require('./services/aiParserService');
+const { fetchWithRetry } = require('./utils/resilientFetch');
 
 const app = express();
 const logger = pino();
@@ -121,7 +122,7 @@ app.get('/health', async (req, res) => {
         await pool.query('SELECT 1');
         res.json({ status: 'ok', database: 'connected' });
     } catch (error) {
-        res.status(200).json({ status: 'ok', database: 'disconnected', error: error.message });
+        res.status(503).json({ status: 'error', database: 'disconnected', error: error.message });
     }
 });
 
@@ -965,10 +966,15 @@ ${JSON.stringify(mapContext, null, 2)}
 
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
-        const apiResponse = await fetch(API_URL, {
+        const apiResponse = await fetchWithRetry(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        }, {
+            fetchImpl: fetch,
+            retries: 2,
+            timeoutMs: 15000,
+            retryDelayMs: 300
         });
 
         const data = await apiResponse.json();
@@ -1223,7 +1229,10 @@ app.post('/api/admin/parse-documents', isAuthenticated, isAdmin, (req, res, next
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ error: 'No files uploaded' });
     }
+    let inTransaction = false;
     try {
+        await pool.query('BEGIN');
+        inTransaction = true;
         const resultJSON = await parseDocumentsWithAI(req.files, process.env.GOOGLE_API_KEY);
 
         const deptMap = {};
@@ -1262,15 +1271,28 @@ app.post('/api/admin/parse-documents', isAuthenticated, isAdmin, (req, res, next
                 }
             }
         }
-
-        for (const file of req.files) {
-            fs.unlinkSync(file.path);
-        }
+        await pool.query('COMMIT');
+        inTransaction = false;
 
         res.json({ message: 'Parsed and integrated successfully', parsed: resultJSON });
     } catch (error) {
+        if (inTransaction) {
+            try {
+                await pool.query('ROLLBACK');
+            } catch (rollbackError) {
+                logger.error(rollbackError, 'Rollback failed after document parse error');
+            }
+        }
         logger.error(error, 'Document parse error');
         res.status(500).json({ error: error.message });
+    } finally {
+        await Promise.all((req.files || []).map(async (file) => {
+            try {
+                await fs.promises.unlink(file.path);
+            } catch (unlinkError) {
+                logger.error(unlinkError, `Failed to remove temporary upload ${file.path}`);
+            }
+        }));
     }
 });
 
@@ -1293,10 +1315,15 @@ ${prompt}
 
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
-        const apiResponse = await fetch(API_URL, {
+        const apiResponse = await fetchWithRetry(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
+        }, {
+            fetchImpl: fetch,
+            retries: 2,
+            timeoutMs: 15000,
+            retryDelayMs: 300
         });
 
         const data = await apiResponse.json();
@@ -1326,6 +1353,7 @@ app.post('/api/generate', isAuthenticated, async (req, res) => {
     try {
         let contextStr = '';
         if (chat_id) {
+            if (!(await checkChatAccess(chat_id, req.session.user, res))) return;
             const chatRes = await pool.query('SELECT department_id FROM chats WHERE id = $1', [chat_id]);
             if (chatRes.rows.length > 0) {
                 const dId = chatRes.rows[0].department_id;
@@ -1337,10 +1365,15 @@ app.post('/api/generate', isAuthenticated, async (req, res) => {
         }
         const finalPrompt = contextStr + prompt;
 
-        const apiResponse = await fetch(API_URL, {
+        const apiResponse = await fetchWithRetry(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt }] }] })
+        }, {
+            fetchImpl: fetch,
+            retries: 2,
+            timeoutMs: 15000,
+            retryDelayMs: 300
         });
         if (!apiResponse.ok) {
             const errorData = await apiResponse.json();
@@ -1358,6 +1391,7 @@ app.post('/api/chats/:id/validate', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const { process_text } = req.body;
     if (!process_text) return res.status(400).json({ error: 'Process text required' });
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
 
     try {
         const bpRes = await pool.query("SELECT name, department_id FROM business_processes WHERE status = 'approved'");
@@ -1375,10 +1409,15 @@ ${process_text}
 
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
-        const apiResponse = await fetch(API_URL, {
+        const apiResponse = await fetchWithRetry(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        }, {
+            fetchImpl: fetch,
+            retries: 2,
+            timeoutMs: 15000,
+            retryDelayMs: 300
         });
 
         const data = await apiResponse.json();

@@ -3,12 +3,11 @@
 exports.shorthands = undefined;
 
 exports.up = (pgm) => {
-  pgm.addColumns('users', {
-    full_name: { type: 'varchar(255)' },
-    email: { type: 'varchar(255)', unique: true },
-    department_id: { type: 'uuid', references: 'departments', onDelete: 'SET NULL' },
-    role: { type: 'varchar(50)', default: 'user' },
-  });
+  pgm.sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name varchar(255);`);
+  pgm.sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email varchar(255);`);
+  pgm.sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS department_id uuid REFERENCES departments(id) ON DELETE SET NULL;`);
+  pgm.sql(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role varchar(50) DEFAULT 'user';`);
+  pgm.sql(`CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (email);`);
 };
 
 exports.down = (pgm) => {

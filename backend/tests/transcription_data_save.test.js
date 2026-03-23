@@ -40,8 +40,14 @@ beforeAll(async () => {
 });
 
 afterAll((done) => {
-    if (server) {
-        server.close(done);
+    if (server && server.listening) {
+        server.close((error) => {
+            if (error && error.message !== 'Server is not running.') {
+                done(error);
+                return;
+            }
+            done();
+        });
     } else {
         done();
     }

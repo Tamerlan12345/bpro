@@ -1,5 +1,6 @@
 const fs = require('fs');
 const mammoth = require('mammoth');
+const { fetchWithRetry } = require('../utils/resilientFetch');
 
 let pdfParseFn = null;
 async function getPdfParser() {
@@ -46,10 +47,15 @@ async function extractTextFromFile(filePath, mimeType) {
 
 async function callGoogleAPI(prompt, apiKey) {
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-    const apiResponse = await fetch(API_URL, {
+    const apiResponse = await fetchWithRetry(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    }, {
+        fetchImpl: fetch,
+        retries: 2,
+        timeoutMs: 15000,
+        retryDelayMs: 300
     });
     if (!apiResponse.ok) throw new Error(apiResponse.statusText);
     const data = await apiResponse.json();
