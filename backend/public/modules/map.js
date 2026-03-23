@@ -38,14 +38,10 @@ export const initProcessMap = async (containerId) => {
             elements,
             style: getMapStyle(),
             layout: { 
-                name: 'klay', 
-                padding: 60,
-                klay: {
-                    direction: 'DOWN',
-                    spacing: 100,
-                    borderSpacing: 40,
-                    layoutHierarchy: true
-                }
+                name: 'dagre', 
+                rankDir: 'TB',
+                spacingFactor: 1.2,
+                padding: 50
             },
             wheelSensitivity: 0.15,
             selectionType: 'single'
@@ -68,24 +64,28 @@ const buildElements = (data) => {
     const { departments = [], processes = [], relations = [], active_chats = [] } = data;
     const elements = [];
 
-    // Root node for the whole company
+    // Root node for the whole company (Matching dash.js style)
     elements.push({ 
-        data: { id: 'root_company', name: '🏢 BizPro AI Architecture', type: 'root' }, 
+        data: { id: 'root_company', name: '🏢 Бизнес-процессы BizPro AI', type: 'root' }, 
         classes: 'root-node' 
     });
 
-    // 1. Departments (Compound Nodes)
+    // 1. Departments
     departments.forEach(dept => {
         elements.push({
             data: { 
                 id: `dept_${dept.id}`, 
-                name: `📁 ${dept.name}`, 
+                name: `🏢 ${dept.name}`, 
                 rawName: dept.name,
                 type: 'department', 
-                parent: 'root_company',
                 collapsed: false 
             },
             classes: 'department'
+        });
+        // Edge from root to department (Taxi style)
+        elements.push({ 
+            data: { id: `edge_root_dept_${dept.id}`, source: 'root_company', target: `dept_${dept.id}` }, 
+            classes: 'root-edge' 
         });
     });
 
@@ -99,11 +99,16 @@ const buildElements = (data) => {
                 description: proc.description,
                 goal: proc.goal,
                 status: proc.status,
-                type: 'process',
-                parent: proc.department_id ? `dept_${proc.department_id}` : undefined
+                type: 'process'
             },
             classes: `process status-${proc.status}`
         });
+        if (proc.department_id) {
+            elements.push({ 
+                data: { id: `edge_dept_proc_${proc.id}`, source: `dept_${proc.department_id}`, target: `proc_${proc.id}` }, 
+                classes: 'dept-edge' 
+            });
+        }
     });
 
     // 3. Active Chats (In Progress)
@@ -115,14 +120,19 @@ const buildElements = (data) => {
                 rawName: chat.name,
                 description: chat.description,
                 status: chat.status,
-                type: 'chat',
-                parent: chat.department_id ? `dept_${chat.department_id}` : undefined
+                type: 'chat'
             },
             classes: `process status-chat status-${chat.status}`
         });
+        if (chat.department_id) {
+            elements.push({ 
+                data: { id: `edge_dept_chat_${chat.id}`, source: `dept_${chat.department_id}`, target: `chat_${chat.id}` }, 
+                classes: 'dept-edge chat-edge' 
+            });
+        }
     });
 
-    // 4. Relations
+    // 4. Relations (Inter-process)
     relations.forEach(rel => {
         elements.push({
             data: { 
@@ -141,101 +151,122 @@ const getMapStyle = () => [
     {
         selector: 'node',
         style: {
-            'label': 'data(name)',
+            'text-wrap': 'wrap',
             'text-valign': 'center',
             'text-halign': 'center',
-            'font-family': 'Manrope, sans-serif',
-            'font-size': '12px',
-            'color': '#1e293b',
             'width': 'label',
             'height': 'label',
-            'padding': '14px 20px',
-            'border-width': 1,
-            'border-color': '#e2e8f0',
-            'background-color': '#ffffff',
-            'shape': 'round-rectangle',
-            'text-max-width': '160px',
-            'text-wrap': 'wrap',
-            'shadow-blur': 10,
-            'shadow-color': 'rgba(0,0,0,0.05)',
-            'shadow-opacity': 1,
-            'shadow-offset-y': 2
+            'font-family': 'Manrope, system-ui, sans-serif',
+            'shadow-blur': 12,
+            'shadow-color': '#0f172a',
+            'shadow-opacity': 0.08,
+            'shadow-offset-y': 4
         }
     },
     {
         selector: 'node.root-node',
         style: {
+            'label': 'data(name)',
+            'shape': 'round-rectangle',
             'background-color': '#0f172a',
             'color': '#ffffff',
-            'font-weight': '700',
-            'font-size': '16px',
-            'padding': '20px 30px'
+            'font-weight': 'bold',
+            'font-size': 18,
+            'padding': '20px',
+            'text-max-width': 260,
+            'border-width': 0
         }
     },
     {
         selector: 'node.department',
         style: {
-            'text-valign': 'top',
-            'text-halign': 'center',
-            'background-color': '#f1f5f9',
-            'background-opacity': 0.6,
-            'border-width': 2,
-            'border-color': '#cbd5e1',
-            'border-style': 'solid',
-            'font-weight': '700',
-            'padding': '40px'
+            'label': 'data(name)',
+            'shape': 'round-rectangle',
+            'background-color': '#2563eb',
+            'color': '#ffffff',
+            'font-weight': '600',
+            'font-size': 14,
+            'padding': '16px',
+            'text-max-width': 200,
+            'border-width': 0,
+            'transition-property': 'opacity',
+            'transition-duration': '0.3s'
         }
     },
     {
         selector: 'node.process',
         style: {
-            'border-width': 2,
-            'font-weight': '600'
+            'label': 'data(name)',
+            'shape': 'round-rectangle',
+            'background-color': '#ffffff',
+            'border-width': 1,
+            'border-color': '#cbd5e1',
+            'color': '#1e293b',
+            'text-max-width': 170,
+            'font-size': 13,
+            'font-weight': '500',
+            'padding': '12px 16px'
         }
     },
     {
         selector: 'node.status-approved',
-        style: {
-            'border-color': '#10b981',
-            'background-color': '#f0fdf4'
-        }
-    },
-    {
-        selector: 'node.status-pending_review',
-        style: {
-            'border-color': '#3b82f6',
-            'background-color': '#eff6ff'
-        }
+        style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' }
     },
     {
         selector: 'node.status-draft',
-        style: {
-            'border-color': '#64748b',
-            'background-color': '#f8fafc',
-            'border-style': 'dashed'
-        }
+        style: { 'border-width': 2, 'border-color': '#f59e0b', 'background-color': '#fffbeb' }
     },
     {
         selector: 'node.status-needs_revision',
-        style: {
-            'border-color': '#ef4444',
-            'background-color': '#fef2f2'
-        }
+        style: { 'border-width': 2, 'border-color': '#ef4444', 'background-color': '#fef2f2' }
+    },
+    {
+        selector: 'node.status-pending_review',
+        style: { 'border-width': 2, 'border-color': '#3b82f6', 'background-color': '#eff6ff' }
     },
     {
         selector: 'edge',
         style: {
-            'width': 2,
-            'line-color': '#94a3b8',
-            'target-arrow-color': '#94a3b8',
-            'target-arrow-shape': 'triangle',
-            'curve-style': 'bezier',
             'label': 'data(label)',
-            'font-size': '10px',
+            'curve-style': 'bezier',
+            'target-arrow-shape': 'triangle',
+            'target-arrow-color': '#cbd5e1',
+            'line-color': '#e2e8f0',
+            'width': 2,
+            'font-size': 10,
             'color': '#64748b',
             'text-background-opacity': 1,
             'text-background-color': '#ffffff',
-            'text-background-padding': '2px'
+            'text-background-padding': 3
+        }
+    },
+    {
+        selector: 'edge.root-edge',
+        style: {
+            'curve-style': 'taxi',
+            'taxi-direction': 'vertical',
+            'taxi-turn': 20,
+            'target-arrow-shape': 'none',
+            'width': 3,
+            'line-color': '#94a3b8'
+        }
+    },
+    {
+        selector: 'edge.dept-edge',
+        style: {
+            'curve-style': 'taxi',
+            'taxi-direction': 'vertical',
+            'width': 1.5,
+            'line-color': '#cbd5e1',
+            'target-arrow-color': '#cbd5e1'
+        }
+    },
+    {
+        selector: 'edge.chat-edge',
+        style: {
+            'line-style': 'dashed',
+            'line-color': '#7dd3fc',
+            'target-arrow-color': '#7dd3fc'
         }
     }
 ];
@@ -246,10 +277,10 @@ const setupInteractions = () => {
     // 1. Tooltips for Department Stats
     cy.on('mouseover', 'node.department', function(e) {
         const node = e.target;
-        const outgoers = node.descendants();
+        const children = node.connectedEdges('.dept-edge').targets();
         let counts = { process: 0, chat: 0, approved: 0 };
         
-        outgoers.forEach(n => {
+        children.forEach(n => {
             if (n.data('type') === 'process') {
                 counts.process++;
                 if (n.data('status') === 'approved') counts.approved++;
@@ -261,9 +292,11 @@ const setupInteractions = () => {
             <div style="font-weight: 700; margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px;">
                 ${node.data('rawName')}
             </div>
-            <div>📊 Процессов: ${counts.process}</div>
-            <div>✅ Утверждено: ${counts.approved}</div>
-            <div>💬 Активных обсуждений: ${counts.chat}</div>
+            <div style="font-size: 12px; opacity: 0.9;">
+                <div>📊 Процессов: ${counts.process}</div>
+                <div>✅ Утверждено: ${counts.approved}</div>
+                <div>💬 Активных обсуждений: ${counts.chat}</div>
+            </div>
         `;
         tooltip.style.display = 'block';
     });
@@ -277,37 +310,63 @@ const setupInteractions = () => {
         tooltip.style.display = 'none';
     });
 
-    // 2. Department Collapsing
+    // 2. Department Collapsing (Via Edges)
     cy.on('tap', 'node.department', function(e) {
         const node = e.target;
-        // Don't toggle if we clicked on a child (though tap events usually bubble, we check target)
-        if (e.target !== node) return;
-
         const isCollapsed = node.data('collapsed');
-        const children = node.children();
-        const descendantEdges = node.descendants().connectedEdges();
+        const edges = node.connectedEdges('.dept-edge');
+        const children = edges.targets();
 
         if (isCollapsed) {
             children.show();
-            descendantEdges.show();
+            edges.show();
             node.data('collapsed', false);
-            node.style('background-opacity', 0.6);
+            node.style('background-color', '#2563eb');
         } else {
             children.hide();
-            descendantEdges.hide();
+            edges.hide();
             node.data('collapsed', true);
-            node.style('background-opacity', 0.2);
+            node.style('background-color', '#94a3b8');
         }
     });
 
-    // 3. Side Panel for Process/Chat details
+    // 3. Search Functionality
+    const searchInput = document.getElementById('admin-map-search');
+    if (searchInput) {
+        searchInput.oninput = (e) => {
+            const term = e.target.value.toLowerCase();
+            if (!term) {
+                cy.nodes().show();
+                cy.edges().show();
+                return;
+            }
+
+            cy.nodes().forEach(node => {
+                const name = (node.data('name') || '').toLowerCase();
+                const rawName = (node.data('rawName') || '').toLowerCase();
+                if (name.includes(term) || rawName.includes(term)) {
+                    node.show();
+                    node.predecessors().show();
+                } else {
+                    node.hide();
+                }
+            });
+            cy.edges().forEach(edge => {
+                if (edge.source().hidden() || edge.target().hidden()) {
+                    edge.hide();
+                } else {
+                    edge.show();
+                }
+            });
+        };
+    }
+
+    // 4. Side Panel Details
     cy.on('tap', 'node.process, node.chat', function(e) {
         const node = e.target;
-        const data = node.data();
-        showSidePanel(data);
+        showSidePanel(node.data());
     });
 
-    // Close panel on background tap
     cy.on('tap', function(e) {
         if (e.target === cy) {
             hideSidePanel();
@@ -315,60 +374,57 @@ const setupInteractions = () => {
         }
     });
 
-    // Close button for side panel
     const closeBtn = document.getElementById('close-panel-btn');
     if (closeBtn) {
         closeBtn.onclick = hideSidePanel;
     }
 
-    // 4. Toolbar Listeners
+    // 5. Toolbar Listeners
     setupToolbar();
 
-    // UX: Cursor changes
     cy.on('mouseover', 'node', () => document.body.style.cursor = 'pointer');
     cy.on('mouseout', 'node', () => document.body.style.cursor = 'default');
 };
 
 const setupToolbar = () => {
-    const bind = (id, event, handler) => {
+    const bind = (id, handler) => {
         const el = document.getElementById(id);
-        if (el) {
-            el.onclick = (e) => {
-                e.preventDefault();
-                handler(e);
-            };
-        }
+        if (el) el.onclick = (e) => { e.preventDefault(); handler(e); };
     };
 
-    bind('cy-zoom-in', 'click', () => { if (cy) cy.zoom(cy.zoom() * 1.2); });
-    bind('cy-zoom-out', 'click', () => { if (cy) cy.zoom(cy.zoom() * 0.8); });
-    bind('cy-fit', 'click', () => { if (cy) cy.fit(); });
+    bind('cy-zoom-in', () => { if (cy) cy.zoom(cy.zoom() * 1.2); });
+    bind('cy-zoom-out', () => { if (cy) cy.zoom(cy.zoom() * 0.8); });
+    bind('cy-fit', () => { if (cy) cy.fit(); });
     
-    // Auto-layout buttons
+    bind('btn-toggle-collapse', (e) => {
+        if (!cy) return;
+        const depts = cy.nodes('.department');
+        const anyExpanded = depts.some(d => !d.data('collapsed'));
+        
+        if (anyExpanded) {
+            depts.forEach(d => { if (!d.data('collapsed')) d.emit('tap'); });
+            e.target.innerText = '🔼 Развернуть все';
+        } else {
+            depts.forEach(d => { if (d.data('collapsed')) d.emit('tap'); });
+            e.target.innerText = '🔽 Свернуть все';
+        }
+    });
+
     const handleAutoLayout = () => {
         if (cy) {
-            cy.layout({ 
-                name: 'klay', 
-                padding: 60,
-                klay: {
-                    direction: 'DOWN',
-                    spacing: 120,
-                    layoutHierarchy: true
-                }
-            }).run();
+            cy.layout({ name: 'dagre', rankDir: 'TB', spacingFactor: 1.2, padding: 50 }).run();
             cy.fit();
         }
     };
 
-    bind('auto-layout-btn', 'click', handleAutoLayout);
-    bind('cy-ai-layout', 'click', handleAutoLayout); // For now, use the same klay layout
-
-    // Placeholder for add node/edge - these likely need API support or are UI only
-    bind('cy-add-node', 'click', () => {
-        ui.showNotification('Добавление процесса вручную пока в разработке. Пожалуйста, используйте чат или импорт.', 'info');
+    bind('auto-layout-btn', handleAutoLayout);
+    bind('cy-ai-layout', handleAutoLayout); 
+    
+    bind('cy-add-node', () => {
+        ui.showNotification('Добавление процесса вручную пока в разработке.', 'info');
     });
 
-    bind('cy-add-edge', 'click', () => {
+    bind('cy-add-edge', () => {
         ui.showNotification('Создание связей вручную пока в разработке.', 'info');
     });
 };
@@ -401,16 +457,10 @@ const showSidePanel = (data) => {
             <label>Статус</label>
             <div><span class="status-badge ${data.status}">${statusLabels[data.status] || data.status}</span></div>
         </div>
-        ${data.goal ? `
-        <div class="process-detail-item">
-            <label>Цель</label>
-            <div class="value" style="font-weight: 400; font-size: 14px;">${data.goal}</div>
-        </div>` : ''}
+        ${data.goal ? `<div class="process-detail-item"><label>Цель</label><div class="value" style="font-weight: 400; font-size: 14px;">${data.goal}</div></div>` : ''}
         <div class="process-detail-item">
             <label>Описание</label>
-            <div class="markdown-body" style="margin-top: 10px;">
-                ${htmlDesc}
-            </div>
+            <div class="markdown-body" style="margin-top: 10px;">${htmlDesc}</div>
         </div>
         <div style="margin-top: 30px;">
             <button id="side-panel-open-chat" class="button-primary" style="width: 100%;">Перейти к чату</button>
@@ -422,15 +472,12 @@ const showSidePanel = (data) => {
         openChatBtn.onclick = () => {
             const chatId = data.type === 'chat' ? data.id.replace('chat_', '') : null;
             if (chatId) {
-                window.dispatchEvent(new CustomEvent('open-chat', { 
-                    detail: { id: chatId, name: data.rawName } 
-                }));
+                window.dispatchEvent(new CustomEvent('open-chat', { detail: { id: chatId, name: data.rawName } }));
             } else {
                 ui.showNotification('Переход к чату доступен только для активных обсуждений', 'info');
             }
         };
     }
-
     panel.classList.remove('hidden');
 };
 

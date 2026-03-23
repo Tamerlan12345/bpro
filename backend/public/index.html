@@ -15,6 +15,8 @@
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/cytoscape-edgehandles@4.0.1/cytoscape-edgehandles.min.js"></script>
     <script src="https://unpkg.com/klayjs@0.4.1/klay.js"></script>
     <script src="https://unpkg.com/cytoscape-klay@3.1.4/cytoscape-klay.js"></script>
@@ -186,6 +188,8 @@
                     <div class="map-header">
                         <h3>Карта Процессов (Mind Map)</h3>
                         <div class="map-controls">
+                            <input type="text" id="admin-map-search" placeholder="🔍 Поиск процессов..." style="padding: 8px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-size: 14px; width: 220px;">
+                            <button id="btn-toggle-collapse" class="button-secondary">🔽 Свернуть все</button>
                             <button id="refresh-map-btn" class="button-secondary" title="Обновить данные">🔄 Обновить</button>
                             <button id="auto-layout-btn" class="button-secondary" title="Сбросить позиции и выровнять">📐 Выровнять</button>
                             <button id="global-audit-btn" class="button-primary" title="Запустить ИИ Аудит">🔍 Глобальный ИИ Аудит</button>
@@ -206,6 +210,14 @@
                             <button id="cy-ai-layout" title="ИИ Макет" class="button-secondary">🪄 ИИ Макет</button>
                         </div>
 
+                        <div class="cy-legend">
+                            <h4>Легенда статусов</h4>
+                            <div class="legend-item"><span class="badge status-approved"></span> Утвержден</div>
+                            <div class="legend-item"><span class="badge status-draft"></span> Черновик</div>
+                            <div class="legend-item"><span class="badge status-needs_revision"></span> Нужны правки</div>
+                            <div class="legend-item chat-top-border"><span class="badge status-chat"></span> Чат (в работе)</div>
+                        </div>
+                        
                         <!-- Side Panel -->
                         <div id="cy-side-panel" class="side-panel hidden glass">
                             <div class="panel-header"
