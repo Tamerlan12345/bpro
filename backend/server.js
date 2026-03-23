@@ -14,7 +14,6 @@ const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
 const { Pool } = require('pg');
-const { parse } = require('pg-connection-string');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
@@ -24,6 +23,8 @@ const { z } = require('zod');
 const csrf = require('csurf');
 const { parseDocumentsWithAI } = require('./services/aiParserService');
 const { fetchWithRetry } = require('./utils/resilientFetch');
+const { composeGeneratePrompt } = require('./utils/promptComposer');
+const { createDatabaseConfig } = require('./utils/databaseConfig');
 
 const app = express();
 const logger = pino();
@@ -107,11 +108,13 @@ const PORT = process.env.PORT || 3000;
 
 let pool;
 if (process.env.DATABASE_URL) {
-    const config = parse(process.env.DATABASE_URL);
-    pool = new Pool({
-        ...config,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    const config = createDatabaseConfig(process.env.DATABASE_URL, process.env.NODE_ENV, {
+        databaseSsl: process.env.DATABASE_SSL,
+        databaseSslRejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED,
+        pgssl: process.env.PGSSL,
+        pgsslRejectUnauthorized: process.env.PGSSLREJECTUNAUTHORIZED
     });
+    pool = new Pool(config);
 }
 
 app.get('/health', async (req, res) => {
@@ -263,7 +266,8 @@ const passwordUpdateSchema = z.object({
 });
 
 const generateSchema = z.object({
-    prompt: z.string().min(1).max(10000)
+    prompt: z.string().min(1).max(10000),
+    chat_id: z.string().uuid().or(z.string()).optional()
 });
 
 const versionSchema = z.object({
@@ -1342,28 +1346,49 @@ ${prompt}
     }
 });
 
-app.post('/api/generate', isAuthenticated, async (req, res) => {
+app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (req, res) => {
     const { prompt, chat_id } = req.body;
     const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
 
-    if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
     if (!GOOGLE_API_KEY) return res.status(500).json({ error: 'API key is not configured' });
 
     try {
-        let contextStr = '';
+        let approvedProcesses = [];
+        let initialTemplate = '';
+        let latestVersion = '';
+
         if (chat_id) {
             if (!(await checkChatAccess(chat_id, req.session.user, res))) return;
             const chatRes = await pool.query('SELECT department_id FROM chats WHERE id = $1', [chat_id]);
             if (chatRes.rows.length > 0) {
                 const dId = chatRes.rows[0].department_id;
-                const bpRes = await pool.query("SELECT name FROM business_processes WHERE department_id = $1 AND status = 'approved'", [dId]);
-                if (bpRes.rows.length > 0) {
-                    contextStr = 'КОНТЕКСТ УТВЕРЖДЕННЫХ ПРОЦЕССОВ ВАШЕГО ДЕПАРТАМЕНТА:\n' + bpRes.rows.map(r => `- ${r.name}`).join('\n') + '\nСТРОГО УЧИТЫВАЙ ЭТИ ПРОЦЕССЫ ПРИ ГЕНЕРАЦИИ.\n\n';
-                }
+                const bpRes = await pool.query(
+                    "SELECT name, description FROM business_processes WHERE department_id = $1 AND status = 'approved'",
+                    [dId]
+                );
+                approvedProcesses = bpRes.rows;
             }
+
+            const initialRes = await pool.query(
+                'SELECT content FROM initial_business_processes WHERE chat_id = $1',
+                [chat_id]
+            );
+            initialTemplate = initialRes.rows[0]?.content || '';
+
+            const latestVersionRes = await pool.query(
+                'SELECT process_text FROM process_versions WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1',
+                [chat_id]
+            );
+            latestVersion = latestVersionRes.rows[0]?.process_text || '';
         }
-        const finalPrompt = contextStr + prompt;
+
+        const finalPrompt = composeGeneratePrompt({
+            userPrompt: prompt,
+            approvedProcesses,
+            initialTemplate,
+            latestVersion
+        });
 
         const apiResponse = await fetchWithRetry(API_URL, {
             method: 'POST',
@@ -1386,7 +1411,6 @@ app.post('/api/generate', isAuthenticated, async (req, res) => {
         res.status(500).json({ error: 'An internal server error occurred.' });
     }
 });
-
 app.post('/api/chats/:id/validate', isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const { process_text } = req.body;
@@ -1477,11 +1501,13 @@ const startServer = async () => {
 
         logger.info('Initializing database connection...');
         if (!pool) {
-            const config = parse(process.env.DATABASE_URL);
-            pool = new Pool({
-                ...config,
-                ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            const config = createDatabaseConfig(process.env.DATABASE_URL, process.env.NODE_ENV, {
+                databaseSsl: process.env.DATABASE_SSL,
+                databaseSslRejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED,
+                pgssl: process.env.PGSSL,
+                pgsslRejectUnauthorized: process.env.PGSSLREJECTUNAUTHORIZED
             });
+            pool = new Pool(config);
         }
 
         const server = app.listen(PORT, async () => {

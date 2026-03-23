@@ -362,11 +362,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    async function callGeminiAPI(prompt) {
+    async function callGeminiAPI(prompt, options = {}) {
+        const payload = { prompt: prompt };
+        if (options.chatId) {
+            payload.chat_id = options.chatId;
+        }
         const response = await fetchWithAuth(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: prompt })
+            body: JSON.stringify(payload)
         });
         const data = await response.json();
         if (!data.candidates || !data.candidates[0].content) {
@@ -420,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ИСХОДНЫЙ ПРОЦЕСС ОТ ПОЛЬЗОВАТЕЛЯ:
 "${processDescription}"`;
-        return callGeminiAPI(prompt).then(response => {
+        return callGeminiAPI(prompt, { chatId }).then(response => {
             // AI responses can sometimes include markdown wrappers. Find the JSON block.
             const jsonMatch = response.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
@@ -451,7 +455,7 @@ ${brokenCode}
 Проанализируй ошибку и верни ИСПРАВЛЕННЫЙ код. Убедись, что добавлены все DI теги с координатами (BPMNShape, dc:Bounds, BPMNEdge, di:waypoint)
 
 Ответ должен содержать ТОЛЬКО ИСПРАВЛЕННЫЙ код BPMN XML, без объяснений и markdown.`;
-        return callGeminiAPI(prompt).then(code => code.replace(/```xml/g, '').replace(/```/g, '').trim());
+        return callGeminiAPI(prompt, { chatId }).then(code => code.replace(/```xml/g, '').replace(/```/g, '').trim());
     }
 
     async function generateDiagramFromText(processDescription) {
@@ -465,7 +469,7 @@ ${brokenCode}
 
 ИСХОДНЫЙ ПРОЦЕСС ОТ ПОЛЬЗОВАТЕЛЯ:
 "${processDescription}"`;
-        return callGeminiAPI(prompt).then(code => code.replace(/```xml/g, '').replace(/```/g, '').trim());
+        return callGeminiAPI(prompt, { chatId }).then(code => code.replace(/```xml/g, '').replace(/```/g, '').trim());
     }
 
 
@@ -1568,7 +1572,7 @@ ${brokenCode}
     "suggestion": "Автоматизировать ввод данных в CRM с помощью интеграции по API."
   }
 ]`;
-        const responseText = await callGeminiAPI(prompt);
+        const responseText = await callGeminiAPI(prompt, { chatId });
         const jsonMatch = responseText.match(/\[[\s\S]*\]/);
         if (!jsonMatch) {
             console.error("Invalid response from AI, no JSON array found. Raw response:", responseText);
