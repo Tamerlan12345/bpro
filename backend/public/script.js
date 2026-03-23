@@ -2038,6 +2038,7 @@ ${brokenCode}
                                 'label': 'data(name)',
                                 'shape': 'round-rectangle',
                                 'background-color': '#1e293b',
+                                'background-color': '#0f172a',
                                 'color': '#ffffff',
                                 'font-weight': 'bold',
                                 'font-size': 18,
@@ -2075,6 +2076,7 @@ ${brokenCode}
                                 'font-size': 13,
                                 'font-weight': '500',
                                 'padding': '14px'
+                                'padding': '12px 16px'
                             }
                         },
                         {
@@ -2083,6 +2085,7 @@ ${brokenCode}
                                 'label': 'data(name)',
                                 'shape': 'round-rectangle',
                                 'background-color': '#f0f9ff',
+                                'background-color': '#f8fafc',
                                 'border-width': 2,
                                 'border-style': 'dashed',
                                 'border-color': '#94a3b8',
@@ -2090,6 +2093,7 @@ ${brokenCode}
                                 'text-max-width': 150,
                                 'font-size': 12,
                                 'padding': '12px'
+                                'padding': '10px 14px'
                             }
                         },
                         { selector: 'node.status-approved', style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' } },
@@ -2184,12 +2188,12 @@ ${brokenCode}
                     document.body.appendChild(tooltip);
                 }
 
-                cy.on('mouseover', 'node.department', function(e) {
+                cy.on('mouseover', 'node.department', function (e) {
                     const node = e.target;
                     const outgoers = node.outgoers('node');
                     let processes = 0, chats = 0;
                     let stats = { approved: 0, draft: 0, needs_revision: 0, pending_review: 0 };
-                    
+
                     outgoers.forEach(n => {
                         if (n.hasClass('process')) processes++;
                         if (n.hasClass('chat')) chats++;
@@ -2201,11 +2205,11 @@ ${brokenCode}
                     tooltip.innerHTML = `<strong>🏢 ${node.data('rawName')}</strong>\n\n📊 <b>Всего процессов:</b> ${processes}\n💬 <b>Всего чатов:</b> ${chats}\n\n✅ Утвержденных: ${stats.approved}\n📝 Черновиков: ${stats.draft}\n⏳ На проверке: ${stats.pending_review}\n❌ Нужны правки: ${stats.needs_revision}\n🏁 Завершенных: ${stats.completed || 0}`;
                     tooltip.style.display = 'block';
                 });
-                cy.on('mousemove', 'node.department', function(e) {
+                cy.on('mousemove', 'node.department', function (e) {
                     tooltip.style.left = (e.originalEvent.pageX + 15) + 'px';
                     tooltip.style.top = (e.originalEvent.pageY + 15) + 'px';
                 });
-                cy.on('mouseout', 'node.department', function() {
+                cy.on('mouseout', 'node.department', function () {
                     tooltip.style.display = 'none';
                 });
 
@@ -2335,7 +2339,7 @@ ${brokenCode}
                 // --- ИИ ОЦЕНКА СВЯЗЕЙ ---
                 let aiLinkBtn = document.getElementById('cy-ai-link-btn');
                 let toggleAiLinksBtn = document.getElementById('cy-toggle-ai-links');
-                
+
                 if (!aiLinkBtn) {
                     const tb = document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
                     if (tb) {
@@ -2356,11 +2360,11 @@ ${brokenCode}
 
                         aiLinkBtn.onclick = async () => {
                             const nodes = cy.nodes('.process');
-                            if(nodes.length < 2) return showNotification('Недостаточно процессов для анализа', 'error');
-                            
+                            if (nodes.length < 2) return showNotification('Недостаточно процессов для анализа', 'error');
+
                             setButtonLoading(aiLinkBtn, true, 'Анализ...');
                             const processesData = nodes.map(n => ({ id: n.id(), name: n.data('rawName'), desc: n.data('description') }));
-                            
+
                             const prompt = `Ты — бизнес-архитектор. Проанализируй этот список процессов и найди логические связи (кто кому передает данные, кто за кем следует). 
 Верни СТРОГО JSON-массив объектов: [{"source": "id_источника", "target": "id_цели", "reason": "краткое описание связи"}]. Не пиши markdown, только голый JSON.
 Процессы: ${JSON.stringify(processesData)}`;
@@ -2369,22 +2373,22 @@ ${brokenCode}
                                 const res = await callGeminiAPI(prompt);
                                 const cleanJson = res.replace(/```json/g, '').replace(/```/g, '').trim();
                                 const links = JSON.parse(cleanJson);
-                                
+
                                 let addedCount = 0;
                                 const processedIds = new Set();
 
                                 links.forEach(link => {
                                     if (!link.source || !link.target || link.source === link.target) return;
-                                    
+
                                     const edgeId = `ai_rel_${link.source}_${link.target}`;
                                     if (processedIds.has(edgeId)) return;
                                     processedIds.add(edgeId);
 
                                     if (cy.getElementById(link.source).length && cy.getElementById(link.target).length) {
                                         if (cy.getElementById(edgeId).length === 0) {
-                                            cy.add({ 
-                                                data: { id: edgeId, source: link.source, target: link.target, label: link.reason || '' }, 
-                                                classes: 'ai-relation' 
+                                            cy.add({
+                                                data: { id: edgeId, source: link.source, target: link.target, label: link.reason || '' },
+                                                classes: 'ai-relation'
                                             });
                                             addedCount++;
                                         }
@@ -2550,7 +2554,7 @@ ${brokenCode}
                     autoLayoutBtn.onclick = () => {
                         if (confirm('Выровнять все департаменты по горизонтали, а их процессы СТРОГО вертикально вниз? (Текущие координаты будут перезаписаны)')) {
                             // КАСТОМНЫЙ АЛГОРИТМ ИДЕАЛЬНОЙ ИЕРАРХИИ
-                            const depts = cy.nodes('.department').sort((a,b) => (a.data('rawName') || '').localeCompare(b.data('rawName') || ''));
+                            const depts = cy.nodes('.department').sort((a, b) => (a.data('rawName') || '').localeCompare(b.data('rawName') || ''));
                             const root = cy.getElementById('root_centras');
 
                             const spacingX = 280; // Отступ между колонками департаментов
