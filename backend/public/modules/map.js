@@ -7,6 +7,17 @@ import { buildStructuredLayout } from './map-layout.mjs';
 
 let cy = null;
 let tooltip = null;
+const sharedLabelNodeStyle = {
+    'text-wrap': 'wrap',
+    'text-overflow-wrap': 'anywhere',
+    'text-valign': 'center',
+    'text-halign': 'center',
+    width: 'label',
+    height: 'label',
+    padding: '16px',
+    'line-height': 1.25,
+    'font-family': 'system-ui, -apple-system, sans-serif'
+};
 
 const ROOT_ID = 'root_company';
 const ROOT_LABEL = 'Бизнес-процессы АО СК Сентрас Иншуранс';
@@ -338,14 +349,7 @@ const applyStructuredLayout = async () => {
 const getMapStyle = () => [
     {
         selector: 'node',
-        style: {
-            'text-wrap': 'wrap',
-            'text-valign': 'center',
-            'text-halign': 'center',
-            width: 'max-content',
-            height: 'max-content',
-            'font-family': 'system-ui, -apple-system, sans-serif'
-        }
+        style: sharedLabelNodeStyle
     },
     {
         selector: 'node.root-node',
@@ -370,8 +374,8 @@ const getMapStyle = () => [
             color: '#ffffff',
             'font-weight': '600',
             'font-size': 14,
-            padding: '16px',
-            'text-max-width': 200,
+            padding: '18px',
+            'text-max-width': 210,
             'border-width': 0,
             'transition-property': 'opacity',
             'transition-duration': '0.3s'
@@ -386,10 +390,10 @@ const getMapStyle = () => [
             'border-width': 1,
             'border-color': '#cbd5e1',
             color: '#1e293b',
-            'text-max-width': 170,
+            'text-max-width': 190,
             'font-size': 13,
             'font-weight': '500',
-            padding: '12px 16px'
+            padding: '14px'
         }
     },
     {
@@ -402,9 +406,9 @@ const getMapStyle = () => [
             'border-style': 'dashed',
             'border-color': '#94a3b8',
             color: '#475569',
-            'text-max-width': 150,
+            'text-max-width': 170,
             'font-size': 12,
-            padding: '10px 14px'
+            padding: '12px'
         }
     },
     {

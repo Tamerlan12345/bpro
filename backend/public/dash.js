@@ -1,5 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
     let cy;
+    const sharedLabelNodeStyle = {
+        'text-wrap': 'wrap',
+        'text-overflow-wrap': 'anywhere',
+        'text-valign': 'center',
+        'text-halign': 'center',
+        width: 'label',
+        height: 'label',
+        padding: '16px',
+        'line-height': 1.25,
+        'font-family': 'system-ui, -apple-system, sans-serif'
+    };
 
     fetch('/api/dash/map').then(r => r.json()).then(data => {
         // Добавляем стили для тултипа прямо в dash
@@ -39,15 +50,12 @@ document.addEventListener('DOMContentLoaded', () => {
             style: [
                 {
                     selector: 'node',
-                    style: {
-                        'text-wrap': 'wrap', 'text-valign': 'center', 'text-halign': 'center',
-                        'width': 'max-content', 'height': 'max-content', 'font-family': 'system-ui, -apple-system, sans-serif'
-                    }
+                    style: sharedLabelNodeStyle
                 },
                 { selector: 'node.root-node', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#0f172a', 'color': '#ffffff', 'font-weight': 'bold', 'font-size': 18, 'padding': '20px', 'text-max-width': 260, 'border-width': 0 } },
-                { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#2563eb', 'color': '#ffffff', 'font-weight': '600', 'font-size': 14, 'padding': '16px', 'text-max-width': 200, 'border-width': 0, 'transition-property': 'opacity', 'transition-duration': '0.3s' } },
-                { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 1, 'border-color': '#cbd5e1', 'color': '#1e293b', 'text-max-width': 170, 'font-size': 13, 'font-weight': '500', 'padding': '12px 16px' } },
-                { selector: 'node.chat', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#f8fafc', 'border-width': 2, 'border-style': 'dashed', 'border-color': '#94a3b8', 'color': '#475569', 'text-max-width': 150, 'font-size': 12, 'padding': '10px 14px' } },
+                { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#2563eb', 'color': '#ffffff', 'font-weight': '600', 'font-size': 14, 'padding': '18px', 'text-max-width': 210, 'border-width': 0, 'transition-property': 'opacity', 'transition-duration': '0.3s' } },
+                { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 1, 'border-color': '#cbd5e1', 'color': '#1e293b', 'text-max-width': 190, 'font-size': 13, 'font-weight': '500', 'padding': '14px' } },
+                { selector: 'node.chat', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#f8fafc', 'border-width': 2, 'border-style': 'dashed', 'border-color': '#94a3b8', 'color': '#475569', 'text-max-width': 170, 'font-size': 12, 'padding': '12px' } },
 
                 { selector: 'node.status-approved', style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' } },
                 { selector: 'node.status-draft', style: { 'border-width': 2, 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },

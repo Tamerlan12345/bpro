@@ -101,8 +101,8 @@ describe('POST /api/auth/chat - Department Access Logic', () => {
 
         // Mock Department Access Check (Future Fix)
         when(mockQuery)
-            .calledWith(expect.stringMatching(/SELECT 1 FROM departments/), [DEPT_ID_USER, USER_ID])
-            .mockResolvedValue({ rows: [{ '?column?': 1 }] });
+            .calledWith(expect.stringMatching(/FROM departments d[\s\S]*JOIN users u|FROM departments d[\s\S]*LEFT JOIN users u/), [DEPT_ID_USER, USER_ID])
+            .mockResolvedValue({ rows: [{ id: DEPT_ID_USER }] });
 
         const response = await agent
             .post('/api/auth/chat')
@@ -118,7 +118,7 @@ describe('POST /api/auth/chat - Department Access Logic', () => {
 
         // Mock Department Access Check (returns empty rows -> Forbidden)
         when(mockQuery)
-            .calledWith(expect.stringMatching(/SELECT 1 FROM departments/), [DEPT_ID_OTHER, USER_ID])
+            .calledWith(expect.stringMatching(/FROM departments d[\s\S]*JOIN users u|FROM departments d[\s\S]*LEFT JOIN users u/), [DEPT_ID_OTHER, USER_ID])
             .mockResolvedValue({ rows: [] });
 
         // Mock Chat Lookup (Should effectively not be reached if we fail early, but mocking just in case)

@@ -306,13 +306,36 @@ const validateBody = (schema) => (req, res, next) => {
     }
 };
 
+const buildDepartmentAccessQuery = (selectClause = 'SELECT d.id, d.name, d.user_id') => `
+    ${selectClause}
+    FROM departments d
+    LEFT JOIN users u ON u.department_id = d.id
+    WHERE d.user_id = $1 OR u.id = $1
+`;
+
+const hasDepartmentAccess = async (departmentId, userId) => {
+    const { rows } = await pool.query(
+        `
+            SELECT d.id
+            FROM departments d
+            LEFT JOIN users u ON u.department_id = d.id
+            WHERE d.id = $1 AND (d.user_id = $2 OR u.id = $2)
+            LIMIT 1
+        `,
+        [departmentId, userId]
+    );
+
+    return rows.length > 0;
+};
+
 const checkChatAccess = async (chatId, user, res) => {
     if (user.role === 'admin') return true;
     try {
         const { rows } = await pool.query(
             `SELECT 1 FROM chats c
              JOIN departments d ON c.department_id = d.id
-             WHERE c.id = $1 AND d.user_id = $2`,
+             LEFT JOIN users u ON u.department_id = d.id
+             WHERE c.id = $1 AND (d.user_id = $2 OR u.id = $2)`,
             [chatId, user.id]
         );
         if (rows.length === 0) {
@@ -583,7 +606,7 @@ app.get('/api/departments', isAuthenticated, async (req, res) => {
     try {
         const query = user.role === 'admin'
             ? 'SELECT id, name, user_id FROM departments'
-            : 'SELECT id, name, user_id FROM departments WHERE user_id = $1';
+            : buildDepartmentAccessQuery();
         const params = user.role === 'admin' ? [] : [user.id];
         const { rows } = await pool.query(query, params);
         res.json(rows);
@@ -657,8 +680,8 @@ app.post('/api/auth/chat', isAuthenticated, authLimiter, validateBody(authChatSc
     const { department_id, name, password } = req.body;
     try {
         if (req.session.user.role !== 'admin') {
-            const { rows: deptRows } = await pool.query('SELECT 1 FROM departments WHERE id = $1 AND user_id = $2', [department_id, req.session.user.id]);
-            if (deptRows.length === 0) {
+            const hasAccess = await hasDepartmentAccess(department_id, req.session.user.id);
+            if (!hasAccess) {
                 logger.warn(`User ${req.session.user.id} attempted to access chat in unauthorized department ${department_id}`);
                 return res.status(403).json({ error: 'Forbidden: You do not have access to this department.' });
             }
@@ -685,8 +708,8 @@ app.get('/api/chats', isAuthenticated, async (req, res) => {
     if (!department_id) return res.status(400).json({ error: 'department_id query parameter is required.' });
     try {
         if (user.role !== 'admin') {
-            const { rows } = await pool.query('SELECT id FROM departments WHERE id = $1 AND user_id = $2', [department_id, user.id]);
-            if (rows.length === 0) return res.status(403).json({ error: 'Forbidden' });
+            const hasAccess = await hasDepartmentAccess(department_id, user.id);
+            if (!hasAccess) return res.status(403).json({ error: 'Forbidden' });
         }
         const query = `SELECT c.id, c.name, cs.status FROM chats c LEFT JOIN chat_statuses cs ON c.id = cs.chat_id WHERE c.department_id = $1`;
         const { rows } = await pool.query(query, [department_id]);
