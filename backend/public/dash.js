@@ -5,8 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'text-overflow-wrap': 'anywhere',
         'text-valign': 'center',
         'text-halign': 'center',
-        width: 'label',
-        height: 'label',
         padding: '16px',
         'line-height': 1.25,
         'font-family': '"Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
@@ -52,10 +50,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     selector: 'node',
                     style: sharedLabelNodeStyle
                 },
-                { selector: 'node.root-node', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#0f172a', 'color': '#ffffff', 'font-weight': 'bold', 'font-size': 18, 'padding': '20px', 'text-max-width': 260, 'border-width': 0 } },
-                { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#2563eb', 'color': '#ffffff', 'font-weight': '600', 'font-size': 14, 'padding': '18px', 'text-max-width': 210, 'border-width': 0, 'transition-property': 'opacity', 'transition-duration': '0.3s' } },
-                { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 1, 'border-color': '#cbd5e1', 'color': '#1e293b', 'text-max-width': 190, 'font-size': 13, 'font-weight': '500', 'padding': '14px' } },
-                { selector: 'node.chat', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#f8fafc', 'border-width': 2, 'border-style': 'dashed', 'border-color': '#94a3b8', 'color': '#475569', 'text-max-width': 170, 'font-size': 12, 'padding': '12px' } },
+                { selector: 'node.root-node', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#0f172a', 'color': '#ffffff', 'width': 320, 'height': 96, 'font-weight': 'bold', 'font-size': 18, 'padding': '20px', 'text-max-width': 260, 'border-width': 0 } },
+                { selector: 'node.department', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#2563eb', 'color': '#ffffff', 'width': 248, 'height': 84, 'font-weight': '600', 'font-size': 14, 'padding': '18px', 'text-max-width': 210, 'border-width': 0, 'transition-property': 'opacity', 'transition-duration': '0.3s' } },
+                { selector: 'node.process', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#ffffff', 'border-width': 1, 'border-color': '#cbd5e1', 'color': '#1e293b', 'width': 220, 'height': 84, 'text-max-width': 190, 'font-size': 13, 'font-weight': '500', 'padding': '14px' } },
+                { selector: 'node.chat', style: { 'label': 'data(name)', 'shape': 'round-rectangle', 'background-color': '#f8fafc', 'border-width': 2, 'border-style': 'dashed', 'border-color': '#94a3b8', 'color': '#475569', 'width': 190, 'height': 74, 'text-max-width': 170, 'font-size': 12, 'padding': '12px' } },
 
                 { selector: 'node.status-approved', style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' } },
                 { selector: 'node.status-draft', style: { 'border-width': 2, 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },

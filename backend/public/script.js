@@ -252,6 +252,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<?xml version="1.0" encoding="UTF-8"?><bpmn2:definitions xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="sample-diagram" targetNamespace="http://bpmn.io/schema/bpmn"><bpmn2:process id="Process_1" isExecutable="false"><bpmn2:startEvent id="StartEvent_1"/></bpmn2:process><bpmndi:BPMNDiagram id="BPMNDiagram_1"><bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1"><bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1"><dc:Bounds height="36.0" width="36.0" x="100.0" y="100.0"/></bpmndi:BPMNShape></bpmndi:BPMNPlane></bpmndi:BPMNDiagram></bpmn2:definitions>`;
     }
 
+    function safelyFitBpmnViewport(viewerInstance) {
+        const canvas = viewerInstance.get('canvas');
+        const viewbox = canvas.viewbox();
+        const hasFiniteViewbox = viewbox
+            && Number.isFinite(viewbox.width)
+            && Number.isFinite(viewbox.height)
+            && viewbox.width > 0
+            && viewbox.height > 0;
+
+        if (hasFiniteViewbox) {
+            try {
+                canvas.zoom('fit-viewport');
+                return;
+            } catch (error) {
+                console.warn('BPMN fit-viewport fallback triggered:', error);
+            }
+        }
+
+        canvas.zoom(1);
+    }
+
     async function renderDiagram(bpmnCode, container = diagramContainer, isRetry = false) {
         container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
         try {
@@ -267,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const xml = (bpmnCode && bpmnCode.trim()) ? bpmnCode : getEmptyBpmnTemplate();
             await bpmnViewer.importXML(xml);
-            bpmnViewer.get('canvas').zoom('fit-viewport');
+            safelyFitBpmnViewport(bpmnViewer);
 
             if (container === diagramContainer) {
                 currentDiagramScale = 1;
@@ -308,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const xml = (latestVersion && latestVersion.mermaid_code) ? latestVersion.mermaid_code : getEmptyBpmnTemplate();
             await bpmnModeler.importXML(xml);
-            bpmnModeler.get('canvas').zoom('fit-viewport');
+            safelyFitBpmnViewport(bpmnModeler);
         } catch (e) {
             console.error(e);
         }
@@ -1209,24 +1230,25 @@ ${brokenCode}
 
     function setupAdminTabs() {
         const tabs = document.querySelectorAll('.admin-tabs .tab-link');
-        const tabContents = document.querySelectorAll('.admin-section .tab-content');
 
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 // Deactivate all tabs and hide all content
                 tabs.forEach(t => t.classList.remove('active'));
-                tabContents.forEach(c => c.style.display = 'none');
+                hideSection(document.getElementById('in-review'));
+                hideSection(document.getElementById('pending'));
+                hideSection(document.getElementById('completed'));
 
                 // Activate the clicked tab
                 tab.classList.add('active');
 
                 // Show the corresponding content
                 if (tab.id === 'in-review-tab') {
-                    document.getElementById('in-review').style.display = 'block';
+                    showSection(document.getElementById('in-review'));
                 } else if (tab.id === 'pending-tab') {
-                    document.getElementById('pending').style.display = 'block';
+                    showSection(document.getElementById('pending'));
                 } else if (tab.id === 'completed-tab') {
-                    document.getElementById('completed').style.display = 'block';
+                    showSection(document.getElementById('completed'));
                 }
             });
         });
@@ -2044,8 +2066,6 @@ ${brokenCode}
                                 'text-wrap': 'wrap',
                                 'text-valign': 'center',
                                 'text-halign': 'center',
-                                'width': 'label',
-                                'height': 'label',
                                 'font-family': '"Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
                             }
                         },
@@ -2056,6 +2076,8 @@ ${brokenCode}
                                 'shape': 'round-rectangle',
                                 'background-color': '#0f172a',
                                 'color': '#ffffff',
+                                'width': 320,
+                                'height': 96,
                                 'font-weight': 'bold',
                                 'font-size': 18,
                                 'padding': '20px',
@@ -2070,6 +2092,8 @@ ${brokenCode}
                                 'shape': 'round-rectangle',
                                 'background-color': '#2563eb',
                                 'color': '#ffffff',
+                                'width': 248,
+                                'height': 84,
                                 'font-weight': '600',
                                 'font-size': 14,
                                 'padding': '16px',
@@ -2088,6 +2112,8 @@ ${brokenCode}
                                 'border-width': 1,
                                 'border-color': '#cbd5e1',
                                 'color': '#1e293b',
+                                'width': 220,
+                                'height': 84,
                                 'text-max-width': 170,
                                 'font-size': 13,
                                 'font-weight': '500',
@@ -2104,6 +2130,8 @@ ${brokenCode}
                                 'border-style': 'dashed',
                                 'border-color': '#94a3b8',
                                 'color': '#475569',
+                                'width': 190,
+                                'height': 74,
                                 'text-max-width': 150,
                                 'font-size': 12,
                                 'padding': '10px 14px'
@@ -2914,19 +2942,18 @@ ${brokenCode}
 
     function switchAdminTab(targetTab) {
         // Hide all views
-        [adminViewUsers, adminViewMap].forEach(v => {
-            if (v) v.style.display = 'none';
-        });
+        hideSection(adminViewUsers);
+        hideSection(adminViewMap);
         // Remove active from all tabs
         [adminTabUsers, adminTabMap].forEach(t => {
             if (t) t.classList.remove('active');
         });
 
         if (targetTab === 'users') {
-            if (adminViewUsers) adminViewUsers.style.display = 'block';
+            showSection(adminViewUsers);
             if (adminTabUsers) adminTabUsers.classList.add('active');
         } else if (targetTab === 'map') {
-            if (adminViewMap) adminViewMap.style.display = 'block';
+            showSection(adminViewMap);
             if (adminTabMap) adminTabMap.classList.add('active');
             // Render cytoscape when tab becomes visible
             loadProcessMap();

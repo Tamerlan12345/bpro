@@ -33,8 +33,25 @@ describe('map ui regression', () => {
 
     test('cytoscape styles do not use invalid max-content dimensions', () => {
         const scriptSource = fs.readFileSync(scriptPath, 'utf8');
+        const dashSource = fs.readFileSync(dashPath, 'utf8');
 
         expect(scriptSource).not.toContain("'width': 'max-content'");
         expect(scriptSource).not.toContain("'height': 'max-content'");
+        expect(scriptSource).not.toContain("'width': 'label'");
+        expect(scriptSource).not.toContain("'height': 'label'");
+        expect(dashSource).not.toContain("width: 'label'");
+        expect(dashSource).not.toContain("height: 'label'");
+    });
+
+    test('bpmn rendering uses guarded fit logic instead of raw fit-viewport zoom', () => {
+        const scriptSource = fs.readFileSync(scriptPath, 'utf8');
+
+        expect(scriptSource).toContain('function safelyFitBpmnViewport(viewerInstance)');
+        expect(scriptSource).toContain('const canvas = viewerInstance.get(\'canvas\');');
+        expect(scriptSource).toContain('Number.isFinite(viewbox.width)');
+        expect(scriptSource).toContain('safelyFitBpmnViewport(bpmnViewer);');
+        expect(scriptSource).toContain('safelyFitBpmnViewport(bpmnModeler);');
+        expect(scriptSource).not.toContain("bpmnViewer.get('canvas').zoom('fit-viewport');");
+        expect(scriptSource).not.toContain("bpmnModeler.get('canvas').zoom('fit-viewport');");
     });
 });

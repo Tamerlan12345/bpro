@@ -816,7 +816,7 @@ app.get('/api/chats/:id/transcription', isAuthenticated, async (req, res) => {
     try {
         const { rows } = await pool.query('SELECT * FROM transcription_data WHERE chat_id = $1', [id]);
         if (rows.length === 0) {
-            return res.status(404).json({ error: 'Transcription data not found for this chat.' });
+            return res.status(200).json(null);
         }
         res.json(rows[0]);
     } catch (error) {
@@ -900,7 +900,7 @@ app.get('/api/chats/:id/initial-process', isAuthenticated, async (req, res) => {
     try {
         const { rows } = await pool.query('SELECT * FROM initial_business_processes WHERE chat_id = $1', [id]);
         if (rows.length === 0) {
-            return res.status(404).json({ error: 'Initial process not found' });
+            return res.status(200).json(null);
         }
         res.json(rows[0]);
     } catch (error) {
