@@ -1,186 +1,503 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BPRO - Архитектура Бизнес-Процессов</title>
-    <link rel="stylesheet" href="style.css?v=11">
+    <title>BizPro AI Agent</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape-edgehandles@4.0.1/cytoscape-edgehandles.min.js"></script>
     <script src="https://unpkg.com/klayjs@0.4.1/klay.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/cytoscape-klay@3.1.4/cytoscape-klay.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-klay@3.1.4/cytoscape-klay.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
+
 <body>
-    <div id="login-screen" class="glass">
-        <div class="login-container">
-            <h1>BPRO Login</h1>
-            <p>Система управления бизнес-процессами</p>
-            <form id="login-form">
-                <div class="form-group">
-                    <label for="email">Email:</label>
-                    <input type="email" id="email" required placeholder="name@company.com" autocomplete="username">
-                </div>
-                <div class="form-group">
-                    <label for="password">Пароль:</label>
-                    <input type="password" id="password" required placeholder="••••••••" autocomplete="current-password">
-                </div>
-                <button type="submit" id="user-login-btn" class="button-primary">Войти как сотрудник</button>
-            </form>
-            <div class="divider"><span>ИЛИ</span></div>
-            <button id="show-chat-login-btn" class="button-secondary">Вход по паролю чата</button>
-        </div>
-    </div>
-
-    <div id="chat-login-screen" class="modal hidden">
-        <div class="modal-content glass">
-            <button class="close-btn" id="close-chat-login-btn">&times;</button>
-            <h2>Вход в чат департамента</h2>
-            <form id="chat-login-form">
-                <div class="form-group">
-                    <label for="chat-dept-select">Выберите департамент:</label>
-                    <select id="chat-dept-select"></select>
-                </div>
-                <div class="form-group">
-                    <label for="chat-password">Пароль департамента:</label>
-                    <input type="password" id="chat-password" required placeholder="Введите пароль">
-                </div>
-                <button type="submit" id="chat-login-btn" class="button-primary">Войти в чаты</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="admin-panel" class="hidden glass">
-        <div class="admin-header-main">
-            <h2>Панель администратора</h2>
-            <div class="admin-tabs">
-                <button id="admin-tab-users" class="tab-link active">Пользователи и Чаты</button>
-                <button id="admin-tab-map" class="tab-link">Карта Процессов</button>
-            </div>
-        </div>
-
-        <!-- VIEW: USERS & CHATS -->
-        <div id="admin-view-users" class="admin-view-content">
-            <div class="admin-section">
-                <h3>Управление пользователями</h3>
-                <form id="create-user-form" class="inline-form" onsubmit="event.preventDefault();">
-                    <input type="text" id="new-user-fullname" placeholder="ФИО" autocomplete="name">
-                    <input type="email" id="new-user-email" placeholder="Email" autocomplete="username">
-                    <select id="new-user-dept"><option value="">Без департамента</option></select>
-                    <input type="password" id="new-user-password" placeholder="Пароль" autocomplete="new-password">
-                    <select id="new-user-role">
-                        <option value="user">Пользователь</option>
-                        <option value="admin">Администратор</option>
-                    </select>
-                    <button id="create-user-btn" class="button-primary">Создать</button>
+    <div class="auth-wrapper">
+        <header class="app-header">
+            <h1><a href="/">BizMap AI</a></h1>
+            <button id="logout-btn" class="button-secondary hidden">Выйти</button>
+        </header>
+        <main>
+            <div id="login-container" class="login-container glass">
+                <form id="user-login" class="login-form" onsubmit="event.preventDefault();">
+                    <h2>Вход в систему</h2>
+                    <p>Введите ваш Email и пароль.</p>
+                    <label for="user-email">Email</label>
+                    <input type="email" id="user-email" placeholder="example@bizpro.ai" autocomplete="username">
+                    <label for="user-password">Пароль</label>
+                    <input type="password" id="user-password" placeholder="Пароль" autocomplete="current-password">
+                    <button id="user-login-btn" class="button-primary">Войти</button>
+                    <p id="user-error" class="error-message"></p>
                 </form>
-                <div class="admin-table-container">
-                    <table id="users-table">
-                        <thead>
-                            <tr><th>ФИО</th><th>Email</th><th>Роль</th><th>Департамент</th><th>Действия</th></tr>
-                        </thead>
-                        <tbody id="users-list-body"></tbody>
-                    </table>
+
+                <div id="department-selection" class="login-form hidden">
+                    <h2>Выбор департамента</h2>
+                    <p>Выберите департамент для работы.</p>
+                    <div id="department-selection-container"></div>
+                    <!-- This button is now handled by clicking the department card -->
+                    <p id="department-selection-error" class="error-message"></p>
                 </div>
+
+                <!-- Step 3: Chat Selection -->
+                <form id="chat-login" class="login-form hidden" onsubmit="event.preventDefault();">
+                    <h2>Выбор чата</h2>
+                    <p>Выберите чат, кликнув на него, а затем введите пароль.</p>
+                    <div id="chat-selection-container"></div>
+                    <label for="chat-password">Пароль чата</label>
+                    <input type="text" name="username" autocomplete="username" class="hidden" value="chat-user">
+                    <input type="password" id="chat-password" placeholder="Пароль выбранного чата"
+                        autocomplete="current-password">
+                    <button id="chat-login-btn" class="button-primary">Войти в чат</button>
+                    <p id="chat-error" class="error-message"></p>
+                </form>
             </div>
 
-            <div class="admin-grid">
-                <div class="admin-section">
-                    <h3>Департаменты</h3>
-                    <form id="create-department-form" onsubmit="event.preventDefault();">
-                        <select id="user-for-new-department" autocomplete="off"><option value="">Владелец</option></select>
-                        <input type="text" id="new-department-name" placeholder="Название">
-                        <input type="password" id="new-department-password" placeholder="Пароль">
-                        <button id="create-department-btn" class="button-primary">Добавить департамент</button>
-                    </form>
-                    <div id="department-list"></div>
+            <div id="admin-panel" class="hidden glass">
+                <h2>Панель администратора</h2>
+
+                <div class="admin-tabs" style="margin-bottom: 20px;">
+                    <button id="admin-tab-users" class="tab-link active">Пользователи и Чаты</button>
+                    <button id="admin-tab-map" class="tab-link">Карта Процессов</button>
+                </div>
+
+                <div id="admin-view-users" class="admin-view-content">
+                    <div class="admin-section">
+                        <form id="create-user-form" onsubmit="event.preventDefault();">
+                            <div class="form-group">
+                                <label for="new-user-fullname">ФИО:</label>
+                                <input type="text" id="new-user-fullname" placeholder="Иванов Иван Иванович"
+                                    autocomplete="name">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-user-email">Email:</label>
+                                <input type="email" id="new-user-email" placeholder="email@example.com"
+                                    autocomplete="username">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-user-dept">Департамент:</label>
+                                <select id="new-user-dept">
+                                    <option value="">Без департамента</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-user-password">Пароль:</label>
+                                <input type="password" id="new-user-password" placeholder="Мин. 8 символов"
+                                    autocomplete="new-password">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-user-role">Роль:</label>
+                                <select id="new-user-role">
+                                    <option value="user">Пользователь</option>
+                                    <option value="admin">Администратор</option>
+                                </select>
+                            </div>
+                            <button id="create-user-btn" class="button-primary">Создать пользователя</button>
+                        </form>
+                    </div>
+                    <div class="admin-table-container">
+                        <table id="users-table">
+                            <thead>
+                                <tr>
+                                    <th>ФИО</th>
+                                    <th>Email</th>
+                                    <th>Роль</th>
+                                    <th>Департамент</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-list-body"></tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div class="admin-section">
-                    <h3>Чаты и статусы</h3>
-                    <div class="admin-tabs mini-tabs">
-                        <button id="in-review-tab" class="tab-link active">Обзоры</button>
-                        <button id="pending-tab" class="tab-link">В работе</button>
-                        <button id="completed-tab" class="tab-link">Готово</button>
+                    <h3>Создать новый департамент</h3>
+                    <form id="create-department-form" onsubmit="event.preventDefault();">
+                        <div class="form-group">
+                            <label for="user-for-new-department">Назначить пользователю (владелец):</label>
+                            <select id="user-for-new-department" autocomplete="off"></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="new-department-name">Название департамента:</label>
+                            <input type="text" id="new-department-name" placeholder="Название департамента"
+                                autocomplete="organization">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-department-password">Пароль (для входа в чаты):</label>
+                            <input type="password" id="new-department-password" placeholder="Пароль"
+                                autocomplete="new-password">
+                        </div>
+                        <button id="create-department-btn" class="button-primary">Создать</button>
+                    </form>
+                </div>
+
+                <div class="admin-section">
+                    <h3>Управление чатами</h3>
+                    <div class="admin-main-view">
+                        <div id="department-list-container">
+                            <h4>Департаменты</h4>
+                            <div id="department-list"></div>
+                        </div>
+                        <div id="chat-list-container">
+                            <h4 id="chat-list-header">Чаты</h4>
+                            <div id="chat-list"></div>
+                            <form id="create-chat-form" style="display: none;" onsubmit="event.preventDefault();">
+                                <h5>Создать новый чат для <span id="selected-department-name"></span></h5>
+                                <input type="text" id="new-chat-name" placeholder="Название чата" autocomplete="name">
+                                <input type="password" id="new-chat-password" placeholder="Пароль чата"
+                                    autocomplete="new-password">
+                                <button id="create-chat-btn" class="button-primary">Создать</button>
+                            </form>
+                        </div>
                     </div>
-                    <div id="chat-tabs-content">
-                        <div id="in-review" class="tab-content active"><ul id="in-review-list"></ul></div>
-                        <div id="pending" class="tab-content"><ul id="pending-list"></ul></div>
-                        <div id="completed" class="tab-content"><ul id="completed-list"></ul></div>
+                </div>
+
+                <div class="admin-section">
+                    <h3>Чаты на проверке</h3>
+                    <div class="admin-tabs">
+                        <button id="in-review-tab" class="tab-link active">На проверке</button>
+                        <button id="pending-tab" class="tab-link">В работе</button>
+                        <button id="completed-tab" class="tab-link">Завершенные</button>
+                    </div>
+                    <div id="in-review" class="tab-content">
+                        <ul id="in-review-list"></ul>
+                    </div>
+                    <div id="pending" class="tab-content">
+                        <ul id="pending-list"></ul>
+                    </div>
+                    <div id="completed" class="tab-content">
+                        <ul id="completed-list"></ul>
+                    </div>
+                </div>
+            </div>
+    </div><!-- End of Users View -->
+
+    <div id="admin-view-map" class="admin-view-content hidden">
+        <div class="admin-section">
+            <div class="map-header">
+                <h3>Карта Процессов (Mind Map)</h3>
+                <div class="map-controls">
+                    <button id="refresh-map-btn" class="button-secondary" title="Обновить данные">🔄
+                        Обновить</button>
+                    <button id="auto-layout-btn" class="button-secondary" title="Сбросить позиции и выровнять">📐
+                        Авто-выравнивание</button>
+                    <button id="global-audit-btn" class="button-primary" title="Запустить ИИ Аудит">🔍
+                        Глобальный ИИ Аудит</button>
+                </div>
+            </div>
+            <p class="map-hint">Глобальный взгляд на архитектуру процессов. Используйте левую кнопку для
+                передвижения, колесо для зума. Клик по процессу откроет детали.</p>
+
+            <div id="cy-container" class="cy-container" style="position: relative; overflow: hidden;">
+                <div id="cy" style="width: 100%; height: 100%;"></div>
+                <div id="cy-context-menu" class="context-menu"
+                    style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); border-radius: 4px; padding: 5px;">
+                </div>
+                <div class="cy-toolbar">
+                    <button id="cy-zoom-in" title="Приблизить">+</button>
+                    <button id="cy-zoom-out" title="Отдалить">-</button>
+                    <button id="cy-fit" title="По размеру">⏹</button>
+                    <button id="cy-add-node" title="Добавить Процесс" class="button-secondary">➕
+                        Процесс</button>
+                    <button id="cy-add-edge" title="Связь (Вручную)" class="button-secondary">🔗
+                        Связь</button>
+                    <button id="cy-ai-layout" title="ИИ Макет" class="button-secondary">🪄 ИИ Макет</button>
+                </div>
+
+                <!-- Side Panel -->
+                <div id="cy-side-panel" class="side-panel hidden glass">
+                    <div class="panel-header"
+                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+                        <h3 id="panel-title" style="margin: 0; font-size: 16px;">Редактирование</h3>
+                        <button id="close-panel-btn"
+                            style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div id="panel-content">
+                        <!-- Dynamic content based on selection -->
                     </div>
                 </div>
             </div>
 
             <div class="admin-section mass-import-integrated">
-                <h3>📥 Массовый импорт регламентов</h3>
-                <p>Загрузите документы для автоматического наполнения карты через ИИ.</p>
+                <h3>📥 Массовый импорт документов</h3>
+                <p>Загрузите регламенты (.docx, .txt) для автоматического наполнения карты через ИИ.</p>
                 <div class="import-controls">
                     <input type="file" id="mass-upload-input" accept=".txt,.pdf,.docx" multiple>
                     <button id="mass-upload-btn" class="button-primary">Анализировать и добавить</button>
                 </div>
                 <div id="mass-upload-status" class="upload-status"></div>
             </div>
-        </div>
 
-        <!-- VIEW: PROCESS MAP (CLEAN DASH-LIKE) -->
-        <div id="admin-view-map" class="admin-view-content hidden">
-            <div id="cy-container" class="cy-container">
-                <div class="map-header">
-                    <h3>Карта Процессов</h3>
-                    <p class="map-hint">Архитектура компании (интерактивно)</p>
-                </div>
-                <div id="cy"></div>
-                <div class="cy-toolbar">
-                    <button id="cy-zoom-in" title="Приблизить">+</button>
-                    <button id="cy-zoom-out" title="Отдалить">-</button>
-                    <button id="cy-fit" title="По размеру">⏹</button>
-                    <button id="refresh-map-btn" title="Обновить">🔄</button>
-                    <button id="auto-layout-btn" title="Выровнять">📐</button>
-                    <button id="global-audit-btn" title="ИИ Аудит">🔍</button>
-                </div>
-
-                <!-- Side Panel -->
-                <div id="cy-side-panel" class="side-panel hidden glass">
-                    <div class="panel-header">
-                        <h3 id="panel-title">Детали процесса</h3>
-                        <button id="close-panel-btn">&times;</button>
+            <div id="process-info-modal" class="modal hidden">
+                <div class="modal-content premium-modal">
+                    <button class="close-btn" id="close-process-info-btn" aria-label="Закрыть">&times;</button>
+                    <div class="modal-header">
+                        <h2 id="process-info-title">Описание процесса</h2>
+                        <span id="process-info-status" class="status-badge"></span>
                     </div>
-                    <div id="panel-content"></div>
+                    <div class="modal-body">
+                        <div class="info-group">
+                            <strong>Владелец:</strong>
+                            <span id="process-info-owner"></span>
+                        </div>
+                        <div class="info-group">
+                            <strong>Цель:</strong>
+                            <p id="process-info-goal"></p>
+                        </div>
+                        <div class="info-group">
+                            <strong>Описание:</strong>
+                            <div id="process-info-description" class="scroll-area"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="go-to-chat-btn" class="button-primary">Перейти в чат</button>
+                        <button id="delete-process-btn" class="button-danger">🗑️ Удалить</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+
+    </div>
+    </main>
+    </div>
+
     <div class="container hidden">
         <header>
-            <button id="back-to-admin-btn">← Назад</button>
+            <button id="back-to-admin-btn" style="display: none;">← Назад в админ-панель</button>
             <h1 id="chat-name-header">BizMap AI Agent</h1>
+            <p>Опишите ваш бизнес-процесс, и ИИ построит схему и предложит улучшения.</p>
             <div id="action-buttons">
                 <button id="save-version-btn" class="button-primary">Сохранить с ИИ</button>
+                <button id="save-raw-version-btn" class="button-secondary">Сохранить без ИИ</button>
                 <button id="send-review-btn" class="button-primary">Отправить на проверку</button>
+                <button id="send-revision-btn" style="display: none;">Вернуть на доработку</button>
+                <button id="complete-btn" style="display: none;">Завершить</button>
+                <button id="archive-btn" style="display: none;">Архивировать</button>
             </div>
         </header>
+
         <main class="main-content">
             <div class="left-column">
-                <div class="audio-recorder-block">
-                    <button id="start-record-btn" class="button-secondary">🎙️ Запись</button>
-                    <button id="stop-record-btn" class="button-secondary" style="display: none;">⏹️ Стоп</button>
+                <div class="input-block">
+                    <label for="transcription-display">1. Опишите или запишите ваш бизнес-процесс</label>
+
+                    <div class="audio-recorder-block">
+                        <button id="start-record-btn" class="button-secondary">🎙️ Начать запись</button>
+                        <button id="stop-record-btn" class="button-secondary" style="display: none;">⏹️ Остановить
+                            запись</button>
+                        <button id="listen-btn" class="button-secondary" style="display: none;">🎧 Прослушать</button>
+                        <button id="process-btn" class="button-primary" style="display: none;">Обработать</button>
+                        <button id="rerecord-btn" class="button-secondary" style="display: none;">🔄
+                            Перезаписать</button>
+                        <span id="recording-indicator" style="display: none;">🔴 Идет запись... <span
+                                id="recording-timer">00:00</span></span>
+                        <span id="transcription-timer"
+                            style="display: none; margin-left: 10px; font-style: italic; color: #555;"></span>
+                        <audio id="audio-playback" controls class="audio-playback"></audio>
+                    </div>
+
+                    <div id="initial-process-block" class="initial-process-block hidden">
+                        <label>Оригинальное описание (Статичное)</label>
+                        <div id="initial-process-content" class="initial-process-content"></div>
+                    </div>
+
+                    <div id="transcription-display" class="transcription-display-area"></div>
+                    <div id="partial-transcript-display" class="partial-transcript"></div>
                 </div>
-                <textarea id="transcription-display" placeholder="Описание процесса..."></textarea>
-                <div id="bpmn-container" style="height: 400px; border: 1px solid #ddd; margin-top:20px;"></div>
+
+                <div class="input-block">
+                    <label for="process-description">1.1. Описание бизнес-процесса</label>
+                    <div class="textarea-wrapper">
+                        <textarea id="process-description" rows="12"
+                            placeholder="Опишите ваш процесс по шагам, каждый шаг с новой строки. Пример:&#10;1. Клиент оставляет заявку на сайте&#10;2. Менеджер связывается с клиентом для уточнения деталей&#10;3. ..."></textarea>
+                        <div id="step-counter" class="step-counter">0 шагов</div>
+                    </div>
+                    <div class="prompt-block">
+                        <label for="user-prompt">Дополнительный контекст для ИИ (необязательно)</label>
+                        <input type="text" id="user-prompt"
+                            placeholder="Например: 'Сделай акцент на безопасности' или 'Учти, что это для малого бизнеса'">
+                    </div>
+                    <button id="improve-btn" class="button-primary">
+                        ✨ Предложить улучшения
+                    </button>
+                </div>
+
+                <div class="results-block">
+                    <h2>Результат</h2>
+                    <p>После выбора и применения улучшений здесь появится обновленный текст процесса. Визуальную схему
+                        можно будет сгенерировать ниже.</p>
+                </div>
+
+                <div class="diagram-block">
+                    <h3>Визуализация процесса</h3>
+                    <div id="diagram-placeholder" class="diagram-placeholder">
+                        <div class="placeholder-content">
+                            <svg class="placeholder-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64"
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 10a4 4 0 1 0-8 0 4 4 0 0 0 8 0z" />
+                                <path d="M12 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                                <path d="M6 10a4 4 0 1 0-8 0 4 4 0 0 0 8 0zM12 6V2" />
+                                <path d="M12 22v-4" />
+                                <path d="m15 7 2-2" />
+                                <path d="m5 17 2 2" />
+                                <path d="m15 17-2 2" />
+                                <path d="m5 7 2-2" />
+                            </svg>
+                            <p>Здесь появится интерактивная схема процесса</p>
+                            <button id="render-diagram-btn" class="button-secondary">Создать схему</button>
+                        </div>
+                        <div id="diagram-container" class="diagram-container hidden"></div>
+                    </div>
+                    <div id="diagram-toolbar" class="diagram-toolbar hidden">
+                        <button id="regenerate-diagram-btn" title="Перегенерировать схему"
+                            aria-label="Перегенерировать схему">Перегенерировать</button>
+                        <button id="edit-diagram-btn" title="Редактировать схему" aria-label="Редактировать схему"
+                            style="display: none;">✏️ Редактировать</button>
+                        <button id="zoom-in-btn" title="Приблизить" aria-label="Приблизить">+</button>
+                        <button id="zoom-out-btn" title="Отдалить" aria-label="Отдалить">-</button>
+                        <button id="download-png-btn" title="Скачать PNG" aria-label="Скачать PNG">PNG</button>
+                        <button id="download-svg-btn" title="Скачать SVG" aria-label="Скачать SVG">SVG</button>
+                    </div>
+                </div>
+
+                <div class="legend">
+                    <h4>Легенда</h4>
+                    <ul>
+                        <li><span class="legend-shape rect"></span> - Стандартный шаг процесса</li>
+                        <li><span class="legend-shape diamond"></span> - Принятие решения</li>
+                        <li><span class="legend-shape cylinder"></span> - База данных / Хранилище</li>
+                        <li><span class="legend-shape document"></span> - Документ / Отчет</li>
+                    </ul>
+                </div>
             </div>
+
+
             <div class="right-column">
-                <div id="comments-container"></div>
-                <div class="comment-form">
-                    <textarea id="comment-input" placeholder="Комментарий..."></textarea>
-                    <button id="add-comment-btn" class="button-primary">Отправить</button>
+                <div class="suggestions-block">
+                    <h3>2. Выберите улучшения</h3>
+                    <div id="suggestions-controls" class="suggestions-controls" style="display: none;">
+                        <div class="select-all-wrapper">
+                            <input type="checkbox" id="select-all-checkbox">
+                            <label for="select-all-checkbox">Выбрать все</label>
+                        </div>
+                        <div id="selection-counter">Выбрано: 0 из 0</div>
+                    </div>
+                    <div id="suggestions-container" class="suggestions-container">
+                        <p class="placeholder-text">Предложения от ИИ появятся здесь после анализа вашего процесса.</p>
+                    </div>
+                    <button id="apply-improvements-btn" disabled>Применить выбранные улучшения</button>
+                </div>
+
+                <div class="version-history-block">
+                    <h3>История версий</h3>
+                    <div id="version-history-container"></div>
+                </div>
+
+                <div class="comments-block">
+                    <h3>Чат и подсказки</h3>
+                    <div id="chat-tips" class="chat-tips-container">
+                        <div class="tip-item">💡 <strong>Как пользоваться:</strong> Запишите аудио или введите текст,
+                            выберите улучшения от ИИ и примените их.</div>
+                        <div class="tip-item">✅ <strong>Первый вариант:</strong> Ваш самый первый ввод будет сохранен в
+                            верхней части как эталон.</div>
+                        <div class="tip-item">💬 <strong>Обсуждение:</strong> Используйте чат ниже для уточнения деталей
+                            процесса.</div>
+                    </div>
+                    <div id="comments-container"></div>
+                    <div class="comment-form">
+                        <textarea id="comment-input" placeholder="Введите ваш комментарий..."></textarea>
+                        <button id="add-comment-btn" class="button-primary">Отправить</button>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
 
     <div id="notification-container" class="notification-container"></div>
+    <!-- <script src="script.js?v=3"></script> -->
     <script type="module" src="modules/main.js"></script>
+
+    <div id="transcription-review-modal" class="modal hidden">
+        <div class="modal-content">
+            <button class="close-btn" aria-label="Закрыть">&times;</button>
+            <h2>Проверка и обработка транскрибации</h2>
+            <p>Здесь вы можете отредактировать текст, полученный после распознавания речи. После финализации этот текст
+                будет использоваться как основа для дальнейшей работы.</p>
+            <div class="form-group">
+                <label for="transcription-text-area">Текст транскрибации:</label>
+                <textarea id="transcription-text-area" rows="15"></textarea>
+            </div>
+            <div id="transcription-modal-buttons">
+                <button id="save-transcription-progress-btn" class="button-secondary">Сохранить черновик</button>
+                <button id="finalize-transcription-btn" class="button-primary">Финализировать текст</button>
+            </div>
+            <div id="transcription-finalized-view" style="display: none;">
+                <h4>Текст финализирован</h4>
+                <div class="finalized-text-display"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mermaid-editor-modal" class="modal hidden">
+        <div class="modal-content large">
+            <button class="close-btn" aria-label="Закрыть">&times;</button>
+            <h2>Редактор схемы Mermaid</h2>
+            <p>Вносите изменения в код схемы. Диаграмма будет обновляться в реальном времени.</p>
+            <div class="mermaid-editor-content">
+                <div id="mermaid-syntax-legend" class="mermaid-legend">
+                    <h4>Подсказки по синтаксису</h4>
+                    <ul>
+                        <li><strong>Прямоугольник:</strong><br><code>A["Текст"]</code></li>
+                        <li><strong>Ромб (Решение):</strong><br><code>B{"Текст"}</code></li>
+                        <li><strong>База данных:</strong><br><code>C[("Текст")]</code></li>
+                        <li><strong>Стрелка:</strong><br><code>A --> B</code></li>
+                        <li><strong>Стрелка с текстом:</strong><br><code>A -- Текст --> B</code></li>
+                    </ul>
+                </div>
+                <textarea id="mermaid-editor-textarea" spellcheck="false"></textarea>
+                <div id="mermaid-editor-preview"></div>
+            </div>
+            <div class="mermaid-editor-buttons">
+                <button id="cancel-mermaid-edit-btn" class="button-secondary">Отмена</button>
+                <button id="save-mermaid-changes-btn" class="button-primary">Сохранить изменения</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global AI Audit Modal -->
+    <div id="global-audit-modal" class="modal hidden">
+        <div class="modal-content">
+            <button class="close-btn" id="close-global-audit-modal" aria-label="Закрыть">&times;</button>
+            <h2>Глобальный ИИ Аудит</h2>
+            <p>ИИ проанализирует все <strong>утвержденные</strong> процессы компании на предмет логических ошибок,
+                дублей и наложит ваш запрос.</p>
+            <div class="form-group">
+                <label for="audit-prompt">Ваш запрос для анализа:</label>
+                <textarea id="audit-prompt"
+                    placeholder="Например: Найди процессы, где есть риск дублирования функций между отделом продаж и маркетинга."></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button id="run-global-audit-btn" class="button-primary">Запустить аудит</button>
+            </div>
+            <div id="global-audit-result-area" style="display: none; margin-top: 20px;">
+                <h3>Результаты аудита</h3>
+                <div id="global-audit-text" class="audit-report"></div>
+            </div>
+        </div>
+    </div>
 </body>
+
 </html>
