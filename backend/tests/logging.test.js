@@ -37,6 +37,7 @@ jest.mock('bcryptjs', () => ({
 
 const { app, startServer } = require('../server');
 let server;
+const USER_EMAIL = 'user@example.com';
 
 beforeAll(async () => {
     // Basic setup for server start
@@ -63,12 +64,12 @@ describe('Error Logging Tests', () => {
         const csrfToken = await getCsrfToken(agent);
 
         // Mock user login
-        const user = { id: 1, name: 'user', role: 'user', hashed_password: 'hash' };
+        const user = { id: 1, name: 'user', email: USER_EMAIL, role: 'user', hashed_password: 'hash' };
         mockQuery.mockResolvedValueOnce({ rows: [user] });
         await agent
             .post('/api/auth/login')
             .set('CSRF-Token', csrfToken)
-            .send({ name: 'user', password: 'password' })
+            .send({ email: USER_EMAIL, password: 'password' })
             .expect(200);
 
         // Simulate fetch failure

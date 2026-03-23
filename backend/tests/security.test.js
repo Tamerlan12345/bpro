@@ -2,6 +2,7 @@ process.env.DATABASE_URL = 'postgresql://test:test@dummy-host:5432/test';
 process.env.SESSION_SECRET = 'dummy-secret';
 process.env.FRONTEND_URL = 'http://localhost:8080';
 process.env.SPEECHMATICS_API_KEY = 'dummy-key';
+process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
 const { when } = require('jest-when');
@@ -9,6 +10,7 @@ const bcrypt = require('bcryptjs');
 const { getCsrfToken } = require('./test_utils');
 
 const USER_ID = 2;
+const USER_EMAIL = 'user@example.com';
 
 jest.mock('bcryptjs', () => ({
     compare: jest.fn(),
@@ -66,7 +68,7 @@ describe('Security: File Upload Size Limit', () => {
         agent = request.agent(app);
         csrfToken = await getCsrfToken(agent);
 
-        const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
+        const regularUser = { id: USER_ID, name: 'user', email: USER_EMAIL, hashed_password: 'user_hash', role: 'user' };
 
         when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
         mockQuery.mockResolvedValueOnce({ rows: [regularUser] });
@@ -74,7 +76,7 @@ describe('Security: File Upload Size Limit', () => {
         await agent
             .post('/api/auth/login')
             .set('CSRF-Token', csrfToken)
-            .send({ name: 'user', password: 'password' })
+            .send({ email: USER_EMAIL, password: 'password' })
             .expect(200);
     });
 

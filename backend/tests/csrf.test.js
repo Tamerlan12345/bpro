@@ -1,6 +1,7 @@
 process.env.DATABASE_URL = 'postgresql://test:test@dummy-host:5432/test';
 process.env.SESSION_SECRET = 'dummy-secret';
 process.env.FRONTEND_URL = 'http://localhost:8080';
+process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
 const { app, startServer } = require('../server');
@@ -40,7 +41,7 @@ afterAll((done) => {
 describe('CSRF Protection', () => {
     it('should reject POST request without CSRF token', async () => {
         const agent = request.agent(app);
-        const res = await agent.post('/api/auth/login').send({ name: 'admin', password: 'password' });
+        const res = await agent.post('/api/auth/login').send({ email: 'admin@bizpro.ai', password: 'password' });
         expect(res.status).toBe(403);
         // Expect standard CSRF error from our handler or csurf default
         // We added a handler returning { error: 'Invalid or missing CSRF token' }
@@ -54,7 +55,7 @@ describe('CSRF Protection', () => {
 
         const res = await agent.post('/api/auth/login')
             .set('CSRF-Token', 'invalid-token')
-            .send({ name: 'admin', password: 'password' });
+            .send({ email: 'admin@bizpro.ai', password: 'password' });
 
         expect(res.status).toBe(403);
         expect(res.body.error).toMatch(/CSRF token/i);
@@ -74,7 +75,7 @@ describe('CSRF Protection', () => {
         // Since we are mocking pg, pool.query is a jest.fn()
         // We need to set its implementation or return value
         pool.query.mockResolvedValueOnce({
-            rows: [{ id: 1, name: 'admin', hashed_password: 'hash', role: 'admin' }]
+            rows: [{ id: 1, name: 'admin', email: 'admin@bizpro.ai', hashed_password: 'hash', role: 'admin' }]
         });
 
         const bcrypt = require('bcryptjs');
@@ -82,7 +83,7 @@ describe('CSRF Protection', () => {
 
         const res = await agent.post('/api/auth/login')
             .set('CSRF-Token', token)
-            .send({ name: 'admin', password: 'password' });
+            .send({ email: 'admin@bizpro.ai', password: 'password' });
 
         // If login successful, it returns 200
         expect(res.status).toBe(200);

@@ -68,14 +68,14 @@ beforeEach(() => {
 });
 
 describe('POST /api/auth/login Robustness', () => {
-    it('should return 400 Bad Request when name is missing', async () => {
+    it('should return 400 Bad Request when email is missing', async () => {
         const agent = request.agent(app);
         const token = await getCsrfToken(agent);
 
         const response = await agent
             .post('/api/auth/login')
             .set('CSRF-Token', token)
-            .send({ password: 'password' }); // Missing name
+            .send({ password: 'password' }); // Missing email
 
         expect(response.status).toBe(400);
         // We expect validation error details or generic invalid request
@@ -86,13 +86,13 @@ describe('POST /api/auth/login Robustness', () => {
         const token = await getCsrfToken(agent);
 
         // Mock user lookup returning a user, just in case logic gets that far (it shouldn't with validation)
-        const mockUser = { id: 1, name: 'admin', hashed_password: 'hash' };
+        const mockUser = { id: 1, name: 'admin', email: 'admin@bizpro.ai', hashed_password: 'hash' };
         mockQuery.mockResolvedValueOnce({ rows: [mockUser] });
 
         const response = await agent
             .post('/api/auth/login')
             .set('CSRF-Token', token)
-            .send({ name: 'admin' }); // Missing password
+            .send({ email: 'admin@bizpro.ai' }); // Missing password
 
         expect(response.status).toBe(400);
     });

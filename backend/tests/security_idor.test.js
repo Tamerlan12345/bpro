@@ -12,6 +12,7 @@ const USER_ID = 'user-uuid-123';
 const OTHER_USER_ID = 'other-user-uuid-999';
 const CHAT_ID = 'chat-uuid-456';
 const DEPARTMENT_ID = 'dept-uuid-789';
+const USER_EMAIL = 'user@example.com';
 
 jest.mock('bcryptjs', () => ({
     compare: jest.fn(),
@@ -35,10 +36,6 @@ const { app, startServer } = require('../server');
 let server;
 
 beforeAll(async () => {
-    // Mock user creation/existence checks in startServer
-    when(mockQuery).calledWith(expect.stringMatching(/SELECT id FROM users WHERE name =/)).mockResolvedValue({ rows: [{ id: USER_ID }] });
-    when(mockQuery).calledWith(expect.stringMatching(/INSERT INTO users/)).mockResolvedValue({ rows: [] });
-
     const serverInstance = await startServer();
     server = serverInstance.server;
 });
@@ -63,14 +60,14 @@ describe('IDOR Vulnerability Check', () => {
         agent = request.agent(app);
         csrfToken = await getCsrfToken(agent);
 
-        const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
+        const regularUser = { id: USER_ID, name: 'user', email: USER_EMAIL, hashed_password: 'user_hash', role: 'user' };
         when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
         mockQuery.mockResolvedValueOnce({ rows: [regularUser] });
 
         await agent
             .post('/api/auth/login')
             .set('CSRF-Token', csrfToken)
-            .send({ name: 'user', password: 'password' })
+            .send({ email: USER_EMAIL, password: 'password' })
             .expect(200);
     });
 

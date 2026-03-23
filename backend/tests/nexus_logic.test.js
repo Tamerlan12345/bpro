@@ -1,6 +1,7 @@
 process.env.DATABASE_URL = 'postgresql://test:test@dummy-host:5432/test';
 process.env.SESSION_SECRET = 'dummy-secret';
 process.env.FRONTEND_URL = 'http://localhost:8080';
+process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
 const { when } = require('jest-when');
@@ -8,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const { getCsrfToken } = require('./test_utils');
 
 const ADMIN_ID = 1;
+const ADMIN_EMAIL = 'admin@bizpro.ai';
 
 jest.mock('bcryptjs', () => ({
     compare: jest.fn(),
@@ -31,7 +33,6 @@ const { app, startServer } = require('../server');
 let server;
 
 beforeAll(async () => {
-    when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'admin'").mockResolvedValue({ rows: [{ id: ADMIN_ID }] });
     const serverInstance = await startServer();
     server = serverInstance.server;
 });
@@ -56,14 +57,14 @@ describe('Nexus Logic Fixes: Foreign Key Handling', () => {
         agent = request.agent(app);
         csrfToken = await getCsrfToken(agent);
 
-        const adminUser = { id: ADMIN_ID, name: 'admin', hashed_password: 'admin_hash', role: 'admin' };
+        const adminUser = { id: ADMIN_ID, name: 'admin', email: ADMIN_EMAIL, hashed_password: 'admin_hash', role: 'admin' };
         when(bcrypt.compare).calledWith('adminpass', adminUser.hashed_password).mockResolvedValue(true);
         mockQuery.mockResolvedValueOnce({ rows: [adminUser] });
 
         await agent
             .post('/api/auth/login')
             .set('CSRF-Token', csrfToken)
-            .send({ name: 'admin', password: 'adminpass' })
+            .send({ email: ADMIN_EMAIL, password: 'adminpass' })
             .expect(200);
     });
 

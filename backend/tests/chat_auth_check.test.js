@@ -1,6 +1,7 @@
 process.env.DATABASE_URL = 'postgresql://test:test@dummy-host:5432/test';
 process.env.SESSION_SECRET = 'dummy-secret';
 process.env.FRONTEND_URL = 'http://localhost:8080';
+process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
 const { when } = require('jest-when');
@@ -13,6 +14,7 @@ const DEPT_ID_OTHER = 'd2';
 const CHAT_ID = 'c1';
 const CHAT_NAME = 'Secret Chat';
 const CHAT_PASSWORD = 'password';
+const USER_EMAIL = 'user@example.com';
 
 // Mocks
 jest.mock('bcryptjs', () => ({
@@ -37,11 +39,6 @@ const { app, startServer } = require('../server');
 let server;
 
 beforeAll(async () => {
-    // Basic mocks for startup
-    when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'admin'").mockResolvedValue({ rows: [] });
-    when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'user'").mockResolvedValue({ rows: [] });
-    when(mockQuery).calledWith(expect.stringMatching(/INSERT INTO users/)).mockResolvedValue({ rows: [] });
-
     const serverInstance = await startServer();
     server = serverInstance.server;
 });
@@ -66,7 +63,7 @@ describe('POST /api/auth/chat - Department Access Logic', () => {
         agent = request.agent(app);
         csrfToken = await getCsrfToken(agent);
 
-        const user = { id: USER_ID, name: 'user', hashed_password: 'hash', role: 'user' };
+        const user = { id: USER_ID, name: 'user', email: USER_EMAIL, hashed_password: 'hash', role: 'user' };
 
         // Mock Login
         when(bcrypt.compare).calledWith('password', 'hash').mockResolvedValue(true);
@@ -75,7 +72,7 @@ describe('POST /api/auth/chat - Department Access Logic', () => {
         await agent
             .post('/api/auth/login')
             .set('CSRF-Token', csrfToken)
-            .send({ name: 'user', password: 'password' })
+            .send({ email: USER_EMAIL, password: 'password' })
             .expect(200);
     });
 

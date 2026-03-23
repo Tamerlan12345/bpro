@@ -41,66 +41,42 @@ describe('ensureUsersExist', () => {
 
     it('should not create users if env vars are missing', async () => {
         delete process.env.ADMIN_INITIAL_PASSWORD;
-        delete process.env.USER_INITIAL_PASSWORD;
 
-        // Mock users not existing
         mockQuery.mockResolvedValueOnce({ rows: [] }); // Admin check
-        mockQuery.mockResolvedValueOnce({ rows: [] }); // User check
 
         await ensureUsersExist(mockPool);
 
-        // Verify SELECT calls
-        expect(mockQuery).toHaveBeenCalledWith("SELECT id FROM users WHERE name = 'admin'");
-        expect(mockQuery).toHaveBeenCalledWith("SELECT id FROM users WHERE name = 'user'");
+        expect(mockQuery).toHaveBeenCalledWith("SELECT id FROM users WHERE role = 'admin' OR name = 'admin' OR email = 'admin@bizpro.ai'");
 
-        // Verify NO INSERT calls
         const insertCalls = mockQuery.mock.calls.filter(call => call[0].includes('INSERT'));
         expect(insertCalls.length).toBe(0);
     });
 
-    it('should create users if env vars are present', async () => {
+    it('should create admin user if env var is present', async () => {
         process.env.ADMIN_INITIAL_PASSWORD = 'envAdminPassword';
-        process.env.USER_INITIAL_PASSWORD = 'envUserPassword';
 
-        // Mock users not existing
         mockQuery.mockResolvedValueOnce({ rows: [] }); // Admin check
-        // Mock insert admin
         mockQuery.mockResolvedValueOnce({ rows: [] });
 
-        mockQuery.mockResolvedValueOnce({ rows: [] }); // User check
-        // Mock insert user
-        mockQuery.mockResolvedValueOnce({ rows: [] });
-
-        // Mock bcrypt hash
         bcrypt.hash.mockResolvedValue('hashed_password');
 
         await ensureUsersExist(mockPool);
 
-        // Verify INSERT calls
         expect(mockQuery).toHaveBeenCalledWith(
-            "INSERT INTO users (name, hashed_password) VALUES ('admin', $1)",
-            ['hashed_password']
-        );
-        expect(mockQuery).toHaveBeenCalledWith(
-            "INSERT INTO users (name, hashed_password) VALUES ('user', $1)",
+            "INSERT INTO users (name, full_name, email, hashed_password, role) VALUES ('admin', 'Главный Администратор', 'admin@bizpro.ai', $1, 'admin')",
             ['hashed_password']
         );
 
         expect(bcrypt.hash).toHaveBeenCalledWith('envAdminPassword', 10);
-        expect(bcrypt.hash).toHaveBeenCalledWith('envUserPassword', 10);
     });
 
-    it('should not create users if they already exist', async () => {
+    it('should not create admin user if it already exists', async () => {
         process.env.ADMIN_INITIAL_PASSWORD = 'envAdminPassword';
-        process.env.USER_INITIAL_PASSWORD = 'envUserPassword';
 
-        // Mock users existing
         mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // Admin found
-        mockQuery.mockResolvedValueOnce({ rows: [{ id: 2 }] }); // User found
 
         await ensureUsersExist(mockPool);
 
-        // Verify NO INSERT calls
         const insertCalls = mockQuery.mock.calls.filter(call => call[0].includes('INSERT'));
         expect(insertCalls.length).toBe(0);
     });

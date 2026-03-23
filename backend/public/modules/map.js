@@ -3,6 +3,7 @@
  */
 import * as api from './api.js';
 import * as ui from './ui.js';
+import { buildStructuredLayout } from './map-layout.mjs';
 
 let cy = null;
 let tooltip = null;
@@ -234,6 +235,103 @@ const getAutoLayout = () => ({
     fit: true
 });
 
+const getNodesByType = () => ({
+    departments: cy ? cy.nodes('.department') : [],
+    processes: cy ? cy.nodes('.process') : [],
+    chats: cy ? cy.nodes('.chat') : []
+});
+
+const serializeNode = (node) => ({
+    id: node.id().replace(/^(dept_|proc_|chat_)/, ''),
+    name: node.data('name'),
+    rawName: node.data('rawName'),
+    departmentId: getDepartmentId(node)
+});
+
+const getDepartmentId = (node) => {
+    if (!node || node.hasClass('department')) return null;
+
+    const departmentNode = node
+        .incomers('edge.dept-edge')
+        .sources()
+        .filter('.department')
+        .first();
+
+    if (!departmentNode || departmentNode.empty()) {
+        return null;
+    }
+
+    return departmentNode.id().replace('dept_', '');
+};
+
+const getPositionEndpoint = (node) => {
+    if (node.hasClass('department')) {
+        return `/api/admin/departments/${node.id().replace('dept_', '')}/position`;
+    }
+
+    if (node.hasClass('process')) {
+        return `/api/admin/processes/${node.id().replace('proc_', '')}/position`;
+    }
+
+    if (node.hasClass('chat')) {
+        return `/api/admin/chats/${node.id().replace('chat_', '')}/position`;
+    }
+
+    return null;
+};
+
+const saveNodePosition = async (node) => {
+    const endpoint = getPositionEndpoint(node);
+    if (!endpoint) return;
+
+    const { x, y } = node.position();
+    await api.apiFetch(endpoint, {
+        method: 'PUT',
+        body: JSON.stringify({ x, y })
+    });
+};
+
+const saveCurrentLayout = async () => {
+    if (!cy) return;
+
+    const nodesToSave = cy.nodes('.department, .process, .chat').toArray();
+    await Promise.all(nodesToSave.map((node) => saveNodePosition(node).catch((error) => {
+        console.error(`Failed to save node position for ${node.id()}:`, error);
+    })));
+};
+
+const applyStructuredLayout = async () => {
+    if (!cy) return;
+
+    const { departments, processes, chats } = getNodesByType();
+    const layout = buildStructuredLayout({
+        rootId: ROOT_ID,
+        departments: departments.map(serializeNode),
+        processes: processes.map(serializeNode),
+        chats: chats.map(serializeNode)
+    });
+
+    cy.batch(() => {
+        layout.forEach((item) => {
+            const prefix = item.type === 'department'
+                ? 'dept_'
+                : item.type === 'process'
+                    ? 'proc_'
+                    : item.type === 'chat'
+                        ? 'chat_'
+                        : '';
+            const nodeId = prefix ? `${prefix}${item.id}` : item.id;
+            const node = cy.getElementById(nodeId);
+            if (node && node.length) {
+                node.position({ x: item.x, y: item.y });
+            }
+        });
+    });
+
+    cy.fit(cy.nodes(), 50);
+    await saveCurrentLayout();
+};
+
 const getMapStyle = () => [
     {
         selector: 'node',
@@ -431,6 +529,15 @@ const setupInteractions = () => {
         document.body.style.cursor = 'default';
     });
 
+    cy.on('dragfree', 'node.department, node.process, node.chat', async (event) => {
+        try {
+            await saveNodePosition(event.target);
+        } catch (error) {
+            console.error('Failed to persist node position:', error);
+            ui.showNotification('Не удалось сохранить новую позицию узла.', 'error');
+        }
+    });
+
     bindSearch();
     bindPanelClose();
     setupToolbar();
@@ -513,10 +620,16 @@ const setupToolbar = () => {
         event.currentTarget.innerText = shouldCollapse ? '🔼 Развернуть все' : '🔽 Свернуть все';
     });
 
-    const handleAutoLayout = () => {
+    const handleAutoLayout = async () => {
         if (!cy) return;
-        cy.layout(getAutoLayout()).run();
-        cy.fit(undefined, 30);
+
+        try {
+            await applyStructuredLayout();
+            ui.showNotification('Карта выровнена по структуре и позиции сохранены.', 'success');
+        } catch (error) {
+            console.error('Failed to apply structured layout:', error);
+            ui.showNotification('Не удалось выровнять карту.', 'error');
+        }
     };
 
     bind('auto-layout-btn', handleAutoLayout);

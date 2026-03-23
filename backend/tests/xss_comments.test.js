@@ -3,6 +3,7 @@ process.env.DATABASE_URL = 'postgresql://test:test@dummy-host:5432/test';
 process.env.SESSION_SECRET = 'dummy-secret';
 process.env.FRONTEND_URL = 'http://localhost:8080';
 process.env.SPEECHMATICS_API_KEY = 'dummy-key';
+process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
 const { when } = require('jest-when');
@@ -29,6 +30,7 @@ jest.mock('bcryptjs', () => ({
 }));
 
 const { app, startServer } = require('../server');
+const USER_EMAIL = 'user@example.com';
 
 describe('Stored XSS in Chat Comments', () => {
     let server;
@@ -37,7 +39,7 @@ describe('Stored XSS in Chat Comments', () => {
 
     beforeAll(async () => {
         // Mock user login and department lookup
-        const regularUser = { id: 'uuid-1', name: 'user', hashed_password: 'user_hash', role: 'user' };
+        const regularUser = { id: 'uuid-1', name: 'user', email: USER_EMAIL, hashed_password: 'user_hash', role: 'user' };
         mockQuery.mockResolvedValue({ rows: [regularUser] });
         when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
 
@@ -54,7 +56,7 @@ describe('Stored XSS in Chat Comments', () => {
         agent = request.agent(app);
 
         // Setup login mock
-        const regularUser = { id: 'uuid-1', name: 'user', hashed_password: 'user_hash', role: 'user' };
+        const regularUser = { id: 'uuid-1', name: 'user', email: USER_EMAIL, hashed_password: 'user_hash', role: 'user' };
         mockQuery.mockResolvedValue({ rows: [regularUser] });
 
         csrfToken = await getCsrfToken(agent);
@@ -62,7 +64,7 @@ describe('Stored XSS in Chat Comments', () => {
         await agent
             .post('/api/auth/login')
             .set('CSRF-Token', csrfToken)
-            .send({ name: 'user', password: 'password' });
+            .send({ email: USER_EMAIL, password: 'password' });
     });
 
     it('should sanitize HTML tags in comments to prevent XSS', async () => {

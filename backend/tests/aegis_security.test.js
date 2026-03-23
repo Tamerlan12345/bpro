@@ -73,7 +73,7 @@ describe('🛡️ Aegis Security Audit', () => {
                     .post('/api/auth/login')
                     .set('CSRF-Token', csrfToken)
                     .set('X-Forwarded-For', '10.0.0.1') // Use specific IP for this test
-                    .send({ name: 'admin', password: 'wrong' });
+                    .send({ email: 'admin@bizpro.ai', password: 'wrong' });
 
                 if (res.status === 429) {
                     blocked = true;
@@ -87,7 +87,7 @@ describe('🛡️ Aegis Security Audit', () => {
     describe('Input Validation (Zod Enforcement)', () => {
         beforeEach(async () => {
              // Login first for authenticated routes
-             const user = { id: USER_ID, name: 'admin', hashed_password: 'hash', role: 'admin' };
+             const user = { id: USER_ID, name: 'admin', email: 'admin@bizpro.ai', hashed_password: 'hash', role: 'admin' };
              // Mock login query success
              mockQuery.mockResolvedValueOnce({ rows: [user] });
              when(bcrypt.compare).calledWith('password', 'hash').mockResolvedValue(true);
@@ -96,7 +96,7 @@ describe('🛡️ Aegis Security Audit', () => {
                  .post('/api/auth/login')
                  .set('CSRF-Token', csrfToken)
                  .set('X-Forwarded-For', '10.0.0.2') // Use different IP to avoid rate limit from previous test
-                 .send({ name: 'admin', password: 'password' });
+                 .send({ email: 'admin@bizpro.ai', password: 'password' });
 
              // Mock generic chat access check success (for middleware that checks ownership)
              // We do this by mocking subsequent queries to return something valid if needed.

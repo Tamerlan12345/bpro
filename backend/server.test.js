@@ -1,6 +1,7 @@
 process.env.DATABASE_URL = 'postgresql://test:test@dummy-host:5432/test';
 process.env.SESSION_SECRET = 'dummy-secret';
 process.env.FRONTEND_URL = 'http://localhost:8080';
+process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
 const { when } = require('jest-when');
@@ -13,6 +14,8 @@ const USER_ID = 2;
 const DEPT_ID = 100;
 const CHAT_ID_1 = 200;
 const CHAT_ID_2 = 201;
+const ADMIN_EMAIL = 'admin@bizpro.ai';
+const USER_EMAIL = 'user@example.com';
 
 
 jest.mock('bcryptjs', () => ({
@@ -38,17 +41,19 @@ let server; // To be assigned in beforeAll
 
 
 beforeAll(async () => {
-    when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'admin'").mockResolvedValue({ rows: [{ id: ADMIN_ID }] });
-    when(mockQuery).calledWith("SELECT id FROM users WHERE name = 'user'").mockResolvedValue({ rows: [{ id: USER_ID }] });
-    when(mockQuery).calledWith(expect.stringMatching(/INSERT INTO users/)).mockResolvedValue({ rows: [] });
-
     const serverInstance = await startServer();
     server = serverInstance.server;
 });
 
 afterAll((done) => {
-    if (server) {
-        server.close(done);
+    if (server && server.listening) {
+        server.close((error) => {
+            if (error && error.message !== 'Server is not running.') {
+                done(error);
+                return;
+            }
+            done();
+        });
     } else {
         done();
     }
@@ -74,7 +79,7 @@ describe('API Security and Authorization', () => {
         it('should return 403 Forbidden if the user is logged in but not an admin', async () => {
             const agent = request.agent(app);
             const token = await getCsrfToken(agent);
-            const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
+            const regularUser = { id: USER_ID, name: 'user', email: USER_EMAIL, hashed_password: 'user_hash', role: 'user' };
 
             when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
             mockQuery.mockResolvedValueOnce({ rows: [regularUser] });
@@ -82,7 +87,7 @@ describe('API Security and Authorization', () => {
             await agent
                 .post('/api/auth/login')
                 .set('CSRF-Token', token)
-                .send({ name: 'user', password: 'password' })
+                .send({ email: USER_EMAIL, password: 'password' })
                 .expect(200);
 
             const response = await agent.post(adminRoute).set('CSRF-Token', token).send(payload);
@@ -93,7 +98,7 @@ describe('API Security and Authorization', () => {
         it('should return 201 Created if the user is an admin', async () => {
             const agent = request.agent(app);
             const token = await getCsrfToken(agent);
-            const adminUser = { id: ADMIN_ID, name: 'admin', hashed_password: 'admin_hash', role: 'admin' };
+            const adminUser = { id: ADMIN_ID, name: 'admin', email: ADMIN_EMAIL, hashed_password: 'admin_hash', role: 'admin' };
             const newDept = { id: DEPT_ID, ...payload };
 
             when(bcrypt.compare).calledWith('adminpass', adminUser.hashed_password).mockResolvedValue(true);
@@ -102,7 +107,7 @@ describe('API Security and Authorization', () => {
             await agent
                 .post('/api/auth/login')
                 .set('CSRF-Token', token)
-                .send({ name: 'admin', password: 'adminpass' })
+                .send({ email: ADMIN_EMAIL, password: 'adminpass' })
                 .expect(200);
 
             when(bcrypt.hash).mockResolvedValue('new_hashed_password');
@@ -124,7 +129,7 @@ describe('GET /api/admin/chats/pending', () => {
         agent.csrfToken = token; // Store for reuse in this suite if needed (though beforeEach resets agent usually, wait. agent is reused?)
         // beforeEach creates NEW agent. So we fetch token each time.
 
-        const adminUser = { id: ADMIN_ID, name: 'admin', hashed_password: 'admin_hash', role: 'admin' };
+        const adminUser = { id: ADMIN_ID, name: 'admin', email: ADMIN_EMAIL, hashed_password: 'admin_hash', role: 'admin' };
 
         when(bcrypt.compare).calledWith('adminpass', adminUser.hashed_password).mockResolvedValue(true);
         mockQuery.mockResolvedValueOnce({ rows: [adminUser] });
@@ -132,7 +137,7 @@ describe('GET /api/admin/chats/pending', () => {
         await agent
             .post('/api/auth/login')
             .set('CSRF-Token', token)
-            .send({ name: 'admin', password: 'adminpass' })
+            .send({ email: ADMIN_EMAIL, password: 'adminpass' })
             .expect(200);
     });
 
@@ -173,14 +178,14 @@ describe('PUT /api/chats/:id/status', () => {
         agent = request.agent(app);
         csrfToken = await getCsrfToken(agent);
 
-        const regularUser = { id: USER_ID, name: 'user', hashed_password: 'user_hash', role: 'user' };
+        const regularUser = { id: USER_ID, name: 'user', email: USER_EMAIL, hashed_password: 'user_hash', role: 'user' };
         when(bcrypt.compare).calledWith('password', regularUser.hashed_password).mockResolvedValue(true);
         mockQuery.mockResolvedValueOnce({ rows: [regularUser] });
 
         await agent
             .post('/api/auth/login')
             .set('CSRF-Token', csrfToken)
-            .send({ name: 'user', password: 'password' })
+            .send({ email: USER_EMAIL, password: 'password' })
             .expect(200);
     });
 
