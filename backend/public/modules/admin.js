@@ -170,7 +170,20 @@ export const loadAdminUsers = async () => {
                     </td>
                 </tr>
             `).join('');
+            const options = users.map(user => `
+                <option value="${user.id}">${user.full_name || user.name} (${user.email})</option>
+            `).join('');
+
+            if (userForNewDeptSelect) {
+                userForNewDeptSelect.innerHTML = `<option value="">Выберите владельца</option>` + options;
+            }
             
+            if (newUserDeptSelect) {
+                const depts = await api.getDepartments();
+                newUserDeptSelect.innerHTML = `<option value="">Без департамента</option>` + 
+                    depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+            }
+
             // Re-bind dynamic buttons
             tableBody.querySelectorAll('.delete-user-btn').forEach(btn => {
                 btn.onclick = () => handleDeleteUser(btn.dataset.userId);
