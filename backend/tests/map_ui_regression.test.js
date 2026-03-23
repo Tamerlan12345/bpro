@@ -30,4 +30,11 @@ describe('map ui regression', () => {
         expect(scriptSource).toContain('await Promise.all(saveRequests);');
         expect(scriptSource).not.toContain("if (ep) fetchWithAuth(ep, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x: pos.x, y: pos.y }) }).catch(e => e);");
     });
+
+    test('cytoscape styles do not use invalid max-content dimensions', () => {
+        const scriptSource = fs.readFileSync(scriptPath, 'utf8');
+
+        expect(scriptSource).not.toContain("'width': 'max-content'");
+        expect(scriptSource).not.toContain("'height': 'max-content'");
+    });
 });

@@ -201,6 +201,16 @@ const staticOptions = {
 };
 
 app.use(express.static(path.join(__dirname, 'public'), staticOptions));
+app.use('/api', (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    delete req.headers['if-none-match'];
+    delete req.headers['if-modified-since'];
+
+    next();
+});
 app.use(session({
     store: process.env.NODE_ENV === 'test'
         ? new session.MemoryStore()
@@ -928,6 +938,10 @@ app.post('/api/chats/:id/initial-process', isAuthenticated, async (req, res) => 
 
 app.get('/api/admin/map', isAuthenticated, isAdmin, async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+
         const departmentsRes = await pool.query('SELECT id, name, x, y, width, height, color FROM departments');
         const processesRes = await pool.query('SELECT * FROM business_processes');
         const relationsRes = await pool.query('SELECT * FROM process_relations');
@@ -1040,6 +1054,10 @@ app.post('/api/admin/processes', isAuthenticated, isAdmin, async (req, res) => {
 // --- DASHBOARD ENDPOINTS (ADMIN ONLY) ---
 app.get('/api/dash/map', isAuthenticated, isAdmin, async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+
         const departmentsRes = await pool.query('SELECT id, name, x, y FROM departments');
         const processesRes = await pool.query('SELECT id, name, status, department_id, description, x, y FROM business_processes');
         const relationsRes = await pool.query('SELECT id, source_process_id, target_process_id, relation_type FROM process_relations');

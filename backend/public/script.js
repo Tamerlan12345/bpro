@@ -2044,8 +2044,8 @@ ${brokenCode}
                                 'text-wrap': 'wrap',
                                 'text-valign': 'center',
                                 'text-halign': 'center',
-                                'width': 'max-content',
-                                'height': 'max-content',
+                                'width': 'label',
+                                'height': 'label',
                                 'font-family': '"Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
                             }
                         },
