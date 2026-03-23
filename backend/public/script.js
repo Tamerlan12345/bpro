@@ -2037,7 +2037,6 @@ ${brokenCode}
                             style: {
                                 'label': 'data(name)',
                                 'shape': 'round-rectangle',
-                                'background-color': '#1e293b',
                                 'background-color': '#0f172a',
                                 'color': '#ffffff',
                                 'font-weight': 'bold',
@@ -2075,7 +2074,6 @@ ${brokenCode}
                                 'text-max-width': 170,
                                 'font-size': 13,
                                 'font-weight': '500',
-                                'padding': '14px'
                                 'padding': '12px 16px'
                             }
                         },
@@ -2084,7 +2082,6 @@ ${brokenCode}
                             style: {
                                 'label': 'data(name)',
                                 'shape': 'round-rectangle',
-                                'background-color': '#f0f9ff',
                                 'background-color': '#f8fafc',
                                 'border-width': 2,
                                 'border-style': 'dashed',
@@ -2092,7 +2089,6 @@ ${brokenCode}
                                 'color': '#475569',
                                 'text-max-width': 150,
                                 'font-size': 12,
-                                'padding': '12px'
                                 'padding': '10px 14px'
                             }
                         },
@@ -2695,7 +2691,7 @@ ${brokenCode}
                         ` : ''}
                         <div style="margin-bottom: 15px;">
                             <strong>Описание:</strong><br>
-                            <div class="scroll-area" style="max-height: 200px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 4px;">
+                            <div class="markdown-body scroll-area" style="max-height: 200px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 4px;">
                                 ${descHtml}
                             </div>
                         </div>
