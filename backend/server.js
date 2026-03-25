@@ -1,4 +1,4 @@
-const path = require('path');
+﻿const path = require('path');
 const dns = require('node:dns');
 dns.setDefaultResultOrder('ipv4first');
 const fs = require('fs');
@@ -43,8 +43,8 @@ app.use(
                 "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://unpkg.com", "'unsafe-eval'"],
                 "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com"],
                 "font-src": ["'self'", "data:", "https://fonts.gstatic.com", "https://unpkg.com"],
-                "media-src": ["'self'", "blob:"], // <-- Разрешаем плееру воспроизводить записанное аудио
-                "img-src": ["'self'", "data:", "blob:"], // <-- Разрешаем картинки-схемы (Mermaid)
+                "media-src": ["'self'", "blob:"], // <-- Р Р°Р·СЂРµС€Р°РµРј РїР»РµРµСЂСѓ РІРѕСЃРїСЂРѕРёР·РІРѕРґРёС‚СЊ Р·Р°РїРёСЃР°РЅРЅРѕРµ Р°СѓРґРёРѕ
+                "img-src": ["'self'", "data:", "blob:"], // <-- Р Р°Р·СЂРµС€Р°РµРј РєР°СЂС‚РёРЅРєРё-СЃС…РµРјС‹ (Mermaid)
                 "connect-src": ["'self'", "https://api.github.com", "https://cdn.jsdelivr.net"],
             },
         },
@@ -319,6 +319,17 @@ const departmentPositionSchema = z.object({
     (body) => Object.values(body).some((value) => value !== undefined),
     { message: 'At least one field is required' }
 );
+
+const aiLayoutItemSchema = z.object({
+    id: z.string().min(1),
+    type: z.enum(['department', 'process', 'chat', 'root']),
+    x: z.number().finite(),
+    y: z.number().finite()
+});
+
+const aiLayoutResponseSchema = z.object({
+    layout: z.array(aiLayoutItemSchema).min(1)
+}).strict();
 
 const relationSchema = z.object({
     source_process_id: z.string().min(1),
@@ -887,6 +898,19 @@ app.put('/api/chats/:id/status', isAuthenticated, validateBody(statusSchema), as
     if (!(await checkChatAccess(id, req.session.user, res))) return;
     const { status } = req.body;
     try {
+        let latestApprovedProcessText = null;
+        if (status === 'approved') {
+            const latestVersionRes = await pool.query(
+                'SELECT process_text FROM process_versions WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1',
+                [id]
+            );
+            const latestVersionTextRaw = latestVersionRes.rows[0]?.process_text || '';
+            if (!latestVersionTextRaw.trim()) {
+                return res.status(400).json({ error: '\u041d\u0435\u043b\u044c\u0437\u044f \u0443\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044c \u043f\u0443\u0441\u0442\u043e\u0439 \u043f\u0440\u043e\u0446\u0435\u0441\u0441' });
+            }
+            latestApprovedProcessText = latestVersionTextRaw;
+        }
+
         const { rows } = await pool.query('UPDATE chat_statuses SET status = $1 WHERE chat_id = $2 RETURNING *', [status, id]);
         if (rows.length === 0) return res.status(404).json({ error: 'Status not found' });
 
@@ -898,11 +922,6 @@ app.put('/api/chats/:id/status', isAuthenticated, validateBody(statusSchema), as
                 const chatRes = await pool.query(chatQuery, [id]);
                 if (chatRes.rows.length > 0) {
                     const chat = chatRes.rows[0];
-                    const latestVersionRes = await pool.query(
-                        'SELECT process_text FROM process_versions WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1',
-                        [id]
-                    );
-                    const latestProcessText = latestVersionRes.rows[0]?.process_text || null;
                     await pool.query(`
                         INSERT INTO business_processes (
                             department_id, chat_id, name, description, status, is_ai_generated
@@ -912,7 +931,7 @@ app.put('/api/chats/:id/status', isAuthenticated, validateBody(statusSchema), as
                             department_id = EXCLUDED.department_id,
                             name = EXCLUDED.name,
                             description = COALESCE(EXCLUDED.description, business_processes.description)
-                    `, [chat.department_id, id, chat.name, latestProcessText]);
+                    `, [chat.department_id, id, chat.name, latestApprovedProcessText]);
                 }
             } catch (err) {
                 logger.error(err, 'Error moving chat to business_processes');
@@ -1016,35 +1035,36 @@ app.post('/api/admin/map/ai-layout', isAuthenticated, isAdmin, async (req, res) 
             relations: relationsRes.rows
         };
 
-        const prompt = `Ты — эксперт по визуализации графов. Твоя задача рассчитать красивые координаты (x, y) для узлов карты процессов.
-Правила идеального макета:
-1. Департаменты располагаются в горизонтальный ряд в верхней части (y = 120). Координата X для каждого департамента должна рассчитываться с отступом в 240 пикселей (например: x=240, x=480, x=720).
-2. Процессы каждого департамента располагаются СТРОГО ВЕРТИКАЛЬНО ВНИЗ (в столбик) под своим департаментом.
-   - Например, для Департамента 1 (x=240, y=120), его процессы должны идти так:
-     - Процесс 1: x=240, y=210
-     - Процесс 2: x=240, y=300
-     - Процесс 3: x=240, y=390
-3. Чаты (если есть) также располагаются в столбик под процессами своего департамента.
-4. Никакие узлы не должны накладываться друг на друга.
-        
-Данные карты:
+        const strictPrompt = `РўС‹ вЂ” СЌРєСЃРїРµСЂС‚ РїРѕ СЂР°СЃРєР»Р°РґРєРµ Р±РёР·РЅРµСЃ-РєР°СЂС‚.
+Р Р°СЃСЃС‡РёС‚Р°Р№ layout СЃС‚СЂРѕРіРѕ РїРѕ СЃРµС‚РєРµ Miro-style Рё РІРµСЂРЅРё С‚РѕР»СЊРєРѕ РІР°Р»РёРґРЅС‹Р№ JSON.
+
+РџСЂР°РІРёР»Р° СЂР°СЃРєР»Р°РґРєРё:
+1. Р”РµРїР°СЂС‚Р°РјРµРЅС‚С‹ СЂР°СЃРїРѕР»Р°РіР°Р№ РїРѕ РіРѕСЂРёР·РѕРЅС‚Р°Р»Рё СЃ С€Р°РіРѕРј 300 РїРёРєСЃРµР»РµР№.
+2. РЈ РІСЃРµС… РїСЂРѕС†РµСЃСЃРѕРІ РѕРґРЅРѕРіРѕ РґРµРїР°СЂС‚Р°РјРµРЅС‚Р° РћР‘РЇР—РђРќРђ Р±С‹С‚СЊ РёРґРµРЅС‚РёС‡РЅР°СЏ РєРѕРѕСЂРґРёРЅР°С‚Р° X, СЂР°РІРЅР°СЏ X РґРµРїР°СЂС‚Р°РјРµРЅС‚Р°.
+3. РљРѕРѕСЂРґРёРЅР°С‚Р° Y РїСЂРѕС†РµСЃСЃРѕРІ: РЅР°С‡РёРЅР°РµС‚СЃСЏ РѕС‚ Y_dept + 100 Рё СѓРІРµР»РёС‡РёРІР°РµС‚СЃСЏ СЃ С€Р°РіРѕРј 120 (80 РІС‹СЃРѕС‚Р° + 40 РѕС‚СЃС‚СѓРї).
+4. Р§Р°С‚С‹ (РµСЃР»Рё РµСЃС‚СЊ) СЂР°Р·РјРµС‰Р°Р№ РІ С‚РѕР№ Р¶Рµ РєРѕР»РѕРЅРєРµ РґРµРїР°СЂС‚Р°РјРµРЅС‚Р°, С‚Р°РєР¶Рµ РїРѕ С€Р°РіСѓ 120.
+5. РќРµ СЃРѕР·РґР°РІР°Р№ РїРµСЂРµСЃРµС‡РµРЅРёР№ СѓР·Р»РѕРІ Рё РЅРµ РґРѕР±Р°РІР»СЏР№ РЅРѕРІС‹Рµ СЃСѓС‰РЅРѕСЃС‚Рё.
+
+Р’С…РѕРґРЅС‹Рµ РґР°РЅРЅС‹Рµ:
 ${JSON.stringify(mapContext, null, 2)}
 
-Верни результат строго в формате JSON:
+РћС‚РІРµС‚ СЃС‚СЂРѕРіРѕ РІ С„РѕСЂРјР°С‚Рµ:
 {
   "layout": [
-    { "id": "uuid", "type": "process", "x": число, "y": число },
-    { "id": "uuid", "type": "department", "x": число, "y": число }
+    { "id": "uuid", "type": "department", "x": 0, "y": 120 },
+    { "id": "uuid", "type": "process", "x": 0, "y": 220 },
+    { "id": "uuid", "type": "chat", "x": 0, "y": 340 }
   ]
 }
-Обязательно верни только валидный JSON без маркдаун-оберток.`;
+
+РќРёРєР°РєРѕРіРѕ markdown, РєРѕРјРјРµРЅС‚Р°СЂРёРµРІ РёР»Рё РїРѕСЏСЃРЅРµРЅРёР№. РўРѕР»СЊРєРѕ JSON.`;
 
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
         const apiResponse = await fetchWithRetry(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            body: JSON.stringify({ contents: [{ parts: [{ text: strictPrompt }] }] })
         }, {
             fetchImpl: fetch,
             retries: 2,
@@ -1055,15 +1075,18 @@ ${JSON.stringify(mapContext, null, 2)}
         const data = await apiResponse.json();
         let aiResult = data.candidates && data.candidates[0] ? data.candidates[0].content.parts[0].text : null;
 
-        if (!aiResult) throw new Error("Empty AI response");
+        if (!aiResult) throw new Error('Empty AI response');
 
-        aiResult = aiResult.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
-        const parsed = JSON.parse(aiResult);
+        const aiPayload = aiResult.replace(/\`\`\`json/gi, '').replace(/\`\`\`/g, '').trim();
+        let parsedLayout;
+        try {
+            parsedLayout = JSON.parse(aiPayload);
+        } catch (parseError) {
+            throw new Error('AI returned non-JSON layout payload');
+        }
 
-        // Optional: Save coordinates back to DB directly or let Frontend do it via animation -> Frontend dragfree does it, or we just return it and let Frontend save it.
-        // The user spec said "Затем фронтенд применяет эти координаты с анимацией", so we return it.
-
-        res.json(parsed);
+        const validatedLayout = aiLayoutResponseSchema.parse(parsedLayout);
+        return res.json(validatedLayout);
     } catch (error) {
         logger.error(error, 'Error in AI layout');
         res.status(500).json({ error: 'AI Layout failed' });
@@ -1124,71 +1147,147 @@ app.get('/dash', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Дашборд Процессов</title>
+    <title>Дашборд процессов</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        body { margin: 0; font-family: "Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; background: #f8fafc; overflow: hidden; }
-        #cy { 
-            width: 100vw; height: 100vh; display: block; 
+        body { margin: 0; font-family: "Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; background: #f8fafc; overflow: hidden; color: #1e293b; }
+        #cy {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            z-index: 1;
             background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
             background-size: 30px 30px;
         }
-        .overlay { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.85); padding: 15px 25px; border-radius: 12px; box-shadow: 0 8px 32px rgba(15,23,42,0.08); z-index: 10; border: 1px solid rgba(226,232,240,0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-        .overlay h1 { margin: 0; font-size: 18px; color: #0f172a; font-weight: 700; }
-        .legend { position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.85); padding: 15px; border-radius: 12px; box-shadow: 0 8px 32px rgba(15,23,42,0.08); z-index: 10; font-size: 13px; border: 1px solid rgba(226,232,240,0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: #334155; pointer-events: none;}
-        .btn-controls { position: absolute; top: 20px; right: 20px; z-index: 10; display: flex; gap: 10px; align-items: center;}
-        button { padding: 8px 16px; border: none; background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(15,23,42,0.05); border: 1px solid rgba(226,232,240,0.8); font-weight: 600; color: #475569; transition: all 0.2s; }
-        button:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(15,23,42,0.08); color: #0f172a;}
-        #dash-search { padding: 8px 14px; background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(226,232,240,0.8); border-radius: 8px; outline: none; font-family: inherit; font-size: 14px; width: 220px; box-shadow: 0 4px 12px rgba(15,23,42,0.05); transition: all 0.2s;}
-        #dash-search:focus { background: #fff; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .overlay-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 100;
+            pointer-events: none;
+        }
+        .overlay-layer .overlay-interactive {
+            pointer-events: auto;
+        }
+        .overlay-panel {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 12px;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+            color: #334155;
+        }
+        .overlay-header {
+            top: 20px;
+            left: 20px;
+            padding: 15px 25px;
+        }
+        .overlay-header h1 { margin: 0; font-size: 18px; color: #0f172a; font-weight: 700; }
+        .overlay-header p { margin: 5px 0 0; font-size: 13px; color: #64748b; }
+        .btn-controls {
+            top: 20px;
+            right: 20px;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .legend {
+            bottom: 20px;
+            right: 20px;
+            padding: 15px;
+            font-size: 13px;
+            max-height: 30vh;
+            overflow-y: auto;
+        }
+        .legend h4 { margin: 0 0 12px 0; font-size: 14px; color: #1e293b; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 8px; }
+        .legend-item:last-child { margin-bottom: 0; }
+        .legend-swatch { display: inline-block; width: 16px; height: 16px; margin-right: 10px; border-radius: 4px; border: 2px solid transparent; }
+        .legend-swatch.status-approved { background-color: #ecfdf5; border-color: #10b981; }
+        .legend-swatch.status-draft { background-color: #fffbeb; border-color: #f59e0b; }
+        .legend-swatch.status-needs_revision { background-color: #fef2f2; border-color: #ef4444; }
+        .legend-swatch.status-chat { background-color: #f0f9ff; border: 2px dashed #0ea5e9; }
+        .legend-divider { margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+        button {
+            padding: 8px 16px;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+            font-weight: 600;
+            color: #475569;
+            transition: all 0.2s;
+        }
+        button:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08); color: #0f172a; }
+        button:active { transform: scale(0.98); }
+        #dash-search { padding: 8px 14px; border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 8px; outline: none; font-family: inherit; font-size: 14px; width: 220px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05); }
+        #dash-search:focus { background: #fff; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
         .side-panel {
             position: absolute;
             top: 20px;
             right: 20px;
             width: 380px;
             max-height: calc(100vh - 40px);
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border-radius: 12px;
-            box-shadow: 0 12px 40px rgba(15,23,42,0.12);
+            box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
             z-index: 100;
-            border: 1px solid rgba(226,232,240,0.8);
+            border: 1px solid rgba(226, 232, 240, 0.8);
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            transition: transform 0.25s ease, opacity 0.25s ease;
         }
-        .side-panel-header { padding: 15px 20px; border-bottom: 1px solid rgba(226,232,240,0.8); display: flex; justify-content: space-between; align-items: center; background: transparent; font-weight: bold; color: #0f172a; font-size: 16px;}
+        .side-panel.is-hidden {
+            transform: translateX(120%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .side-panel-header { padding: 15px 20px; border-bottom: 1px solid rgba(226, 232, 240, 0.8); display: flex; justify-content: space-between; align-items: center; background: transparent; font-weight: bold; color: #0f172a; font-size: 16px; }
         .side-panel-content { padding: 20px; overflow-y: auto; font-size: 14px; color: #334155; line-height: 1.5; }
-        .side-panel-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b; padding: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px;}
+        .side-panel-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b; padding: 0; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; }
         .side-panel-close:hover { color: #0f172a; background: #e2e8f0; }
-        .markdown-body { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 10px; font-family: "Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; font-size: 13px;}
+        .markdown-body { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 10px; font-family: "Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; font-size: 13px; }
         .markdown-body p { margin-top: 0; }
+        .process-detail-item { margin-bottom: 12px; }
+        .process-detail-item label { display: block; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+        .process-detail-item .value { font-size: 14px; color: #1e293b; font-weight: 600; }
     </style>
 </head>
 <body>
-    <div class="overlay"><h1>Карта Бизнес-Процессов</h1><p style="margin: 5px 0 0 0; font-size: 13px; color: #64748b;">Режим чтения</p></div>
-    <div class="btn-controls">
-        <input type="text" id="dash-search" placeholder="Поиск процессов...">
-        <button id="btn-toggle-collapse">Свернуть все</button>
-        <button id="btn-fit">По размеру экрана</button>
-        <button id="btn-zoom-in">+</button>
-        <button id="btn-zoom-out">-</button>
-    </div>
     <div id="cy"></div>
-    <div class="legend">
-        <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #1e293b;">Легенда статусов</h4>
-        <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #ecfdf5; border: 2px solid #10b981; margin-right: 10px; border-radius: 4px;"></span> Утвержден</div>
-        <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #fffbeb; border: 2px solid #f59e0b; margin-right: 10px; border-radius: 4px;"></span> Черновик</div>
-        <div style="display: flex; align-items: center; margin-bottom: 8px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #fef2f2; border: 2px solid #ef4444; margin-right: 10px; border-radius: 4px;"></span> Нужны правки</div>
-        <div style="display: flex; align-items: center; margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 10px;"><span style="display:inline-block; width: 16px; height: 16px; background-color: #f0f9ff; border: 2px dashed #0ea5e9; margin-right: 10px; border-radius: 4px;"></span> Чат</div>
+    <div class="overlay-layer">
+        <div class="overlay-panel overlay-header">
+            <h1>Карта бизнес-процессов</h1>
+            <p>Режим чтения</p>
+        </div>
+        <div class="overlay-panel btn-controls overlay-interactive">
+            <input type="text" id="dash-search" placeholder="Поиск процессов...">
+            <button id="btn-toggle-collapse">Свернуть все</button>
+            <button id="btn-fit">По размеру экрана</button>
+            <button id="btn-zoom-in">+</button>
+            <button id="btn-zoom-out">-</button>
+        </div>
+        <div class="overlay-panel legend">
+            <h4>Легенда статусов</h4>
+            <div class="legend-item"><span class="legend-swatch status-approved"></span> Утвержден</div>
+            <div class="legend-item"><span class="legend-swatch status-draft"></span> Черновик</div>
+            <div class="legend-item"><span class="legend-swatch status-needs_revision"></span> Нужны правки</div>
+            <div class="legend-item legend-divider"><span class="legend-swatch status-chat"></span> Чат</div>
+        </div>
     </div>
-    <div id="dash-side-panel" class="side-panel" style="display: none;">
+    <div id="dash-side-panel" class="side-panel is-hidden">
         <div class="side-panel-header">
             <span id="dash-panel-title">Информация</span>
-            <button id="dash-panel-close" class="side-panel-close">✖</button>
+            <button id="dash-panel-close" class="side-panel-close">✕</button>
         </div>
         <div id="dash-panel-content" class="side-panel-content"></div>
     </div>
@@ -1260,7 +1359,7 @@ app.post('/api/admin/relations', isAuthenticated, isAdmin, validateBody(relation
     try {
         const { rows } = await pool.query(
             'INSERT INTO process_relations (source_process_id, target_process_id, relation_type, is_manual) VALUES ($1, $2, $3, $4) RETURNING *',
-            [source_process_id, target_process_id, relation_type || 'Ручная связь', true]
+            [source_process_id, target_process_id, relation_type || 'Р СѓС‡РЅР°СЏ СЃРІСЏР·СЊ', true]
         );
         res.status(201).json(rows[0]);
     } catch (error) {
@@ -1348,7 +1447,7 @@ app.post('/api/admin/parse-documents', isAuthenticated, isAdmin, (req, res, next
                         if (targetId && procMap[proc.name]) {
                             await pool.query(
                                 'INSERT INTO process_relations (source_process_id, target_process_id, relation_type) VALUES ($1, $2, $3)',
-                                [procMap[proc.name], targetId, 'Связано ИИ']
+                                [procMap[proc.name], targetId, 'РЎРІСЏР·Р°РЅРѕ РР']
                             );
                         }
                     }
@@ -1386,16 +1485,16 @@ app.post('/api/admin/audit', isAuthenticated, isAdmin, async (req, res) => {
 
     try {
         const bpRes = await pool.query("SELECT name, department_id, description FROM business_processes WHERE status = 'approved'");
-        const globalContext = bpRes.rows.map(r => `Процесс: ${r.name} (Dept: ${r.department_id})\nОписание: ${r.description || 'Нет'}`).join('\n\n');
+        const globalContext = bpRes.rows.map(r => `РџСЂРѕС†РµСЃСЃ: ${r.name} (Dept: ${r.department_id})\nРћРїРёСЃР°РЅРёРµ: ${r.description || 'РќРµС‚'}`).join('\n\n');
 
-        const fullPrompt = `Ты — элитный бизнес-архитектор и ИИ аудитор. Твоя задача: провести анализ предоставленной базы утвержденных процессов согласно промпту администратора.
-БАЗА ПРОЦЕССОВ:
+        const fullPrompt = `РўС‹ вЂ” СЌР»РёС‚РЅС‹Р№ Р±РёР·РЅРµСЃ-Р°СЂС…РёС‚РµРєС‚РѕСЂ Рё РР Р°СѓРґРёС‚РѕСЂ. РўРІРѕСЏ Р·Р°РґР°С‡Р°: РїСЂРѕРІРµСЃС‚Рё Р°РЅР°Р»РёР· РїСЂРµРґРѕСЃС‚Р°РІР»РµРЅРЅРѕР№ Р±Р°Р·С‹ СѓС‚РІРµСЂР¶РґРµРЅРЅС‹С… РїСЂРѕС†РµСЃСЃРѕРІ СЃРѕРіР»Р°СЃРЅРѕ РїСЂРѕРјРїС‚Сѓ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°.
+Р‘РђР—Рђ РџР РћР¦Р•РЎРЎРћР’:
 ${globalContext}
 
-ПРОМПТ АДМИНИСТРАТОРА:
+РџР РћРњРџРў РђР”РњРРќРРЎРўР РђРўРћР Рђ:
 ${prompt}
 
-Ответь структурированно, указывая найденные проблемы или результаты согласно запросу.`;
+РћС‚РІРµС‚СЊ СЃС‚СЂСѓРєС‚СѓСЂРёСЂРѕРІР°РЅРЅРѕ, СѓРєР°Р·С‹РІР°СЏ РЅР°Р№РґРµРЅРЅС‹Рµ РїСЂРѕР±Р»РµРјС‹ РёР»Рё СЂРµР·СѓР»СЊС‚Р°С‚С‹ СЃРѕРіР»Р°СЃРЅРѕ Р·Р°РїСЂРѕСЃСѓ.`;
 
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
@@ -1411,7 +1510,7 @@ ${prompt}
         });
 
         const data = await apiResponse.json();
-        const report = data.candidates && data.candidates[0] ? data.candidates[0].content.parts[0].text : 'Ошибка аудита';
+        const report = data.candidates && data.candidates[0] ? data.candidates[0].content.parts[0].text : 'РћС€РёР±РєР° Р°СѓРґРёС‚Р°';
 
         // Save report to db
         await pool.query(
@@ -1502,13 +1601,13 @@ app.post('/api/chats/:id/validate', isAuthenticated, async (req, res) => {
         const globalContext = bpRes.rows.map(r => `${r.name} (Dept: ${r.department_id})`).join(', ');
 
         const prompt = `
-Ты интеллектуальный Copilot. Проанализируй этот бизнес-процесс на предмет логических нестыковок и нарушений, сравнивая его с глобальной картой утвержденных процессов компании.
-ГЛОБАЛЬНАЯ КАРТА: ${globalContext}
+РўС‹ РёРЅС‚РµР»Р»РµРєС‚СѓР°Р»СЊРЅС‹Р№ Copilot. РџСЂРѕР°РЅР°Р»РёР·РёСЂСѓР№ СЌС‚РѕС‚ Р±РёР·РЅРµСЃ-РїСЂРѕС†РµСЃСЃ РЅР° РїСЂРµРґРјРµС‚ Р»РѕРіРёС‡РµСЃРєРёС… РЅРµСЃС‚С‹РєРѕРІРѕРє Рё РЅР°СЂСѓС€РµРЅРёР№, СЃСЂР°РІРЅРёРІР°СЏ РµРіРѕ СЃ РіР»РѕР±Р°Р»СЊРЅРѕР№ РєР°СЂС‚РѕР№ СѓС‚РІРµСЂР¶РґРµРЅРЅС‹С… РїСЂРѕС†РµСЃСЃРѕРІ РєРѕРјРїР°РЅРёРё.
+Р“Р›РћР‘РђР›Р¬РќРђРЇ РљРђР РўРђ: ${globalContext}
 
-ТЕКУЩИЙ ПРОЦЕСС НА ПРОВЕРКЕ:
+РўР•РљРЈР©РР™ РџР РћР¦Р•РЎРЎ РќРђ РџР РћР’Р•Р РљР•:
 ${process_text}
 
-Ответь кратко, есть ли ошибки логики (например, дублирование функций или конфликт полномочий). Если все ок, напиши 'Ошибок не найдено'.
+РћС‚РІРµС‚СЊ РєСЂР°С‚РєРѕ, РµСЃС‚СЊ Р»Рё РѕС€РёР±РєРё Р»РѕРіРёРєРё (РЅР°РїСЂРёРјРµСЂ, РґСѓР±Р»РёСЂРѕРІР°РЅРёРµ С„СѓРЅРєС†РёР№ РёР»Рё РєРѕРЅС„Р»РёРєС‚ РїРѕР»РЅРѕРјРѕС‡РёР№). Р•СЃР»Рё РІСЃРµ РѕРє, РЅР°РїРёС€Рё 'РћС€РёР±РѕРє РЅРµ РЅР°Р№РґРµРЅРѕ'.
         `;
 
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
@@ -1525,7 +1624,7 @@ ${process_text}
         });
 
         const data = await apiResponse.json();
-        const analysis = data.candidates && data.candidates[0] ? data.candidates[0].content.parts[0].text : 'Ошибок не найдено';
+        const analysis = data.candidates && data.candidates[0] ? data.candidates[0].content.parts[0].text : 'РћС€РёР±РѕРє РЅРµ РЅР°Р№РґРµРЅРѕ';
 
         res.json({ analysis });
     } catch (error) {
@@ -1544,7 +1643,7 @@ async function ensureUsersExist(pool) {
                 logger.info('Admin user not found, creating it...');
                 const hashedPassword = await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD, BCRYPT_SALT_ROUNDS);
                 await pool.query(
-                    "INSERT INTO users (name, full_name, email, hashed_password, role) VALUES ('admin', 'Главный Администратор', 'admin@bizpro.ai', $1, 'admin')",
+                    "INSERT INTO users (name, full_name, email, hashed_password, role) VALUES ('admin', 'Р“Р»Р°РІРЅС‹Р№ РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ', 'admin@bizpro.ai', $1, 'admin')",
                     [hashedPassword]
                 );
                 logger.info('Admin user created.');
@@ -1615,3 +1714,7 @@ const startServer = async () => {
 };
 
 module.exports = { app, startServer, departmentSchema, chatSchema, loginSchema, ensureUsersExist };
+
+
+
+

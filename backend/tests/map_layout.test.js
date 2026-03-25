@@ -29,4 +29,32 @@ describe('structured admin map layout', () => {
         expect(byId['proc-onboarding'].y).toBeLessThan(byId['chat-candidates'].y);
         expect(byId['chat-candidates'].y).toBeLessThan(byId['chat-offers'].y);
     });
+
+    test('uses miro spacing defaults for columns and rows', () => {
+        const positions = buildStructuredLayout({
+            rootId: 'root_company',
+            departments: [
+                { id: 'dept-sales', name: 'Продажи' },
+                { id: 'dept-hr', name: 'HR' }
+            ],
+            processes: [
+                { id: 'proc-onboarding', name: 'Onboarding', departmentId: 'dept-hr' },
+                { id: 'proc-hiring', name: 'Hiring', departmentId: 'dept-hr' }
+            ],
+            chats: [
+                { id: 'chat-candidates', name: 'Candidates', departmentId: 'dept-hr' }
+            ]
+        });
+
+        const byId = Object.fromEntries(positions.map((item) => [item.id, item]));
+
+        expect(Math.abs(byId['dept-sales'].x - byId['dept-hr'].x)).toBe(300);
+        expect(byId['dept-hr'].y).toBe(120);
+
+        expect(byId['proc-hiring'].x).toBe(byId['dept-hr'].x);
+        expect(byId['proc-hiring'].y).toBe(byId['dept-hr'].y + 100);
+
+        expect(byId['proc-onboarding'].y - byId['proc-hiring'].y).toBe(120);
+        expect(byId['chat-candidates'].y - byId['proc-onboarding'].y).toBe(120);
+    });
 });

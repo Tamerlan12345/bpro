@@ -13,8 +13,8 @@ const sharedLabelNodeStyle = {
     'text-valign': 'center',
     'text-halign': 'center',
     padding: '16px',
-    'line-height': 1.25,
-    'font-family': 'system-ui, -apple-system, sans-serif'
+    'line-height': 1.6,
+    'font-family': '"Inter", "Manrope", "Segoe UI", sans-serif'
 };
 
 const ROOT_ID = 'root_company';
@@ -31,6 +31,7 @@ export const initProcessMap = async (containerId) => {
     if (!container) return;
 
     ensureTooltip();
+    ensureLegend(container);
     resetToolbarState();
 
     try {
@@ -82,7 +83,7 @@ const ensureTooltip = () => {
                 font-size: 13px;
                 line-height: 1.5;
                 pointer-events: none;
-                z-index: 9999;
+                z-index: 10;
                 backdrop-filter: blur(4px);
                 box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
                 white-space: pre-wrap;
@@ -98,6 +99,23 @@ const ensureTooltip = () => {
         tooltip.id = 'cy-tooltip';
         document.body.appendChild(tooltip);
     }
+};
+
+const ensureLegend = (container) => {
+    if (!container) return;
+    if (container.querySelector('.cy-legend')) return;
+
+    const legend = document.createElement('div');
+    legend.className = 'cy-legend';
+    legend.innerHTML = `
+        <h4>Легенда статусов</h4>
+        <div class="legend-item"><span class="badge status-approved"></span> Утвержден</div>
+        <div class="legend-item"><span class="badge status-draft"></span> Черновик</div>
+        <div class="legend-item"><span class="badge status-needs_revision"></span> Нужны правки</div>
+        <div class="legend-item chat-top-border"><span class="badge status-chat"></span> Чат (WIP)</div>
+    `;
+
+    container.appendChild(legend);
 };
 
 const resetToolbarState = () => {
@@ -376,10 +394,13 @@ const getMapStyle = () => [
             shape: 'round-rectangle',
             'background-color': '#2563eb',
             color: '#ffffff',
+            width: 280,
+            height: 100,
+            'corner-radius': 12,
             'font-weight': '600',
             'font-size': 14,
             padding: '18px',
-            'text-max-width': 210,
+            'text-max-width': 240,
             'border-width': 0,
             'transition-property': 'opacity',
             'transition-duration': '0.3s'
@@ -394,7 +415,10 @@ const getMapStyle = () => [
             'border-width': 1,
             'border-color': '#cbd5e1',
             color: '#1e293b',
-            'text-max-width': 190,
+            width: 240,
+            height: 80,
+            'corner-radius': 8,
+            'text-max-width': 200,
             'font-size': 13,
             'font-weight': '500',
             padding: '14px'
@@ -410,9 +434,13 @@ const getMapStyle = () => [
             'border-style': 'dashed',
             'border-color': '#94a3b8',
             color: '#475569',
-            'text-max-width': 170,
+            width: 240,
+            height: 80,
+            'corner-radius': 8,
+            'text-max-width': 200,
             'font-size': 12,
-            padding: '12px'
+            padding: '12px',
+            opacity: 0.8
         }
     },
     {

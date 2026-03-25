@@ -1,7 +1,8 @@
 const DEFAULT_LAYOUT_OPTIONS = {
-    departmentSpacingX: 280,
+    departmentSpacingX: 300,
     departmentStartY: 120,
-    nodeSpacingY: 85,
+    firstChildOffsetY: 100,
+    nodeStepY: 120,
     rootX: 0,
     rootY: -100
 };
@@ -50,7 +51,7 @@ export const buildStructuredLayout = (graph, options = {}) => {
                 .map((chat) => ({ ...chat, type: 'chat' }))
         ];
 
-        let currentY = settings.departmentStartY + settings.nodeSpacingY;
+        let currentY = settings.departmentStartY + settings.firstChildOffsetY;
         children.forEach((child) => {
             positions.push({
                 id: child.id,
@@ -58,7 +59,7 @@ export const buildStructuredLayout = (graph, options = {}) => {
                 x: currentX,
                 y: currentY
             });
-            currentY += settings.nodeSpacingY;
+            currentY += settings.nodeStepY;
         });
 
         currentX += settings.departmentSpacingX;
@@ -83,7 +84,7 @@ export const buildStructuredLayout = (graph, options = {}) => {
             x: currentX,
             y: floatingY
         });
-        floatingY += settings.nodeSpacingY;
+        floatingY += settings.nodeStepY;
     });
 
     return positions;

@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
             outline: none; font-family: inherit; font-size: 14px; width: 220px;
         }
         #cy-search-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
-        #diagram-container .djs-palette, #diagram-container .bjs-powered-by { display: none !important; }
+        #diagram-container .djs-palette, #diagram-container .bjs-powered-by { display: none; }
         #mermaid-editor-preview { height: 70vh; width: 100%; border: 1px solid #cbd5e1; background: #fff; }
         #cy-tooltip {
             position: absolute; display: none; background: rgba(15, 23, 42, 0.95);

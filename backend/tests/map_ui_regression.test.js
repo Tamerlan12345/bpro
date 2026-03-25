@@ -1,17 +1,18 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 
 describe('map ui regression', () => {
     const scriptPath = path.join(__dirname, '..', 'public', 'script.js');
     const dashPath = path.join(__dirname, '..', 'public', 'dash.js');
+    const moduleMapPath = path.join(__dirname, '..', 'public', 'modules', 'map.js');
     const serverPath = path.join(__dirname, '..', 'server.js');
 
     test('map node labels do not depend on emoji prefixes', () => {
         const scriptSource = fs.readFileSync(scriptPath, 'utf8');
         const dashSource = fs.readFileSync(dashPath, 'utf8');
 
-        expect(scriptSource).not.toMatch(/name:\s*['"`][🏢⚙💬]/u);
-        expect(dashSource).not.toMatch(/name:\s*['"`][🏢⚙💬]/u);
+        expect(scriptSource).not.toMatch(/name:\s*['"`][рџЏўвљ™рџ’¬]/u);
+        expect(dashSource).not.toMatch(/name:\s*['"`][рџЏўвљ™рџ’¬]/u);
     });
 
     test('map and dash use an explicit readable font stack with emoji fallback', () => {
@@ -54,4 +55,24 @@ describe('map ui regression', () => {
         expect(scriptSource).not.toContain("bpmnViewer.get('canvas').zoom('fit-viewport');");
         expect(scriptSource).not.toContain("bpmnModeler.get('canvas').zoom('fit-viewport');");
     });
+
+    test('dash and module map use miro node geometry for departments, processes and chats', () => {
+        const dashSource = fs.readFileSync(dashPath, 'utf8');
+        const mapModuleSource = fs.readFileSync(moduleMapPath, 'utf8');
+
+        expect(dashSource).toContain("width: 280");
+        expect(dashSource).toContain("height: 100");
+        expect(dashSource).toContain("width: 240");
+        expect(dashSource).toContain("height: 80");
+        expect(dashSource).toContain("'border-style': 'dashed'");
+        expect(dashSource).toContain("opacity: 0.8");
+
+        expect(mapModuleSource).toContain("width: 280");
+        expect(mapModuleSource).toContain("height: 100");
+        expect(mapModuleSource).toContain("width: 240");
+        expect(mapModuleSource).toContain("height: 80");
+        expect(mapModuleSource).toContain("'border-style': 'dashed'");
+        expect(mapModuleSource).toContain("opacity: 0.8");
+    });
 });
+
