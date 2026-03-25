@@ -193,7 +193,9 @@ if (process.env.NODE_ENV === 'test') {
 const staticOptions = {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('.html')) {
-            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
         } else if (process.env.NODE_ENV === 'production') {
             res.setHeader('Cache-Control', 'public, max-age=86400');
         }
@@ -303,8 +305,8 @@ const departmentPositionSchema = z.object({
     y: z.number().optional(),
     width: z.number().optional(),
     height: z.number().optional(),
-    color: z.string().min(1).optional()
-}).refine(
+    color: z.string().trim().min(1).max(50).optional()
+}).strict().refine(
     (body) => Object.values(body).some((value) => value !== undefined),
     { message: 'At least one field is required' }
 );
@@ -887,15 +889,21 @@ app.put('/api/chats/:id/status', isAuthenticated, validateBody(statusSchema), as
                 const chatRes = await pool.query(chatQuery, [id]);
                 if (chatRes.rows.length > 0) {
                     const chat = chatRes.rows[0];
+                    const latestVersionRes = await pool.query(
+                        'SELECT process_text FROM process_versions WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1',
+                        [id]
+                    );
+                    const latestProcessText = latestVersionRes.rows[0]?.process_text || null;
                     await pool.query(`
                         INSERT INTO business_processes (
-                            department_id, chat_id, name, status, is_ai_generated
-                        ) VALUES ($1, $2, $3, 'approved', false)
+                            department_id, chat_id, name, description, status, is_ai_generated
+                        ) VALUES ($1, $2, $3, $4, 'approved', false)
                         ON CONFLICT (chat_id) DO UPDATE SET 
                             status = 'approved',
                             department_id = EXCLUDED.department_id,
-                            name = EXCLUDED.name
-                    `, [chat.department_id, id, chat.name]);
+                            name = EXCLUDED.name,
+                            description = COALESCE(EXCLUDED.description, business_processes.description)
+                    `, [chat.department_id, id, chat.name, latestProcessText]);
                 }
             } catch (err) {
                 logger.error(err, 'Error moving chat to business_processes');

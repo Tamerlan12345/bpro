@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         #cy-tooltip {
             position: absolute; display: none; background: rgba(15, 23, 42, 0.95);
             color: #fff; padding: 12px; border-radius: 8px; font-size: 13px; line-height: 1.5;
-            pointer-events: none; z-index: 9999; backdrop-filter: blur(4px);
+            pointer-events: none; z-index: var(--z-tooltip); backdrop-filter: blur(4px);
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); white-space: pre-wrap;
             border: 1px solid rgba(255,255,255,0.1);
         }
@@ -185,7 +185,10 @@ document.addEventListener('DOMContentLoaded', () => {
         notification.className = `notification ${type}`;
         notification.textContent = message;
         notificationContainer.appendChild(notification);
-        setTimeout(() => notification.remove(), 5000);
+        setTimeout(() => {
+            notification.classList.add('fading-out');
+            setTimeout(() => notification.remove(), 350);
+        }, 4600);
     }
 
     async function fetchCsrfToken() {
@@ -391,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function downloadDiagram(format) {
         if (!bpmnViewer) {
-            alert("Сначала сгенерируйте схему.");
+            showNotification("Сначала сгенерируйте схему.", "error");
             return;
         }
         if (format === 'svg') {
@@ -2840,7 +2843,7 @@ ${brokenCode}
                         contextMenu.style.display = 'block';
                         contextMenu.style.left = event.renderedPosition.x + 'px';
                         contextMenu.style.top = event.renderedPosition.y + 'px';
-                        contextMenu.innerHTML = `<button id="ctx-add-dept" class="button-secondary" style="border: none; background: transparent; cursor: pointer; padding: 5px 10px; width: 100%; text-align: left;">➕ Добавить департамент</button>`;
+                        contextMenu.innerHTML = `<button id="ctx-add-dept" class="context-menu-action">➕ Добавить департамент</button>`;
 
                         document.getElementById('ctx-add-dept').onclick = async () => {
                             contextMenu.style.display = 'none';

@@ -152,7 +152,7 @@
                             <div id="chat-list-container">
                                 <h4 id="chat-list-header">Чаты</h4>
                                 <div id="chat-list"></div>
-                                <form id="create-chat-form" style="display: none;" onsubmit="event.preventDefault();">
+                                <form id="create-chat-form" class="hidden" onsubmit="event.preventDefault();">
                                     <h5>Создать новый чат для <span id="selected-department-name"></span></h5>
                                     <input type="text" id="new-chat-name" placeholder="Название чата" autocomplete="name">
                                     <input type="password" id="new-chat-password" placeholder="Пароль чата"
@@ -198,8 +198,7 @@
 
                     <div id="cy-container" class="cy-container" style="position: relative; overflow: hidden; height: 75vh;">
                         <div id="cy" style="width: 100%; height: 100%;"></div>
-                        <div id="cy-context-menu" class="context-menu"
-                            style="display: none; position: absolute; z-index: 1000; background: white; border: 1px solid #ccc; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); border-radius: 4px; padding: 5px;">
+                        <div id="cy-context-menu" class="context-menu hidden">
                         </div>
                         <div class="cy-toolbar">
                             <button id="cy-zoom-in" title="Приблизить">+</button>
@@ -280,16 +279,16 @@
 
     <div class="container hidden">
         <header>
-            <button id="back-to-admin-btn" style="display: none;">← Назад в админ-панель</button>
+            <button id="back-to-admin-btn" class="hidden">← Назад в админ-панель</button>
             <h1 id="chat-name-header">BizMap AI Agent</h1>
             <p>Опишите ваш бизнес-процесс, и ИИ построит схему и предложит улучшения.</p>
             <div id="action-buttons">
                 <button id="save-version-btn" class="button-primary">Сохранить с ИИ</button>
                 <button id="save-raw-version-btn" class="button-secondary">Сохранить без ИИ</button>
                 <button id="send-review-btn" class="button-primary">Отправить на проверку</button>
-                <button id="send-revision-btn" style="display: none;">Вернуть на доработку</button>
-                <button id="complete-btn" style="display: none;">Завершить</button>
-                <button id="archive-btn" style="display: none;">Архивировать</button>
+                <button id="send-revision-btn" class="hidden">Вернуть на доработку</button>
+                <button id="complete-btn" class="hidden">Завершить</button>
+                <button id="archive-btn" class="hidden">Архивировать</button>
             </div>
         </header>
 
@@ -300,16 +299,16 @@
 
                     <div class="audio-recorder-block">
                         <button id="start-record-btn" class="button-secondary">🎙️ Начать запись</button>
-                        <button id="stop-record-btn" class="button-secondary" style="display: none;">⏹️ Остановить
+                        <button id="stop-record-btn" class="button-secondary hidden">⏹️ Остановить
                             запись</button>
-                        <button id="listen-btn" class="button-secondary" style="display: none;">🎧 Прослушать</button>
-                        <button id="process-btn" class="button-primary" style="display: none;">Обработать</button>
-                        <button id="rerecord-btn" class="button-secondary" style="display: none;">🔄
+                        <button id="listen-btn" class="button-secondary hidden">🎧 Прослушать</button>
+                        <button id="process-btn" class="button-primary hidden">Обработать</button>
+                        <button id="rerecord-btn" class="button-secondary hidden">🔄
                             Перезаписать</button>
-                        <span id="recording-indicator" style="display: none;">🔴 Идет запись... <span
+                        <span id="recording-indicator" class="hidden">🔴 Идет запись... <span
                                 id="recording-timer">00:00</span></span>
-                        <span id="transcription-timer"
-                            style="display: none; margin-left: 10px; font-style: italic; color: #555;"></span>
+                        <span id="transcription-timer" class="hidden"
+                            style="margin-left: 10px; font-style: italic; color: #555;"></span>
                         <audio id="audio-playback" controls class="audio-playback"></audio>
                     </div>
 
@@ -369,8 +368,8 @@
                     <div id="diagram-toolbar" class="diagram-toolbar hidden">
                         <button id="regenerate-diagram-btn" title="Перегенерировать схему"
                             aria-label="Перегенерировать схему">Перегенерировать</button>
-                        <button id="edit-diagram-btn" title="Редактировать схему" aria-label="Редактировать схему"
-                            style="display: none;">✏️ Редактировать</button>
+                            <button id="edit-diagram-btn" title="Редактировать схему" aria-label="Редактировать схему"
+                                class="hidden">✏️ Редактировать</button>
                         <button id="zoom-in-btn" title="Приблизить" aria-label="Приблизить">+</button>
                         <button id="zoom-out-btn" title="Отдалить" aria-label="Отдалить">-</button>
                         <button id="download-png-btn" title="Скачать PNG" aria-label="Скачать PNG">PNG</button>
@@ -393,7 +392,7 @@
             <div class="right-column">
                 <div class="suggestions-block">
                     <h3>2. Выберите улучшения</h3>
-                    <div id="suggestions-controls" class="suggestions-controls" style="display: none;">
+                    <div id="suggestions-controls" class="suggestions-controls hidden">
                         <div class="select-all-wrapper">
                             <input type="checkbox" id="select-all-checkbox">
                             <label for="select-all-checkbox">Выбрать все</label>
@@ -449,7 +448,7 @@
                 <button id="save-transcription-progress-btn" class="button-secondary">Сохранить черновик</button>
                 <button id="finalize-transcription-btn" class="button-primary">Финализировать текст</button>
             </div>
-            <div id="transcription-finalized-view" style="display: none;">
+            <div id="transcription-finalized-view" class="hidden">
                 <h4>Текст финализирован</h4>
                 <div class="finalized-text-display"></div>
             </div>
@@ -497,7 +496,7 @@
             <div class="modal-buttons">
                 <button id="run-global-audit-btn" class="button-primary">Запустить аудит</button>
             </div>
-            <div id="global-audit-result-area" style="display: none; margin-top: 20px;">
+                <div id="global-audit-result-area" class="hidden" style="margin-top: 20px;">
                 <h3>Результаты аудита</h3>
                 <div id="global-audit-text" class="audit-report"></div>
             </div>

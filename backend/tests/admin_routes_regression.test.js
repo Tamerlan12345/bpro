@@ -91,6 +91,20 @@ describe('admin routes regression coverage', () => {
         expect(mockQuery).toHaveBeenCalledTimes(1);
     });
 
+    test('rejects department position payload with unknown fields', async () => {
+        const agent = request.agent(app);
+        const csrfToken = await loginAsAdmin(agent);
+
+        const response = await agent
+            .put('/api/admin/departments/dept-1/position')
+            .set('CSRF-Token', csrfToken)
+            .send({ x: 10, y: 20, unexpected: true });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toBe('Validation Error');
+        expect(mockQuery).toHaveBeenCalledTimes(1);
+    });
+
     test('rejects invalid relation payload before insert', async () => {
         const agent = request.agent(app);
         const csrfToken = await loginAsAdmin(agent);

@@ -3,11 +3,11 @@
 /* --- Global Variables & Resets --- */
 :root {
     /* Cobalt Precision - Premium Palette */
-    --primary-color: #2563eb;
+    --primary-color: #3b82f6;
     /* Cobalt 600 */
     --primary-hover-color: #1d4ed8;
     /* Cobalt 700 */
-    --primary-active-color: #1e3a8a;
+    --primary-active-color: #1e40af;
     /* Cobalt 900 */
 
     --secondary-color: #64748b;
@@ -26,9 +26,9 @@
     --border-color: #e2e8f0;
     /* Slate 200 */
 
-    --text-color: #0f172a;
+    --text-color: #1e293b;
     /* Slate 900 */
-    --text-muted-color: #64748b;
+    --text-muted-color: #475569;
     /* Slate 500 */
 
     /* Semantic Colors */
@@ -44,7 +44,7 @@
     --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.15), 0 8px 10px -6px rgb(0 0 0 / 0.1);
     --shadow-premium: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 
-    --focus-ring-color: rgba(37, 99, 235, 0.2);
+    --focus-ring-color: rgba(59, 130, 246, 0.28);
     --bg-primary-light: #eff6ff;
     --bg-surface-secondary: #f1f5f9;
 
@@ -81,8 +81,10 @@
     --z-fab: 10;
     --z-drawer: 20;
     --z-header: 30;
-    --z-modal: 100;
-    --z-tooltip: 1000;
+    --z-notification: 80;
+    --z-modal: 90;
+    --z-context-menu: 100;
+    --z-tooltip: 110;
 }
 
 .glass {
@@ -94,7 +96,7 @@
 }
 
 .hidden {
-    display: none !important;
+    display: none;
 }
 
 body {
@@ -407,6 +409,10 @@ button {
     gap: var(--space-sm);
     user-select: none;
     line-height: 1.25;
+}
+
+button:active:not(:disabled) {
+    transform: scale(0.98);
 }
 
 button.button-primary {
@@ -814,9 +820,9 @@ p.error-message {
 }
 
 .premium-modal {
-    border: none !important;
+    border: none;
     overflow: hidden;
-    box-shadow: var(--shadow-lg) !important;
+    box-shadow: var(--shadow-lg);
 }
 
 /* --- Toggle Switch Styling --- */
@@ -1202,7 +1208,7 @@ input:checked+.slider:before {
     position: fixed;
     top: var(--space-lg);
     right: var(--space-lg);
-    z-index: 1050;
+    z-index: var(--z-notification);
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
@@ -1231,6 +1237,10 @@ input:checked+.slider:before {
 
 .notification.error {
     background-color: var(--color-danger);
+}
+
+.notification.fading-out {
+    animation: fadeOut 0.35s ease forwards;
 }
 
 @keyframes slideIn {
@@ -1836,7 +1846,7 @@ input:checked+.slider:before {
     left: 20px;
     display: flex;
     gap: 8px;
-    z-index: 10;
+    z-index: var(--z-fab);
 }
 
 .cy-toolbar button {
@@ -1863,13 +1873,39 @@ input:checked+.slider:before {
     right: 20px;
     width: 380px;
     bottom: 20px;
-    z-index: 20;
+    z-index: var(--z-drawer);
     display: flex;
     flex-direction: column;
     padding: var(--space-xl);
     border-radius: var(--radius-xl);
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
     border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.context-menu {
+    position: absolute;
+    background: var(--white-color);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+    border-radius: var(--radius-sm);
+    padding: 5px;
+    min-width: 180px;
+    z-index: var(--z-context-menu);
+}
+
+.context-menu-action {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 6px 10px;
+    width: 100%;
+    text-align: left;
+    border-radius: var(--radius-sm);
+}
+
+.context-menu-action:hover {
+    background: var(--bg-primary-light);
+    color: var(--primary-color);
 }
 
 .side-panel.hidden {
@@ -1988,4 +2024,4 @@ input:checked+.slider:before {
     background: #fff;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px var(--focus-ring-color);
-}
+}
