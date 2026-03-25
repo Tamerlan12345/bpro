@@ -553,7 +553,7 @@ ${brokenCode}
             const user = await response.json();
             sessionUser = user;
             userError.textContent = '';
-            logoutBtn.style.display = 'block';
+            showSection(logoutBtn, 'inline-flex');
 
             if (sessionUser.role === 'admin') {
                 hideSection(loginContainer);
@@ -718,7 +718,7 @@ ${brokenCode}
             const data = await response.json();
             if (data.user) {
                 sessionUser = data.user;
-                logoutBtn.style.display = 'block';
+                showSection(logoutBtn, 'inline-flex');
                 authWrapper.style.display = 'flex'; // Keep the wrapper visible
                 if (sessionUser.role === 'admin') {
                     hideSection(loginContainer);
