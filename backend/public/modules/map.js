@@ -12,14 +12,18 @@ const sharedLabelNodeStyle = {
     'text-overflow-wrap': 'anywhere',
     'text-valign': 'center',
     'text-halign': 'center',
-    width: 'label',
-    height: 'label',
     padding: '16px',
     'line-height': 1.25,
     'font-family': 'system-ui, -apple-system, sans-serif'
 };
 
 const ROOT_ID = 'root_company';
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 const ROOT_LABEL = 'Бизнес-процессы АО СК Сентрас Иншуранс';
 
 export const initProcessMap = async (containerId) => {
@@ -114,7 +118,7 @@ const buildElements = (data) => {
         elements.push({
             data: {
                 id: `dept_${dept.id}`,
-                name: `🏢 ${dept.name}`,
+                name: dept.name,
                 rawName: dept.name,
                 type: 'department',
                 collapsed: false
@@ -136,7 +140,7 @@ const buildElements = (data) => {
         elements.push({
             data: {
                 id: `proc_${proc.id}`,
-                name: `⚙️ ${proc.name}`,
+                name: proc.name,
                 rawName: proc.name,
                 description: proc.description,
                 goal: proc.goal,
@@ -163,7 +167,7 @@ const buildElements = (data) => {
         elements.push({
             data: {
                 id: `chat_${chat.id}`,
-                name: `💬 ${chat.name}`,
+                name: chat.name,
                 rawName: chat.name,
                 description: chat.description,
                 status: chat.status,
@@ -493,6 +497,7 @@ const setupInteractions = () => {
         const stats = { approved: 0, draft: 0, needs_revision: 0, pending_review: 0 };
         let processes = 0;
         let chats = 0;
+        const safeRawName = escapeHtml(node.data('rawName'));
 
         outgoers.forEach((child) => {
             if (child.hasClass('process')) processes += 1;
@@ -504,7 +509,7 @@ const setupInteractions = () => {
             }
         });
 
-        tooltip.innerHTML = `<strong>🏢 ${node.data('rawName')}</strong>\n\n📊 <b>Всего процессов:</b> ${processes}\n💬 <b>Всего чатов:</b> ${chats}\n\n✅ Утвержденных: ${stats.approved}\n📝 Черновиков: ${stats.draft}\n⏳ На проверке: ${stats.pending_review}\n❌ Нужны правки: ${stats.needs_revision}`;
+        tooltip.innerHTML = `<strong>🏢 ${safeRawName}</strong>\n\n📊 <b>Всего процессов:</b> ${processes}\n💬 <b>Всего чатов:</b> ${chats}\n\n✅ Утвержденных: ${stats.approved}\n📝 Черновиков: ${stats.draft}\n⏳ На проверке: ${stats.pending_review}\n❌ Нужны правки: ${stats.needs_revision}`;
         tooltip.style.display = 'block';
     });
 
@@ -676,7 +681,12 @@ const showSidePanel = (data) => {
     }
 
     const desc = data.description || 'Описание отсутствует';
-    const htmlDesc = typeof marked !== 'undefined' ? marked.parse(desc) : desc;
+    const safeName = escapeHtml(data.rawName || data.name);
+    const safeStatusClass = escapeHtml(data.status || '');
+    const safeStatusLabel = escapeHtml(statusLabels[data.status] || data.status || 'Не указан');
+    const safeGoal = data.goal ? escapeHtml(data.goal) : '';
+    const safeDescription = escapeHtml(desc);
+    const htmlDesc = typeof marked !== 'undefined' ? marked.parse(safeDescription) : safeDescription;
 
     content.innerHTML = `
         <div class="process-detail-item">
@@ -685,13 +695,13 @@ const showSidePanel = (data) => {
         </div>
         <div class="process-detail-item">
             <label>Название</label>
-            <div class="value">${data.rawName || data.name}</div>
+            <div class="value">${safeName}</div>
         </div>
         <div class="process-detail-item">
             <label>Статус</label>
-            <div><span class="status-badge ${data.status}">${statusLabels[data.status] || data.status || 'Не указан'}</span></div>
+            <div><span class="status-badge ${safeStatusClass}">${safeStatusLabel}</span></div>
         </div>
-        ${data.goal ? `<div class="process-detail-item"><label>Цель</label><div class="value" style="font-weight: 400; font-size: 14px;">${data.goal}</div></div>` : ''}
+        ${data.goal ? `<div class="process-detail-item"><label>Цель</label><div class="value" style="font-weight: 400; font-size: 14px;">${safeGoal}</div></div>` : ''}
         <div class="process-detail-item">
             <label>Описание</label>
             <div class="markdown-body" style="margin-top: 10px;">${htmlDesc}</div>

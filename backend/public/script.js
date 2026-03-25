@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL = '/api/generate';
 
     let csrfToken = null;
+    let csrfTokenPromise = null;
     let mediaRecorder;
     let audioChunks = [];
     let audioBlob = null; // To store the final audio blob
@@ -189,18 +190,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchCsrfToken() {
         try {
-            const response = await fetch('/api/csrf-token');
+            const response = await fetch('/api/csrf-token', { credentials: 'include' });
             if (response.ok) {
                 const data = await response.json();
                 csrfToken = data.csrfToken;
+                return csrfToken;
             }
         } catch (error) {
             console.error('Error fetching CSRF token:', error);
         }
+        return null;
+    }
+
+    async function ensureCsrfToken() {
+        if (csrfToken) {
+            return csrfToken;
+        }
+
+        if (!csrfTokenPromise) {
+            csrfTokenPromise = fetchCsrfToken().finally(() => {
+                csrfTokenPromise = null;
+            });
+        }
+
+        return csrfTokenPromise;
     }
 
     async function fetchWithAuth(url, options = {}) {
         const finalOptions = { ...options, credentials: 'include' };
+
+        if (finalOptions.method && finalOptions.method.toUpperCase() !== 'GET') {
+            await ensureCsrfToken();
+        }
 
         if (csrfToken && finalOptions.method && finalOptions.method.toUpperCase() !== 'GET') {
             finalOptions.headers = {

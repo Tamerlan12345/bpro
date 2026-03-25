@@ -298,6 +298,23 @@ const positionSchema = z.object({
     y: z.number()
 });
 
+const departmentPositionSchema = z.object({
+    x: z.number().optional(),
+    y: z.number().optional(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    color: z.string().min(1).optional()
+}).refine(
+    (body) => Object.values(body).some((value) => value !== undefined),
+    { message: 'At least one field is required' }
+);
+
+const relationSchema = z.object({
+    source_process_id: z.string().min(1),
+    target_process_id: z.string().min(1),
+    relation_type: z.string().min(1).optional()
+});
+
 const authChatSchema = z.object({
     department_id: z.string().uuid().or(z.string()),
     name: z.string().min(1),
@@ -1180,7 +1197,7 @@ app.put('/api/admin/processes/:id/position', isAuthenticated, isAdmin, validateB
     }
 });
 
-app.put('/api/admin/departments/:id/position', isAuthenticated, isAdmin, async (req, res) => {
+app.put('/api/admin/departments/:id/position', isAuthenticated, isAdmin, validateBody(departmentPositionSchema), async (req, res) => {
     const { id } = req.params;
     const { x, y, width, height, color } = req.body;
     try {
@@ -1221,9 +1238,8 @@ app.put('/api/admin/chats/:id/position', isAuthenticated, isAdmin, validateBody(
     }
 });
 
-app.post('/api/admin/relations', isAuthenticated, isAdmin, async (req, res) => {
+app.post('/api/admin/relations', isAuthenticated, isAdmin, validateBody(relationSchema), async (req, res) => {
     const { source_process_id, target_process_id, relation_type } = req.body;
-    if (!source_process_id || !target_process_id) return res.status(400).json({ error: 'Source and target process IDs are required' });
     try {
         const { rows } = await pool.query(
             'INSERT INTO process_relations (source_process_id, target_process_id, relation_type, is_manual) VALUES ($1, $2, $3, $4) RETURNING *',
@@ -1239,7 +1255,10 @@ app.post('/api/admin/relations', isAuthenticated, isAdmin, async (req, res) => {
 app.delete('/api/admin/processes/:id', isAuthenticated, isAdmin, async (req, res) => {
     const { id } = req.params;
     try {
-        await pool.query('DELETE FROM business_processes WHERE id = $1', [id]);
+        const { rowCount } = await pool.query('DELETE FROM business_processes WHERE id = $1', [id]);
+        if (rowCount === 0) {
+            return res.status(404).json({ error: 'Process not found' });
+        }
         res.json({ success: true });
     } catch (error) {
         logger.error(error, `Error deleting process ${id}`);
@@ -1252,7 +1271,10 @@ app.delete('/api/admin/departments/:id', isAuthenticated, isAdmin, async (req, r
     try {
         // Find if there are processes tied to this department. 
         // business_processes has ON DELETE SET NULL, but we might want to check or just let it happen.
-        await pool.query('DELETE FROM departments WHERE id = $1', [id]);
+        const { rowCount } = await pool.query('DELETE FROM departments WHERE id = $1', [id]);
+        if (rowCount === 0) {
+            return res.status(404).json({ error: 'Department not found' });
+        }
         res.json({ success: true });
     } catch (error) {
         logger.error(error, `Error deleting department ${id}`);

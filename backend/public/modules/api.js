@@ -4,7 +4,13 @@
 import State from './state.js';
 import { showNotification } from './ui.js';
 
+let csrfTokenPromise = null;
+
 export const apiFetch = async (url, options = {}) => {
+    if (options.method && options.method.toUpperCase() !== 'GET') {
+        await ensureCsrfToken();
+    }
+
     const defaultHeaders = {
         'Content-Type': 'application/json',
         'X-CSRF-Token': State.csrfToken
@@ -36,7 +42,7 @@ export const apiFetch = async (url, options = {}) => {
 
 export const fetchCsrfToken = async () => {
     try {
-        const response = await fetch('/api/csrf-token');
+        const response = await fetch('/api/csrf-token', { credentials: 'include' });
         if (response.ok) {
             const data = await response.json();
             State.csrfToken = data.csrfToken;
@@ -46,6 +52,20 @@ export const fetchCsrfToken = async () => {
         console.error('Error fetching CSRF token:', error);
     }
     return null;
+};
+
+export const ensureCsrfToken = async () => {
+    if (State.csrfToken) {
+        return State.csrfToken;
+    }
+
+    if (!csrfTokenPromise) {
+        csrfTokenPromise = fetchCsrfToken().finally(() => {
+            csrfTokenPromise = null;
+        });
+    }
+
+    return csrfTokenPromise;
 };
 
 export const checkSession = () => apiFetch('/api/auth/session', { silent: true });
