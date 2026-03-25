@@ -1983,6 +1983,7 @@ input:checked+.slider:before {
     z-index: var(--z-controls);
     font-size: 13px;
     color: var(--text-color);
+    pointer-events: none;
 }
 
 .cy-legend h4 {
@@ -2024,6 +2025,43 @@ input:checked+.slider:before {
     background: #fff;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px var(--focus-ring-color);
+}
+
+#cy-container .cy-toolbar {
+    top: 16px;
+    left: 16px;
+    right: auto;
+    bottom: auto;
+    width: min(720px, calc(100% - 32px));
+    max-height: calc(100% - 32px);
+    overflow: auto;
+    align-content: flex-start;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 10px;
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(226, 232, 240, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-md);
+}
+
+#cy-container .cy-toolbar button {
+    flex: 0 0 auto;
+    height: 36px;
+    min-width: 36px;
+    padding: 0 12px;
+}
+
+#cy-container .cy-toolbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+#cy-container .cy-toolbar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.8);
+    border-radius: 999px;
 }
 
 
