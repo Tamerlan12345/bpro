@@ -202,6 +202,15 @@ const staticOptions = {
     }
 };
 
+app.use((req, res, next) => {
+    if (req.method === 'GET' && (req.path === '/' || req.path.endsWith('.html'))) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
+    next();
+});
+
 app.use(express.static(path.join(__dirname, 'public'), staticOptions));
 app.use('/api', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -301,10 +310,10 @@ const positionSchema = z.object({
 });
 
 const departmentPositionSchema = z.object({
-    x: z.number().optional(),
-    y: z.number().optional(),
-    width: z.number().optional(),
-    height: z.number().optional(),
+    x: z.number().min(0).optional(),
+    y: z.number().min(0).optional(),
+    width: z.number().min(0).optional(),
+    height: z.number().min(0).optional(),
     color: z.string().trim().min(1).max(50).optional()
 }).strict().refine(
     (body) => Object.values(body).some((value) => value !== undefined),

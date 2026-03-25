@@ -27,15 +27,20 @@ describe('ui polish regression', () => {
         };
 
         const notification = tokenValue('z-notification');
+        const sidePanel = tokenValue('z-side-panel');
         const modal = tokenValue('z-modal');
         const contextMenu = tokenValue('z-context-menu');
 
         expect(notification).not.toBeNull();
+        expect(sidePanel).not.toBeNull();
         expect(modal).not.toBeNull();
         expect(contextMenu).not.toBeNull();
+        expect(sidePanel).toBeGreaterThan(notification);
+        expect(modal).toBeGreaterThan(sidePanel);
         expect(modal).toBeGreaterThan(notification);
         expect(contextMenu).toBeGreaterThan(modal);
         expect(styleSource).toContain('z-index: var(--z-notification);');
+        expect(styleSource).toContain('z-index: var(--z-side-panel);');
     });
 
     test('avoids inline display none in index bootstrap markup', () => {

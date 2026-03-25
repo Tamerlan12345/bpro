@@ -38,6 +38,13 @@ describe('Static Asset Caching', () => {
         expect(res.headers.expires).toBe('0');
     });
 
+    it('should disable caching headers for the root document request', async () => {
+        const res = await request(app).get('/');
+        expect(res.headers['cache-control']).toBe('no-store, no-cache, must-revalidate');
+        expect(res.headers.pragma).toBe('no-cache');
+        expect(res.headers.expires).toBe('0');
+    });
+
     it('should set Cache-Control: public, max-age=86400 for JS files in production', async () => {
         // Simulate production environment
         process.env.NODE_ENV = 'production';

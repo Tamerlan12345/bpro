@@ -81,7 +81,8 @@
     --z-fab: 10;
     --z-drawer: 20;
     --z-header: 30;
-    --z-notification: 80;
+    --z-notification: 70;
+    --z-side-panel: 85;
     --z-modal: 90;
     --z-context-menu: 100;
     --z-tooltip: 110;
@@ -1873,7 +1874,7 @@ input:checked+.slider:before {
     right: 20px;
     width: 380px;
     bottom: 20px;
-    z-index: var(--z-drawer);
+    z-index: var(--z-side-panel);
     display: flex;
     flex-direction: column;
     padding: var(--space-xl);
