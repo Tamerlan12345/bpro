@@ -2272,127 +2272,92 @@ ${brokenCode}
                     tooltip.style.display = 'none';
                 });
 
-                let toggleChatsMapBtn = document.getElementById('cy-toggle-chats');
-                if (!toggleChatsMapBtn) {
-                    const tb = document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
-                    if (tb) {
-                        toggleChatsMapBtn = document.createElement('button');
-                        toggleChatsMapBtn.id = 'cy-toggle-chats';
-                        toggleChatsMapBtn.className = 'button-secondary';
-                        toggleChatsMapBtn.style.marginLeft = '10px';
-                        toggleChatsMapBtn.innerText = 'Скрыть чаты';
-                        tb.appendChild(toggleChatsMapBtn);
+                const toggleChatsMapBtn = document.createElement('button');
+                toggleChatsMapBtn.id = 'cy-toggle-chats';
+                toggleChatsMapBtn.className = 'button-secondary';
+                toggleChatsMapBtn.innerText = 'Скрыть чаты';
+                document.querySelector('.map-controls').appendChild(toggleChatsMapBtn);
 
-                        let chatsVisible = true;
-                        toggleChatsMapBtn.onclick = () => {
-                            chatsVisible = !chatsVisible;
-                            toggleChatsMapBtn.innerText = chatsVisible ? 'Скрыть чаты' : 'Показать чаты';
-                            if (cy) {
-                                cy.elements('.chat').style('display', chatsVisible ? 'element' : 'none');
-                                cy.elements('.chat-edge').style('display', chatsVisible ? 'element' : 'none');
-                            }
-                        };
+                let chatsVisible = true;
+                toggleChatsMapBtn.onclick = () => {
+                    chatsVisible = !chatsVisible;
+                    toggleChatsMapBtn.innerText = chatsVisible ? 'Скрыть чаты' : 'Показать чаты';
+                    if (cy) {
+                        cy.elements('.chat').style('display', chatsVisible ? 'element' : 'none');
+                        cy.elements('.chat-edge').style('display', chatsVisible ? 'element' : 'none');
                     }
-                }
+                };
 
-                let searchInput = document.getElementById('cy-search-input');
-                if (!searchInput) {
-                    const tb = document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
-                    if (tb) {
-                        searchInput = document.createElement('input');
-                        searchInput.id = 'cy-search-input';
-                        searchInput.type = 'text';
-                        searchInput.placeholder = '🔍 Поиск процессов...';
-                        searchInput.style.marginLeft = '10px';
-                        tb.appendChild(searchInput);
-
-                        searchInput.addEventListener('input', (e) => {
-                            const val = e.target.value.toLowerCase();
-                            if (!val) {
-                                cy.nodes().style('opacity', 1);
-                                cy.edges().style('opacity', 1);
-                                return;
+                const searchInput = document.getElementById('admin-map-search');
+                if (searchInput) {
+                    searchInput.addEventListener('input', (e) => {
+                        const val = e.target.value.toLowerCase();
+                        if (!val) {
+                            cy.nodes().style('opacity', 1);
+                            cy.edges().style('opacity', 1);
+                            return;
+                        }
+                        cy.nodes().forEach(n => {
+                            const name = n.data('rawName') || n.data('name') || '';
+                            if (name.toLowerCase().includes(val) || n.id() === 'root_centras') {
+                                n.style('opacity', 1);
+                            } else {
+                                n.style('opacity', 0.15);
                             }
-                            cy.nodes().forEach(n => {
-                                const name = n.data('rawName') || n.data('name') || '';
-                                if (name.toLowerCase().includes(val) || n.id() === 'root_centras') {
-                                    n.style('opacity', 1);
-                                } else {
-                                    n.style('opacity', 0.15);
-                                }
-                            });
-                            cy.edges().style('opacity', 0.15); // Затухание связей при поиске
                         });
-                    }
+                        cy.edges().style('opacity', 0.15);
+                    });
                 }
 
                 let exportPngBtn = document.getElementById('cy-export-png');
                 if (!exportPngBtn) {
-                    const tb = document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
-                    if (tb) {
-                        exportPngBtn = document.createElement('button');
-                        exportPngBtn.id = 'cy-export-png';
-                        exportPngBtn.className = 'button-secondary';
-                        exportPngBtn.style.marginLeft = '10px';
-                        exportPngBtn.innerHTML = '🖼️ Экспорт PNG';
-                        tb.appendChild(exportPngBtn);
+                    exportPngBtn = document.createElement('button');
+                    exportPngBtn.id = 'cy-export-png';
+                    exportPngBtn.className = 'button-secondary';
+                    exportPngBtn.innerHTML = '🖼️ Экспорт PNG';
+                    document.querySelector('.map-controls').appendChild(exportPngBtn);
 
-                        exportPngBtn.onclick = () => {
-                            const png64 = cy.png({ bg: '#f8fafc', full: true, scale: 2 });
-                            const a = document.createElement('a');
-                            a.href = png64;
-                            a.download = 'Карта_Процессов.png';
-                            a.click();
-                        };
-                    }
+                    exportPngBtn.onclick = () => {
+                        const png64 = cy.png({ bg: '#f8fafc', full: true, scale: 2 });
+                        const a = document.createElement('a');
+                        a.href = png64;
+                        a.download = 'Карта_Процессов.png';
+                        a.click();
+                    };
                 }
 
                 let shareBoardBtn = document.getElementById('cy-share-board');
                 if (!shareBoardBtn) {
-                    const tb = document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
-                    if (tb) {
-                        shareBoardBtn = document.createElement('button');
-                        shareBoardBtn.id = 'cy-share-board';
-                        shareBoardBtn.className = 'button-primary';
-                        shareBoardBtn.style.marginLeft = '10px';
-                        shareBoardBtn.innerHTML = '🔗 Поделиться дашбордом';
-                        tb.appendChild(shareBoardBtn);
+                    shareBoardBtn = document.createElement('button');
+                    shareBoardBtn.id = 'cy-share-board';
+                    shareBoardBtn.className = 'button-primary';
+                    shareBoardBtn.innerHTML = '🔗 Поделиться дашбордом';
+                    document.querySelector('.map-controls').appendChild(shareBoardBtn);
 
-                        shareBoardBtn.onclick = () => {
-                            const shareUrl = window.location.origin + '/dash';
-                            navigator.clipboard.writeText(shareUrl).then(() => showNotification('Ссылка на дашборд скопирована!', 'success'));
-                            window.open(shareUrl, '_blank');
-                        };
-                    }
+                    shareBoardBtn.onclick = () => {
+                        const shareUrl = window.location.origin + '/dash';
+                        navigator.clipboard.writeText(shareUrl).then(() => showNotification('Ссылка на дашборд скопирована!', 'success'));
+                        window.open(shareUrl, '_blank');
+                    };
                 }
 
-                let toggleCollapseBtn = document.getElementById('cy-toggle-collapse');
-                if (!toggleCollapseBtn) {
-                    const tb = document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
-                    if (tb) {
-                        toggleCollapseBtn = document.createElement('button');
-                        toggleCollapseBtn.id = 'cy-toggle-collapse';
-                        toggleCollapseBtn.className = 'button-secondary';
-                        toggleCollapseBtn.style.marginLeft = '10px';
-                        toggleCollapseBtn.innerText = 'Свернуть все';
-                        tb.appendChild(toggleCollapseBtn);
-
-                        let isAllCollapsed = false;
-                        toggleCollapseBtn.onclick = () => {
-                            isAllCollapsed = !isAllCollapsed;
-                            toggleCollapseBtn.innerText = isAllCollapsed ? 'Развернуть все' : 'Свернуть все';
-                            if (cy) {
-                                cy.nodes('.department').forEach(deptNode => {
-                                    const outEdges = deptNode.outgoers('edge.dept-edge');
-                                    const childNodes = outEdges.targets();
-                                    childNodes.style('display', isAllCollapsed ? 'none' : 'element');
-                                    outEdges.style('display', isAllCollapsed ? 'none' : 'element');
-                                    deptNode.data('collapsed', isAllCollapsed);
-                                    deptNode.style('opacity', isAllCollapsed ? 0.6 : 1);
-                                });
-                            }
-                        };
-                    }
+                const toggleCollapseBtn = document.getElementById('btn-toggle-collapse');
+                if (toggleCollapseBtn) {
+                    let isAllCollapsed = false;
+                    toggleCollapseBtn.onclick = () => {
+                        isAllCollapsed = !isAllCollapsed;
+                        toggleCollapseBtn.innerText = isAllCollapsed ? 'Развернуть все' : 'Свернуть все';
+                        if (cy) {
+                            cy.nodes('.department').forEach(deptNode => {
+                                const outEdges = deptNode.outgoers('edge.dept-edge');
+                                const childNodes = outEdges.targets();
+                                childNodes.style('display', isAllCollapsed ? 'none' : 'element');
+                                outEdges.style('display', isAllCollapsed ? 'none' : 'element');
+                                deptNode.data('collapsed', isAllCollapsed);
+                                deptNode.style('opacity', isAllCollapsed ? 0.6 : 1);
+                            });
+                        }
+                    };
                 }
 
                 // --- ИИ ОЦЕНКА СВЯЗЕЙ ---
@@ -2400,22 +2365,18 @@ ${brokenCode}
                 let toggleAiLinksBtn = document.getElementById('cy-toggle-ai-links');
 
                 if (!aiLinkBtn) {
-                    const tb = document.querySelector('.cy-toolbar') || document.getElementById('refresh-map-btn')?.parentElement;
-                    if (tb) {
-                        aiLinkBtn = document.createElement('button');
-                        aiLinkBtn.id = 'cy-ai-link-btn';
-                        aiLinkBtn.className = 'button-primary';
-                        aiLinkBtn.style.marginLeft = '10px';
-                        aiLinkBtn.innerHTML = '🪄 Связь процессов (ИИ)';
-                        tb.appendChild(aiLinkBtn);
+                    aiLinkBtn = document.createElement('button');
+                    aiLinkBtn.id = 'cy-ai-link-btn';
+                    aiLinkBtn.className = 'button-primary';
+                    aiLinkBtn.innerHTML = '🪄 Связь процессов (ИИ)';
+                    document.querySelector('.map-controls').appendChild(aiLinkBtn);
 
-                        toggleAiLinksBtn = document.createElement('button');
-                        toggleAiLinksBtn.id = 'cy-toggle-ai-links';
-                        toggleAiLinksBtn.className = 'button-secondary';
-                        toggleAiLinksBtn.style.marginLeft = '6px';
-                        toggleAiLinksBtn.style.display = 'none';
-                        toggleAiLinksBtn.innerHTML = '👁️ Скрыть связи ИИ';
-                        tb.appendChild(toggleAiLinksBtn);
+                    toggleAiLinksBtn = document.createElement('button');
+                    toggleAiLinksBtn.id = 'cy-toggle-ai-links';
+                    toggleAiLinksBtn.className = 'button-secondary';
+                    toggleAiLinksBtn.style.display = 'none';
+                    toggleAiLinksBtn.innerHTML = '👁️ Скрыть связи ИИ';
+                    document.querySelector('.map-controls').appendChild(toggleAiLinksBtn);
 
                         aiLinkBtn.onclick = async () => {
                             const nodes = cy.nodes('.process');
@@ -2469,7 +2430,6 @@ ${brokenCode}
                             // Скрываем все связи, которые не являются структурными (root, dept, chat)
                             cy.edges().filter(e => !e.hasClass('root-edge') && !e.hasClass('dept-edge') && !e.hasClass('chat-edge')).style('display', aiLinksVisible ? 'element' : 'none');
                         };
-                    }
                 }
 
                 // Сворачивание / Разворачивание по клику на департамент

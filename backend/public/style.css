@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 /* --- Global Variables & Resets --- */
 :root {
@@ -113,8 +113,6 @@ body {
     letter-spacing: -0.01em;
     margin: 0;
     background-color: var(--bg-canvas);
-    background-image: radial-gradient(rgba(148, 163, 184, 0.35) 1px, transparent 1px);
-    background-size: 24px 24px;
     color: var(--text-color);
     font-size: var(--font-base);
     -webkit-font-smoothing: antialiased;
@@ -2032,12 +2030,6 @@ input:checked+.slider:before {
     left: 16px;
     right: auto;
     bottom: auto;
-    width: min(720px, calc(100% - 32px));
-    max-height: calc(100% - 32px);
-    overflow: auto;
-    align-content: flex-start;
-    align-items: flex-start;
-    justify-content: flex-start;
     padding: 10px;
     border-radius: var(--radius-lg);
     background: rgba(255, 255, 255, 0.88);
@@ -2045,6 +2037,8 @@ input:checked+.slider:before {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     box-shadow: var(--shadow-md);
+    flex-direction: column;
+    gap: 8px;
 }
 
 #cy-container .cy-toolbar button {

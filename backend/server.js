@@ -1,4 +1,4 @@
-﻿const path = require('path');
+const path = require('path');
 const dns = require('node:dns');
 dns.setDefaultResultOrder('ipv4first');
 const fs = require('fs');
@@ -310,8 +310,8 @@ const positionSchema = z.object({
 });
 
 const departmentPositionSchema = z.object({
-    x: z.number().min(0).optional(),
-    y: z.number().min(0).optional(),
+    x: z.number().optional(),
+    y: z.number().optional(),
     width: z.number().min(0).optional(),
     height: z.number().min(0).optional(),
     color: z.string().trim().min(1).max(50).optional()
