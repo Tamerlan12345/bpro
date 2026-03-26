@@ -1,7 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const ROOT_ID = 'root_centras';
+    const ROOT_ID = 'root_company';
+    const ROOT_LABEL = 'Бизнес-процессы Сентрас Иншуранс';
     let cy;
     let tooltip;
+
+    const escapeHtml = (value) => String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
     const sharedLabelNodeStyle = {
         'text-wrap': 'wrap',
@@ -71,16 +79,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const buildElements = (data) => {
         const { departments = [], processes = [], relations = [], active_chats = [] } = data;
-        const elements = [{ data: { id: ROOT_ID, name: 'Бизнес-процессы Сентрас Иншуранс', type: 'root' }, classes: 'root-node' }];
+        const elements = [
+            {
+                data: { id: ROOT_ID, name: ROOT_LABEL, type: 'root' },
+                classes: 'root-node'
+            }
+        ];
 
         departments.forEach((dept) => {
             elements.push({
-                data: { id: `dept_${dept.id}`, name: dept.name, rawName: dept.name, collapsed: false, type: 'department' },
+                data: {
+                    id: `dept_${dept.id}`,
+                    name: dept.name,
+                    rawName: dept.name,
+                    type: 'department',
+                    collapsed: false
+                },
                 position: toPosition(dept),
                 classes: 'department'
             });
             elements.push({
-                data: { id: `edge_root_dept_${dept.id}`, source: ROOT_ID, target: `dept_${dept.id}` },
+                data: {
+                    id: `edge_root_dept_${dept.id}`,
+                    source: ROOT_ID,
+                    target: `dept_${dept.id}`
+                },
                 classes: 'root-edge'
             });
         });
@@ -92,15 +115,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     name: proc.name,
                     rawName: proc.name,
                     description: proc.description,
+                    goal: proc.goal,
                     status: proc.status,
                     type: 'process'
                 },
                 position: toPosition(proc),
                 classes: `process status-${proc.status || 'draft'}`
             });
+
             if (proc.department_id) {
                 elements.push({
-                    data: { id: `edge_dept_proc_${proc.id}`, source: `dept_${proc.department_id}`, target: `proc_${proc.id}` },
+                    data: {
+                        id: `edge_dept_proc_${proc.id}`,
+                        source: `dept_${proc.department_id}`,
+                        target: `proc_${proc.id}`
+                    },
                     classes: 'dept-edge'
                 });
             }
@@ -119,9 +148,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 position: toPosition(chat),
                 classes: `chat status-${chat.status || 'draft'}`
             });
+
             if (chat.department_id) {
                 elements.push({
-                    data: { id: `edge_dept_chat_${chat.id}`, source: `dept_${chat.department_id}`, target: `chat_${chat.id}` },
+                    data: {
+                        id: `edge_dept_chat_${chat.id}`,
+                        source: `dept_${chat.department_id}`,
+                        target: `chat_${chat.id}`
+                    },
                     classes: 'dept-edge chat-edge'
                 });
             }
@@ -141,8 +175,32 @@ document.addEventListener('DOMContentLoaded', () => {
         return elements;
     };
 
-    const getStyle = () => ([
-        { selector: 'node', style: sharedLabelNodeStyle },
+    const getInitialLayout = (elements) => {
+        const hasPresetPositions = elements.some((element) => element.position);
+        if (hasPresetPositions) {
+            return {
+                name: 'preset',
+                padding: 30,
+                fit: true
+            };
+        }
+
+        return {
+            name: 'dagre',
+            rankDir: 'TB',
+            spacingFactor: 0.85,
+            nodeSep: 40,
+            rankSep: 70,
+            padding: 30,
+            fit: true
+        };
+    };
+
+    const getStyle = () => [
+        {
+            selector: 'node',
+            style: sharedLabelNodeStyle
+        },
         {
             selector: 'node.root-node',
             style: {
@@ -150,7 +208,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 shape: 'round-rectangle',
                 'background-color': '#0f172a',
                 color: '#ffffff',
-
                 'font-weight': 'bold',
                 'font-size': 18,
                 padding: '20px',
@@ -214,10 +271,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 opacity: 0.8
             }
         },
-        { selector: 'node.status-approved', style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' } },
-        { selector: 'node.status-draft', style: { 'border-width': 2, 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
-        { selector: 'node.status-needs_revision', style: { 'border-width': 2, 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
-        { selector: 'node.status-pending_review', style: { 'border-width': 2, 'border-color': '#3b82f6', 'background-color': '#eff6ff' } },
+        {
+            selector: 'node.status-approved',
+            style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' }
+        },
+        {
+            selector: 'node.status-draft',
+            style: { 'border-width': 2, 'border-color': '#f59e0b', 'background-color': '#fffbeb' }
+        },
+        {
+            selector: 'node.status-needs_revision',
+            style: { 'border-width': 2, 'border-color': '#ef4444', 'background-color': '#fef2f2' }
+        },
+        {
+            selector: 'node.status-pending_review',
+            style: { 'border-width': 2, 'border-color': '#3b82f6', 'background-color': '#eff6ff' }
+        },
         {
             selector: 'edge',
             style: {
@@ -271,7 +340,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 'target-arrow-color': '#7dd3fc'
             }
         }
-    ]);
+    ];
+
+    const toggleDepartment = (deptNode, shouldCollapse) => {
+        const collapse = typeof shouldCollapse === 'boolean' ? shouldCollapse : !deptNode.data('collapsed');
+        const outEdges = deptNode.outgoers('edge.dept-edge');
+        const childNodes = outEdges.targets();
+
+        childNodes.style('display', collapse ? 'none' : 'element');
+        outEdges.style('display', collapse ? 'none' : 'element');
+        deptNode.data('collapsed', collapse);
+        deptNode.style('opacity', collapse ? 0.6 : 1);
+    };
 
     const hideSidePanel = () => {
         const sidePanel = document.getElementById('dash-side-panel');
@@ -289,24 +369,156 @@ document.addEventListener('DOMContentLoaded', () => {
         panelTitle.innerText = isChat ? 'Детали чата' : 'Детали процесса';
 
         const desc = nodeData.description || 'Описание отсутствует';
-        const htmlDesc = typeof marked !== 'undefined' ? marked.parse(desc) : desc;
+        const safeName = escapeHtml(nodeData.rawName || nodeData.name);
+        const safeStatusClass = escapeHtml(nodeData.status || '');
+        const safeStatusLabel = escapeHtml(statusMap[nodeData.status] || nodeData.status || 'Не указан');
+        const safeGoal = nodeData.goal ? escapeHtml(nodeData.goal) : '';
+        const safeDescription = escapeHtml(desc);
+        const htmlDesc = typeof marked !== 'undefined' ? marked.parse(safeDescription) : safeDescription;
 
         panelContent.innerHTML = `
             <div class="process-detail-item">
+                <label>Тип</label>
+                <div class="value">${isChat ? '💬 Активный чат' : '⚙️ Бизнес-процесс'}</div>
+            </div>
+            <div class="process-detail-item">
                 <label>Название</label>
-                <div class="value">${nodeData.rawName || nodeData.name || 'Без названия'}</div>
+                <div class="value">${safeName}</div>
             </div>
             <div class="process-detail-item">
                 <label>Статус</label>
-                <div class="value">${statusMap[nodeData.status] || nodeData.status || 'Не указан'}</div>
+                <div><span class="status-badge ${safeStatusClass}">${safeStatusLabel}</span></div>
             </div>
+            ${nodeData.goal ? `<div class="process-detail-item"><label>Цель</label><div class="value" style="font-weight: 400; font-size: 14px;">${safeGoal}</div></div>` : ''}
             <div class="process-detail-item">
-                <label>Текстовое описание</label>
-                <div class="markdown-body">${htmlDesc}</div>
+                <label>Описание</label>
+                <div class="markdown-body" style="margin-top: 10px;">${htmlDesc}</div>
             </div>
         `;
 
         sidePanel.classList.remove('is-hidden');
+    };
+
+    const setupInteractions = () => {
+        if (!cy) return;
+
+        cy.on('mouseover', 'node.department', (event) => {
+            const node = event.target;
+            const outgoers = node.outgoers('node');
+            const stats = { approved: 0, draft: 0, needs_revision: 0, pending_review: 0 };
+            let processes = 0;
+            let chats = 0;
+            const safeRawName = escapeHtml(node.data('rawName'));
+
+            outgoers.forEach((child) => {
+                if (child.hasClass('process')) processes += 1;
+                if (child.hasClass('chat')) chats += 1;
+
+                const status = child.data('status');
+                if (stats[status] !== undefined) {
+                    stats[status] += 1;
+                }
+            });
+
+            tooltip.innerHTML = `<strong>🏢 ${safeRawName}</strong>\n\n📊 <b>Всего процессов:</b> ${processes}\n💬 <b>Всего чатов:</b> ${chats}\n\n✅ Утвержденных: ${stats.approved}\n📝 Черновиков: ${stats.draft}\n⏳ На проверке: ${stats.pending_review}\n❌ Нужны правки: ${stats.needs_revision}`;
+            tooltip.style.display = 'block';
+        });
+
+        cy.on('mousemove', 'node.department', (event) => {
+            tooltip.style.left = `${event.originalEvent.pageX + 15}px`;
+            tooltip.style.top = `${event.originalEvent.pageY + 15}px`;
+        });
+
+        cy.on('mouseout', 'node.department', () => {
+            tooltip.style.display = 'none';
+        });
+
+        cy.on('tap', 'node.department', (event) => {
+            toggleDepartment(event.target);
+        });
+
+        cy.on('tap', 'node.process, node.chat', (event) => {
+            showSidePanel(event.target.data());
+        });
+
+        cy.on('tap', (event) => {
+            if (event.target === cy) {
+                hideSidePanel();
+                tooltip.style.display = 'none';
+            }
+        });
+
+        cy.on('mouseover', 'node', () => {
+            document.body.style.cursor = 'pointer';
+        });
+
+        cy.on('mouseout', 'node', () => {
+            document.body.style.cursor = 'default';
+        });
+
+        // Search
+        const searchInput = document.getElementById('dash-search');
+        if (searchInput) {
+            searchInput.oninput = (event) => {
+                if (!cy) return;
+
+                const value = event.target.value.trim().toLowerCase();
+                if (!value) {
+                    cy.nodes().style('opacity', 1);
+                    cy.edges().style('opacity', 1);
+                    return;
+                }
+
+                cy.nodes().forEach((node) => {
+                    const name = node.data('rawName') || node.data('name') || '';
+                    node.style('opacity', name.toLowerCase().includes(value) || node.id() === ROOT_ID ? 1 : 0.15);
+                });
+
+                cy.edges().style('opacity', 0.15);
+            };
+        }
+
+        // Panel close
+        const panelCloseBtn = document.getElementById('dash-panel-close');
+        if (panelCloseBtn) {
+            panelCloseBtn.onclick = hideSidePanel;
+        }
+
+        // Toolbar
+        const bind = (id, handler) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.onclick = (event) => {
+                    event.preventDefault();
+                    handler(event);
+                };
+            }
+        };
+
+        bind('btn-zoom-in', () => {
+            if (cy) cy.zoom(cy.zoom() * 1.2);
+        });
+
+        bind('btn-zoom-out', () => {
+            if (cy) cy.zoom(cy.zoom() * 0.8);
+        });
+
+        bind('btn-fit', () => {
+            if (cy) cy.fit(undefined, 30);
+        });
+
+        bind('btn-toggle-collapse', (event) => {
+            if (!cy) return;
+
+            const departments = cy.nodes('.department');
+            const shouldCollapse = departments.some((dept) => !dept.data('collapsed'));
+
+            departments.forEach((dept) => {
+                toggleDepartment(dept, shouldCollapse);
+            });
+
+            event.currentTarget.innerText = shouldCollapse ? 'Развернуть все' : 'Свернуть все';
+        });
     };
 
     fetch('/api/dash/map')
@@ -315,126 +527,25 @@ document.addEventListener('DOMContentLoaded', () => {
             ensureTooltip();
 
             const elements = buildElements(data);
-            const hasPreset = elements.some((item) => item.position);
 
             cy = cytoscape({
                 container: document.getElementById('cy'),
                 elements,
                 style: getStyle(),
-                layout: hasPreset
-                    ? { name: 'preset', padding: 30, fit: true }
-                    : { name: 'dagre', rankDir: 'TB', spacingFactor: 0.85, nodeSep: 40, rankSep: 70, padding: 30, fit: true },
+                layout: getInitialLayout(elements),
+                selectionType: 'single',
                 userZoomingEnabled: true,
                 userPanningEnabled: true,
                 boxSelectionEnabled: false
             });
 
-            const searchInput = document.getElementById('dash-search');
-            if (searchInput) {
-                searchInput.addEventListener('input', (event) => {
-                    const value = event.target.value.trim().toLowerCase();
-                    if (!value) {
-                        cy.nodes().style('opacity', 1);
-                        cy.edges().style('opacity', 1);
-                        return;
-                    }
-                    cy.nodes().forEach((node) => {
-                        const name = node.data('rawName') || node.data('name') || '';
-                        node.style('opacity', name.toLowerCase().includes(value) || node.id() === ROOT_ID ? 1 : 0.15);
-                    });
-                    cy.edges().style('opacity', 0.15);
-                });
-            }
+            setupInteractions();
 
-            cy.on('mouseover', 'node.department', (event) => {
-                const node = event.target;
-                const outgoers = node.outgoers('node');
-                const stats = { approved: 0, draft: 0, needs_revision: 0, pending_review: 0 };
-                let processes = 0;
-                let chats = 0;
-
-                outgoers.forEach((child) => {
-                    if (child.hasClass('process')) processes += 1;
-                    if (child.hasClass('chat')) chats += 1;
-                    const st = child.data('status');
-                    if (stats[st] !== undefined) stats[st] += 1;
-                });
-
-                tooltip.innerHTML = `<strong>${node.data('rawName')}</strong>\n\n<b>Всего процессов:</b> ${processes}\n<b>Всего чатов:</b> ${chats}\n\nУтвержденных: ${stats.approved}\nЧерновиков: ${stats.draft}\nНа проверке: ${stats.pending_review}\nНужны правки: ${stats.needs_revision}`;
-                tooltip.style.display = 'block';
-            });
-
-            cy.on('mousemove', 'node.department', (event) => {
-                tooltip.style.left = `${event.originalEvent.pageX + 15}px`;
-                tooltip.style.top = `${event.originalEvent.pageY + 15}px`;
-            });
-
-            cy.on('mouseout', 'node.department', () => {
-                tooltip.style.display = 'none';
-            });
-
-            cy.on('tap', 'node.process, node.chat', (event) => {
-                showSidePanel(event.target.data());
-            });
-
-            cy.on('tap', (event) => {
-                if (event.target === cy) {
-                    hideSidePanel();
-                }
-            });
-
-            cy.on('tap', 'node.department', (event) => {
-                const deptNode = event.target;
-                const isCollapsed = deptNode.data('collapsed');
-                const outEdges = deptNode.outgoers('edge.dept-edge');
-                const childNodes = outEdges.targets();
-
-                childNodes.style('display', isCollapsed ? 'element' : 'none');
-                outEdges.style('display', isCollapsed ? 'element' : 'none');
-                deptNode.data('collapsed', !isCollapsed);
-                deptNode.style('opacity', isCollapsed ? 1 : 0.6);
-            });
-
-            const btnToggleCollapse = document.getElementById('btn-toggle-collapse');
-            if (btnToggleCollapse) {
-                btnToggleCollapse.addEventListener('click', () => {
-                    const departments = cy.nodes('.department');
-                    const shouldCollapse = departments.some((dept) => !dept.data('collapsed'));
-
-                    departments.forEach((deptNode) => {
-                        const outEdges = deptNode.outgoers('edge.dept-edge');
-                        const childNodes = outEdges.targets();
-                        childNodes.style('display', shouldCollapse ? 'none' : 'element');
-                        outEdges.style('display', shouldCollapse ? 'none' : 'element');
-                        deptNode.data('collapsed', shouldCollapse);
-                        deptNode.style('opacity', shouldCollapse ? 0.6 : 1);
-                    });
-
-                    btnToggleCollapse.innerText = shouldCollapse ? 'Развернуть все' : 'Свернуть все';
-                });
-            }
-
-            cy.on('mouseover', 'node', () => {
-                document.body.style.cursor = 'pointer';
-            });
-
-            cy.on('mouseout', 'node', () => {
-                document.body.style.cursor = 'default';
-            });
-
-            const panelCloseBtn = document.getElementById('dash-panel-close');
-            if (panelCloseBtn) {
-                panelCloseBtn.addEventListener('click', hideSidePanel);
-            }
-
-            const btnFit = document.getElementById('btn-fit');
-            if (btnFit) btnFit.addEventListener('click', () => { if (cy) cy.fit(); });
-
-            const btnZoomIn = document.getElementById('btn-zoom-in');
-            if (btnZoomIn) btnZoomIn.addEventListener('click', () => { if (cy) cy.zoom(cy.zoom() * 1.2); });
-
-            const btnZoomOut = document.getElementById('btn-zoom-out');
-            if (btnZoomOut) btnZoomOut.addEventListener('click', () => { if (cy) cy.zoom(cy.zoom() * 0.8); });
+            setTimeout(() => {
+                if (!cy) return;
+                cy.resize();
+                cy.fit(undefined, 30);
+            }, 300);
         })
         .catch(() => {
             // Keep dashboard alive even when map data is temporarily unavailable.
