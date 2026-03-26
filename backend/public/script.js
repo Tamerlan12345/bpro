@@ -2390,8 +2390,9 @@ ${brokenCode}
 
                         try {
                             const res = await callGeminiAPI(prompt);
-                            const cleanJson = res.replace(/```json/g, '').replace(/```/g, '').trim();
-                            const links = JSON.parse(cleanJson);
+                            const jsonMatch = res.match(/\[\s*\{[\s\S]*\}\s*\]/);
+                            if (!jsonMatch) throw new Error("Could not find logical connections in AI response");
+                            const links = JSON.parse(jsonMatch[0]);
 
                             let addedCount = 0;
                             const processedIds = new Set();

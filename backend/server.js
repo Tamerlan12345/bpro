@@ -1077,12 +1077,14 @@ ${JSON.stringify(mapContext, null, 2)}
 
         if (!aiResult) throw new Error('Empty AI response');
 
-        const aiPayload = aiResult.replace(/\`\`\`json/gi, '').replace(/\`\`\`/g, '').trim();
+        const aiPayload = aiResult.trim();
         let parsedLayout;
         try {
-            parsedLayout = JSON.parse(aiPayload);
+            const jsonMatch = aiPayload.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) throw new Error('AI returned non-JSON layout payload');
+            parsedLayout = JSON.parse(jsonMatch[0]);
         } catch (parseError) {
-            throw new Error('AI returned non-JSON layout payload');
+            throw new Error('Failed to parse AI layout: ' + parseError.message);
         }
 
         const validatedLayout = aiLayoutResponseSchema.parse(parsedLayout);

@@ -148,16 +148,9 @@ ${finalAnalysisContent}
 `;
 
             let jsonText = await callGoogleAPI(prompt, processEnvGoogleApiKey);
-            // Clean up markdown quotes if present
-            jsonText = jsonText.replace(/^```[a-zA-Z]*\n/m, '').replace(/```\s*$/m, '').trim();
-            if (jsonText.startsWith('{') === false) {
-                jsonText = jsonText.substring(jsonText.indexOf('{'));
-            }
-            if (jsonText.endsWith('}') === false) {
-                jsonText = jsonText.substring(0, jsonText.lastIndexOf('}') + 1);
-            }
-
-            const parsed = JSON.parse(jsonText);
+            const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) throw new Error("Could not find JSON structure in AI response");
+            const parsed = JSON.parse(jsonMatch[0]);
 
             if (parsed.department) {
                 deptSet.add(parsed.department);
