@@ -1974,7 +1974,7 @@ ${brokenCode}
     const cyZoomOut = document.getElementById('cy-zoom-out');
     const cyFit = document.getElementById('cy-fit');
     let cy; // Cytoscape instance
-    const adminMapRootLabel = 'Бизнес-процессы\naws.centerinsurance';
+    const adminMapRootLabel = 'Бизнес-процессы\nСентрас Иншуранс';
 
     async function loadProcessMap() {
         if (!document.getElementById('cy')) return;
@@ -2089,7 +2089,6 @@ ${brokenCode}
                             selector: 'node',
                             style: {
                                 'text-wrap': 'wrap',
-                                'text-overflow-wrap': 'anywhere',
                                 'text-valign': 'center',
                                 'text-halign': 'center',
                                 'line-height': 1.3,
@@ -2275,13 +2274,13 @@ ${brokenCode}
                 const toggleChatsMapBtn = document.createElement('button');
                 toggleChatsMapBtn.id = 'cy-toggle-chats';
                 toggleChatsMapBtn.className = 'button-secondary';
-                toggleChatsMapBtn.innerText = 'Скрыть чаты';
+                toggleChatsMapBtn.innerText = '👁️ Скрыть чаты';
                 document.querySelector('.map-controls').appendChild(toggleChatsMapBtn);
 
                 let chatsVisible = true;
                 toggleChatsMapBtn.onclick = () => {
                     chatsVisible = !chatsVisible;
-                    toggleChatsMapBtn.innerText = chatsVisible ? 'Скрыть чаты' : 'Показать чаты';
+                    toggleChatsMapBtn.innerText = chatsVisible ? '👁️ Скрыть чаты' : '👁️ Показать чаты';
                     if (cy) {
                         cy.elements('.chat').style('display', chatsVisible ? 'element' : 'none');
                         cy.elements('.chat-edge').style('display', chatsVisible ? 'element' : 'none');
@@ -2576,9 +2575,9 @@ ${brokenCode}
                             const depts = cy.nodes('.department').sort((a, b) => (a.data('rawName') || '').localeCompare(b.data('rawName') || ''));
                             const root = cy.getElementById('root_centras');
 
-                            const spacingX = 280; // Отступ между колонками департаментов
-                            const startY = 120;   // Y координата департаментов
-                            const spacingY = 104;  // Шаг по вертикали, чтобы между узлами читались связи
+                            const spacingX = 300; // Отступ между колонками департаментов
+                            const startY = 130;   // Y координата департаментов
+                            const spacingY = 150;  // Шаг по вертикали, чтобы между узлами читались связи
 
                             let currentX = -((depts.length - 1) * spacingX) / 2; // Центрируем весь блок по X=0
 

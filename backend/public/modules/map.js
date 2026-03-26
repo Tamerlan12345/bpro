@@ -9,7 +9,6 @@ let cy = null;
 let tooltip = null;
 const sharedLabelNodeStyle = {
     'text-wrap': 'wrap',
-    'text-overflow-wrap': 'anywhere',
     'text-valign': 'center',
     'text-halign': 'center',
     padding: '16px',
@@ -24,7 +23,7 @@ const escapeHtml = (value) => String(value ?? '')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-const ROOT_LABEL = 'Бизнес-процессы АО СК Сентрас Иншуранс';
+const ROOT_LABEL = 'Бизнес-процессы Сентрас Иншуранс';
 
 export const initProcessMap = async (containerId) => {
     const container = document.getElementById(containerId);

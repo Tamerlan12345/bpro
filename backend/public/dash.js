@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const sharedLabelNodeStyle = {
         'text-wrap': 'wrap',
-        'text-overflow-wrap': 'anywhere',
         'text-valign': 'center',
         'text-halign': 'center',
         padding: '16px',
@@ -72,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const buildElements = (data) => {
         const { departments = [], processes = [], relations = [], active_chats = [] } = data;
-        const elements = [{ data: { id: ROOT_ID, name: 'Бизнес-процессы АО СК Сентрас Иншуранс', type: 'root' }, classes: 'root-node' }];
+        const elements = [{ data: { id: ROOT_ID, name: 'Бизнес-процессы Сентрас Иншуранс', type: 'root' }, classes: 'root-node' }];
 
         departments.forEach((dept) => {
             elements.push({
