@@ -504,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    fetch('/api/dash/map')
+    fetch(`/api/dash/map?t=${Date.now()}`, { cache: 'no-store' })
         .then((response) => response.json())
         .then((data) => {
             ensureTooltip();
@@ -519,7 +519,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectionType: 'single',
                 userZoomingEnabled: true,
                 userPanningEnabled: true,
-                boxSelectionEnabled: false
+                boxSelectionEnabled: false,
+                autoungrabify: true // Prevent node dragging in read-only dashboard
             });
 
             setupInteractions();

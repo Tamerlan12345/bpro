@@ -1986,7 +1986,7 @@ ${brokenCode}
     async function loadProcessMap() {
         if (!document.getElementById('cy')) return;
         try {
-            const res = await fetchWithAuth('/api/admin/map');
+            const res = await fetchWithAuth(`/api/admin/map?t=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
 
             if (!data || data.error) {
