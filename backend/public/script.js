@@ -2138,12 +2138,12 @@ ${brokenCode}
                                 'border-width': 1,
                                 'border-color': '#cbd5e1',
                                 'color': '#1e293b',
-                                'width': 280,
-                                'height': 110,
-                                'text-max-width': 240,
+                                'width': 208,
+                                'height': 70,
+                                'text-max-width': 168,
                                 'font-size': 13,
                                 'font-weight': '500',
-                                'padding': '14px'
+                                'padding': '10px 14px'
                             }
                         },
                         {
@@ -2156,12 +2156,11 @@ ${brokenCode}
                                 'border-style': 'dashed',
                                 'border-color': '#94a3b8',
                                 'color': '#475569',
-                                'width': 280,
-                                'height': 110,
-                                'text-max-width': 240,
+                                'width': 176,
+                                'height': 58,
+                                'text-max-width': 138,
                                 'font-size': 12,
-                                'padding': '14px',
-                                'opacity': 0.8
+                                'padding': '8px 12px'
                             }
                         },
                         { selector: 'node.status-approved', style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' } },
@@ -2378,58 +2377,58 @@ ${brokenCode}
                     toggleAiLinksBtn.innerHTML = '👁️ Скрыть связи ИИ';
                     document.querySelector('.map-controls').appendChild(toggleAiLinksBtn);
 
-                        aiLinkBtn.onclick = async () => {
-                            const nodes = cy.nodes('.process');
-                            if (nodes.length < 2) return showNotification('Недостаточно процессов для анализа', 'error');
+                    aiLinkBtn.onclick = async () => {
+                        const nodes = cy.nodes('.process');
+                        if (nodes.length < 2) return showNotification('Недостаточно процессов для анализа', 'error');
 
-                            setButtonLoading(aiLinkBtn, true, 'Анализ...');
-                            const processesData = nodes.map(n => ({ id: n.id(), name: n.data('rawName'), desc: n.data('description') }));
+                        setButtonLoading(aiLinkBtn, true, 'Анализ...');
+                        const processesData = nodes.map(n => ({ id: n.id(), name: n.data('rawName'), desc: n.data('description') }));
 
-                            const prompt = `Ты — бизнес-архитектор. Проанализируй этот список процессов и найди логические связи (кто кому передает данные, кто за кем следует). 
+                        const prompt = `Ты — бизнес-архитектор. Проанализируй этот список процессов и найди логические связи (кто кому передает данные, кто за кем следует). 
 Верни СТРОГО JSON-массив объектов: [{"source": "id_источника", "target": "id_цели", "reason": "краткое описание связи"}]. Не пиши markdown, только голый JSON.
 Процессы: ${JSON.stringify(processesData)}`;
 
-                            try {
-                                const res = await callGeminiAPI(prompt);
-                                const cleanJson = res.replace(/```json/g, '').replace(/```/g, '').trim();
-                                const links = JSON.parse(cleanJson);
+                        try {
+                            const res = await callGeminiAPI(prompt);
+                            const cleanJson = res.replace(/```json/g, '').replace(/```/g, '').trim();
+                            const links = JSON.parse(cleanJson);
 
-                                let addedCount = 0;
-                                const processedIds = new Set();
+                            let addedCount = 0;
+                            const processedIds = new Set();
 
-                                links.forEach(link => {
-                                    if (!link.source || !link.target || link.source === link.target) return;
+                            links.forEach(link => {
+                                if (!link.source || !link.target || link.source === link.target) return;
 
-                                    const edgeId = `ai_rel_${link.source}_${link.target}`;
-                                    if (processedIds.has(edgeId)) return;
-                                    processedIds.add(edgeId);
+                                const edgeId = `ai_rel_${link.source}_${link.target}`;
+                                if (processedIds.has(edgeId)) return;
+                                processedIds.add(edgeId);
 
-                                    if (cy.getElementById(link.source).length && cy.getElementById(link.target).length) {
-                                        if (cy.getElementById(edgeId).length === 0) {
-                                            cy.add({
-                                                data: { id: edgeId, source: link.source, target: link.target, label: link.reason || '' },
-                                                classes: 'ai-relation'
-                                            });
-                                            addedCount++;
-                                        }
+                                if (cy.getElementById(link.source).length && cy.getElementById(link.target).length) {
+                                    if (cy.getElementById(edgeId).length === 0) {
+                                        cy.add({
+                                            data: { id: edgeId, source: link.source, target: link.target, label: link.reason || '' },
+                                            classes: 'ai-relation'
+                                        });
+                                        addedCount++;
                                     }
-                                });
-                                showNotification(`ИИ нашел ${addedCount} новых связей!`, 'success');
-                                toggleAiLinksBtn.style.display = 'inline-block';
-                            } catch (e) {
-                                showNotification('Ошибка анализа: ' + e.message, 'error');
-                            } finally {
-                                setButtonLoading(aiLinkBtn, false, '🪄 Связь процессов (ИИ)');
-                            }
-                        };
+                                }
+                            });
+                            showNotification(`ИИ нашел ${addedCount} новых связей!`, 'success');
+                            toggleAiLinksBtn.style.display = 'inline-block';
+                        } catch (e) {
+                            showNotification('Ошибка анализа: ' + e.message, 'error');
+                        } finally {
+                            setButtonLoading(aiLinkBtn, false, '🪄 Связь процессов (ИИ)');
+                        }
+                    };
 
-                        let aiLinksVisible = true;
-                        toggleAiLinksBtn.onclick = () => {
-                            aiLinksVisible = !aiLinksVisible;
-                            toggleAiLinksBtn.innerHTML = aiLinksVisible ? '👁️ Скрыть связи ИИ' : '👁️ Показать связи ИИ';
-                            // Скрываем все связи, которые не являются структурными (root, dept, chat)
-                            cy.edges().filter(e => !e.hasClass('root-edge') && !e.hasClass('dept-edge') && !e.hasClass('chat-edge')).style('display', aiLinksVisible ? 'element' : 'none');
-                        };
+                    let aiLinksVisible = true;
+                    toggleAiLinksBtn.onclick = () => {
+                        aiLinksVisible = !aiLinksVisible;
+                        toggleAiLinksBtn.innerHTML = aiLinksVisible ? '👁️ Скрыть связи ИИ' : '👁️ Показать связи ИИ';
+                        // Скрываем все связи, которые не являются структурными (root, dept, chat)
+                        cy.edges().filter(e => !e.hasClass('root-edge') && !e.hasClass('dept-edge') && !e.hasClass('chat-edge')).style('display', aiLinksVisible ? 'element' : 'none');
+                    };
                 }
 
                 // Сворачивание / Разворачивание по клику на департамент
@@ -2578,7 +2577,7 @@ ${brokenCode}
 
                             const spacingX = 300; // Отступ между колонками департаментов
                             const startY = 130;   // Y координата департаментов
-                            const spacingY = 115;  // Шаг по вертикали, чтобы между узлами читались связи
+                            const spacingY = 150;  // Шаг по вертикали, чтобы между узлами читались связи
 
                             let currentX = -((depts.length - 1) * spacingX) / 2; // Центрируем весь блок по X=0
 

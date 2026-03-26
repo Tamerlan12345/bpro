@@ -2,7 +2,7 @@ const DEFAULT_LAYOUT_OPTIONS = {
     departmentSpacingX: 300,
     departmentStartY: 120,
     firstChildOffsetY: 100,
-    nodeStepY: 115,
+    nodeStepY: 120,
     rootX: 0,
     rootY: -100
 };
