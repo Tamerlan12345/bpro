@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'text-wrap': 'wrap',
         'text-valign': 'center',
         'text-halign': 'center',
-        'line-height': 1.3,
+        'line-height': 1.15,
         'font-family': '"Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
     };
 
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'font-weight': 'bold',
                 'font-size': 16,
                 'padding': '16px',
-                'text-max-width': 210,
+                'text-max-width': 240,
                 'border-width': 0
             }
         },
@@ -223,9 +223,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 'width': 232,
                 'height': 76,
                 'font-weight': '600',
-                'font-size': 13,
+                'font-size': 12,
                 'padding': '14px',
-                'text-max-width': 186,
+                'text-max-width': 212,
                 'border-width': 0,
                 'transition-property': 'opacity',
                 'transition-duration': '0.3s'
@@ -242,8 +242,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 'color': '#1e293b',
                 'width': 208,
                 'height': 70,
-                'text-max-width': 168,
-                'font-size': 13,
+                'text-max-width': 188,
+                'font-size': 11,
                 'font-weight': '500',
                 'padding': '10px 14px'
             }
@@ -260,8 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 'color': '#475569',
                 'width': 176,
                 'height': 58,
-                'text-max-width': 138,
-                'font-size': 12,
+                'text-max-width': 156,
+                'font-size': 11,
                 'padding': '8px 12px'
             }
         },
