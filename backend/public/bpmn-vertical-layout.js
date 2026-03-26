@@ -69,18 +69,18 @@
 
     function replaceShapeBounds(xml, bpmnElement, nextBounds) {
         const shapePattern = new RegExp(
-            `(<bpmndi:BPMNShape\\b[^>]*bpmnElement="${bpmnElement}"[^>]*>[\\s\\S]*?<dc:Bounds\\b)([^>]*)(\\/?>)([\\s\\S]*?<\\/bpmndi:BPMNShape>)`,
+            `(<bpmndi:BPMNShape\\b[^>]*bpmnElement="${bpmnElement}"[^>]*>[\\s\\S]*?<dc:Bounds\\b)([^>]*?)(?:\\/?>)([\\s\\S]*?<\\/bpmndi:BPMNShape>)`,
             'i'
         );
 
-        return xml.replace(shapePattern, function (_match, prefix, _attrs, closing, suffix) {
+        return xml.replace(shapePattern, function (_match, prefix, _attrs, suffix) {
             const attrs = [
                 `x="${nextBounds.x.toFixed(1)}"`,
                 `y="${nextBounds.y.toFixed(1)}"`,
                 `width="${nextBounds.width.toFixed(1)}"`,
                 `height="${nextBounds.height.toFixed(1)}"`
             ].join(' ');
-            return `${prefix} ${attrs}${closing}${suffix}`;
+            return `${prefix} ${attrs} />${suffix}`;
         });
     }
 

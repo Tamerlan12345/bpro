@@ -112,6 +112,8 @@ describe('normalizeBpmnVerticalLayout', () => {
         expect(task1.y).toBeLessThan(task2.y);
         expect(task2.y).toBeLessThan(end.y);
 
+        expect(normalizedXml.match(/<dc:Bounds\b[^>]*\/>/gi)).toHaveLength(4);
+
         const flow1 = extractWaypoints(normalizedXml, 'Flow_1');
         const flow2 = extractWaypoints(normalizedXml, 'Flow_2');
         const flow3 = extractWaypoints(normalizedXml, 'Flow_3');
