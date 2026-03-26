@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const ROOT_ID = 'root_company';
+    const ROOT_ID = 'root_centras';
     const ROOT_LABEL = 'Бизнес-процессы Сентрас Иншуранс';
     let cy;
     let tooltip;
@@ -15,9 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'text-wrap': 'wrap',
         'text-valign': 'center',
         'text-halign': 'center',
-        padding: '16px',
-        'line-height': 1.6,
-        'font-family': '"Inter", "Manrope", "Segoe UI", sans-serif'
+        'line-height': 1.3,
+        'font-family': '"Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
     };
 
     const statusMap = {
@@ -177,21 +176,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const getInitialLayout = (elements) => {
         const hasPresetPositions = elements.some((element) => element.position);
-        if (hasPresetPositions) {
-            return {
-                name: 'preset',
-                padding: 30,
-                fit: true
-            };
-        }
-
         return {
-            name: 'dagre',
-            rankDir: 'TB',
-            spacingFactor: 0.85,
-            nodeSep: 40,
-            rankSep: 70,
-            padding: 30,
+            name: hasPresetPositions ? 'preset' : 'klay',
+            nodeDimensionsIncludeLabels: true,
+            klay: {
+                direction: 'DOWN',
+                spacing: 50,
+                edgeSpacingFactor: 1.0,
+                inLayerSpacingFactor: 1.0,
+                thoroughness: 10,
+                compactComponents: true
+            },
+            padding: 50,
             fit: true
         };
     };
@@ -204,31 +200,32 @@ document.addEventListener('DOMContentLoaded', () => {
         {
             selector: 'node.root-node',
             style: {
-                label: 'data(name)',
-                shape: 'round-rectangle',
+                'label': 'data(name)',
+                'shape': 'round-rectangle',
                 'background-color': '#0f172a',
-                color: '#ffffff',
+                'color': '#ffffff',
+                'width': 260,
+                'height': 82,
                 'font-weight': 'bold',
-                'font-size': 18,
-                padding: '20px',
-                'text-max-width': 260,
+                'font-size': 16,
+                'padding': '16px',
+                'text-max-width': 210,
                 'border-width': 0
             }
         },
         {
             selector: 'node.department',
             style: {
-                label: 'data(name)',
-                shape: 'round-rectangle',
+                'label': 'data(name)',
+                'shape': 'round-rectangle',
                 'background-color': '#2563eb',
-                color: '#ffffff',
-                width: 280,
-                height: 100,
-                'corner-radius': 12,
+                'color': '#ffffff',
+                'width': 232,
+                'height': 76,
                 'font-weight': '600',
-                'font-size': 14,
-                padding: '18px',
-                'text-max-width': 240,
+                'font-size': 13,
+                'padding': '14px',
+                'text-max-width': 186,
                 'border-width': 0,
                 'transition-property': 'opacity',
                 'transition-duration': '0.3s'
@@ -237,56 +234,41 @@ document.addEventListener('DOMContentLoaded', () => {
         {
             selector: 'node.process',
             style: {
-                label: 'data(name)',
-                shape: 'round-rectangle',
+                'label': 'data(name)',
+                'shape': 'round-rectangle',
                 'background-color': '#ffffff',
                 'border-width': 1,
                 'border-color': '#cbd5e1',
-                color: '#1e293b',
-                width: 240,
-                height: 80,
-                'corner-radius': 8,
-                'text-max-width': 200,
+                'color': '#1e293b',
+                'width': 208,
+                'height': 70,
+                'text-max-width': 168,
                 'font-size': 13,
                 'font-weight': '500',
-                padding: '14px'
+                'padding': '10px 14px'
             }
         },
         {
             selector: 'node.chat',
             style: {
-                label: 'data(name)',
-                shape: 'round-rectangle',
+                'label': 'data(name)',
+                'shape': 'round-rectangle',
                 'background-color': '#f8fafc',
                 'border-width': 2,
                 'border-style': 'dashed',
                 'border-color': '#94a3b8',
-                color: '#475569',
-                width: 240,
-                height: 80,
-                'corner-radius': 8,
-                'text-max-width': 200,
+                'color': '#475569',
+                'width': 176,
+                'height': 58,
+                'text-max-width': 138,
                 'font-size': 12,
-                padding: '12px',
-                opacity: 0.8
+                'padding': '8px 12px'
             }
         },
-        {
-            selector: 'node.status-approved',
-            style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' }
-        },
-        {
-            selector: 'node.status-draft',
-            style: { 'border-width': 2, 'border-color': '#f59e0b', 'background-color': '#fffbeb' }
-        },
-        {
-            selector: 'node.status-needs_revision',
-            style: { 'border-width': 2, 'border-color': '#ef4444', 'background-color': '#fef2f2' }
-        },
-        {
-            selector: 'node.status-pending_review',
-            style: { 'border-width': 2, 'border-color': '#3b82f6', 'background-color': '#eff6ff' }
-        },
+        { selector: 'node.status-approved', style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' } },
+        { selector: 'node.status-draft', style: { 'border-width': 2, 'border-color': '#f59e0b', 'background-color': '#fffbeb' } },
+        { selector: 'node.status-needs_revision', style: { 'border-width': 2, 'border-color': '#ef4444', 'background-color': '#fef2f2' } },
+        { selector: 'node.status-pending_review', style: { 'border-width': 2, 'border-color': '#3b82f6', 'background-color': '#eff6ff' } },
         {
             selector: 'edge',
             style: {
@@ -294,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'target-arrow-shape': 'triangle',
                 'target-arrow-color': '#cbd5e1',
                 'line-color': '#e2e8f0',
-                width: 2,
+                'width': 2,
                 'text-background-opacity': 1,
                 'text-background-color': '#ffffff',
                 'text-background-padding': 3
@@ -303,9 +285,9 @@ document.addEventListener('DOMContentLoaded', () => {
         {
             selector: 'edge[label]',
             style: {
-                label: 'data(label)',
+                'label': 'data(label)',
                 'font-size': 10,
-                color: '#64748b',
+                'color': '#64748b',
                 'text-background-opacity': 1,
                 'text-background-color': '#ffffff',
                 'text-background-padding': 3
@@ -314,30 +296,31 @@ document.addEventListener('DOMContentLoaded', () => {
         {
             selector: 'edge.root-edge',
             style: {
+                'line-color': '#94a3b8',
+                'width': 3,
                 'curve-style': 'taxi',
                 'taxi-direction': 'vertical',
                 'taxi-turn': 20,
-                'target-arrow-shape': 'none',
-                width: 3,
-                'line-color': '#94a3b8'
+                'target-arrow-shape': 'none'
             }
         },
         {
             selector: 'edge.dept-edge',
             style: {
+                'line-color': '#cbd5e1',
+                'target-arrow-color': '#cbd5e1',
+                'width': 1.5,
                 'curve-style': 'taxi',
                 'taxi-direction': 'vertical',
-                width: 1.5,
-                'line-color': '#cbd5e1',
-                'target-arrow-color': '#cbd5e1'
+                'line-style': 'solid'
             }
         },
         {
             selector: 'edge.chat-edge',
             style: {
-                'line-style': 'dashed',
                 'line-color': '#7dd3fc',
-                'target-arrow-color': '#7dd3fc'
+                'target-arrow-color': '#7dd3fc',
+                'line-style': 'dashed'
             }
         }
     ];
@@ -504,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         bind('btn-fit', () => {
-            if (cy) cy.fit(undefined, 30);
+            if (cy) cy.fit(undefined, 50);
         });
 
         bind('btn-toggle-collapse', (event) => {
@@ -544,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 if (!cy) return;
                 cy.resize();
-                cy.fit(undefined, 30);
+                cy.fit(undefined, 50);
             }, 300);
         })
         .catch(() => {
