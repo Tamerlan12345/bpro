@@ -436,6 +436,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return data.candidates[0].content.parts[0].text;
     }
 
+    function normalizeGeneratedBpmnXml(xml) {
+        if (typeof xml !== 'string') {
+            return xml;
+        }
+
+        if (typeof normalizeBpmnVerticalLayout !== 'function') {
+            return xml;
+        }
+
+        try {
+            return normalizeBpmnVerticalLayout(xml);
+        } catch (error) {
+            console.warn('BPMN vertical normalization skipped:', error);
+            return xml;
+        }
+    }
+
     async function generateProcessArtifacts(processDescription) {
         const prompt = `Ты — элитный бизнес-аналитик и эксперт по BPMN. Твоя задача — взять сырое описание процесса от пользователя и превратить его в два артефакта:
 1.  Структурированное описание шагов бизнес-процесса в формате Markdown.
@@ -490,7 +507,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             try {
                 // Parse the extracted JSON string.
-                return JSON.parse(jsonMatch[0]);
+                const parsedResponse = JSON.parse(jsonMatch[0]);
+                if (typeof parsedResponse.mermaidCode === 'string') {
+                    parsedResponse.mermaidCode = normalizeGeneratedBpmnXml(parsedResponse.mermaidCode);
+                }
+                return parsedResponse;
             } catch (error) {
                 console.error("Failed to parse JSON from AI response. Raw JSON string:", jsonMatch[0], "Error:", error);
                 throw new Error("Ошибка парсинга JSON ответа от AI.");
@@ -512,7 +533,7 @@ ${brokenCode}
 Проанализируй ошибку и верни ИСПРАВЛЕННЫЙ код. Убедись, что добавлены все DI теги с координатами (BPMNShape, dc:Bounds, BPMNEdge, di:waypoint)
 
 Ответ должен содержать ТОЛЬКО ИСПРАВЛЕННЫЙ код BPMN XML, без объяснений и markdown.`;
-        return callGeminiAPI(prompt, { chatId }).then(code => code.replace(/```xml/g, '').replace(/```/g, '').trim());
+        return callGeminiAPI(prompt, { chatId }).then(code => normalizeGeneratedBpmnXml(code.replace(/```xml/g, '').replace(/```/g, '').trim()));
     }
 
     async function generateDiagramFromText(processDescription) {
@@ -526,7 +547,7 @@ ${brokenCode}
 
 ИСХОДНЫЙ ПРОЦЕСС ОТ ПОЛЬЗОВАТЕЛЯ:
 "${processDescription}"`;
-        return callGeminiAPI(prompt, { chatId }).then(code => code.replace(/```xml/g, '').replace(/```/g, '').trim());
+        return callGeminiAPI(prompt, { chatId }).then(code => normalizeGeneratedBpmnXml(code.replace(/```xml/g, '').replace(/```/g, '').trim()));
     }
 
 
