@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'text-halign': 'center',
         padding: '16px',
         'line-height': 1.6,
-        'font-family': '"Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
+        'font-family': '"Inter", "Manrope", "Segoe UI", sans-serif'
     };
 
     const statusMap = {
@@ -150,8 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 shape: 'round-rectangle',
                 'background-color': '#0f172a',
                 color: '#ffffff',
-                width: 320,
-                height: 96,
+
                 'font-weight': 'bold',
                 'font-size': 18,
                 padding: '20px',

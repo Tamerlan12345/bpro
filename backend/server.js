@@ -1155,7 +1155,7 @@ app.get('/dash', (req, res) => {
     <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        body { margin: 0; font-family: "Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; background: #f8fafc; overflow: hidden; color: #1e293b; }
+        body { margin: 0; font-family: "Inter", "Manrope", "Segoe UI", sans-serif; background: #f8fafc; overflow: hidden; color: #1e293b; }
         #cy {
             width: 100vw;
             height: 100vh;
