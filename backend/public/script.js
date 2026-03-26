@@ -1474,7 +1474,14 @@ ${brokenCode}
 
     const handleStartRecording = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    sampleRate: 16000
+                } 
+            });
             audioChunks = [];
             mediaRecorder = new MediaRecorder(stream);
 
