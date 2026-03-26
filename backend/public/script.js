@@ -2138,12 +2138,12 @@ ${brokenCode}
                                 'border-width': 1,
                                 'border-color': '#cbd5e1',
                                 'color': '#1e293b',
-                                'width': 208,
-                                'height': 70,
-                                'text-max-width': 168,
+                                'width': 280,
+                                'height': 110,
+                                'text-max-width': 240,
                                 'font-size': 13,
                                 'font-weight': '500',
-                                'padding': '10px 14px'
+                                'padding': '14px'
                             }
                         },
                         {
@@ -2156,11 +2156,12 @@ ${brokenCode}
                                 'border-style': 'dashed',
                                 'border-color': '#94a3b8',
                                 'color': '#475569',
-                                'width': 176,
-                                'height': 58,
-                                'text-max-width': 138,
+                                'width': 280,
+                                'height': 110,
+                                'text-max-width': 240,
                                 'font-size': 12,
-                                'padding': '8px 12px'
+                                'padding': '14px',
+                                'opacity': 0.8
                             }
                         },
                         { selector: 'node.status-approved', style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' } },
@@ -2577,7 +2578,7 @@ ${brokenCode}
 
                             const spacingX = 300; // Отступ между колонками департаментов
                             const startY = 130;   // Y координата департаментов
-                            const spacingY = 150;  // Шаг по вертикали, чтобы между узлами читались связи
+                            const spacingY = 115;  // Шаг по вертикали, чтобы между узлами читались связи
 
                             let currentX = -((depts.length - 1) * spacingX) / 2; // Центрируем весь блок по X=0
 
