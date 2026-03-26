@@ -2389,41 +2389,92 @@ ${brokenCode}
                         if (nodes.length < 2) return showNotification('Недостаточно процессов для анализа', 'error');
 
                         setButtonLoading(aiLinkBtn, true, 'Анализ...');
-                        const processesData = nodes.map(n => ({ id: n.id(), name: n.data('rawName'), desc: n.data('description') }));
+                        const processesData = nodes.map(n => ({ 
+                            id: n.id(), 
+                            name: n.data('rawName'), 
+                            desc: n.data('description') 
+                        }));
 
                         const prompt = `Ты — бизнес-архитектор. Проанализируй этот список процессов и найди логические связи (кто кому передает данные, кто за кем следует). 
 Верни СТРОГО JSON-массив объектов: [{"source": "id_источника", "target": "id_цели", "reason": "краткое описание связи"}]. Не пиши markdown, только голый JSON.
+Если связей нет, верни пустой массив [].
 Процессы: ${JSON.stringify(processesData)}`;
 
                         try {
                             const res = await callGeminiAPI(prompt);
-                            const jsonMatch = res.match(/\[\s*\{[\s\S]*\}\s*\]/);
-                            if (!jsonMatch) throw new Error("Could not find logical connections in AI response");
+                            // Более надежное извлечение JSON (поддерживает и пустые массивы, и markdown-обертки)
+                            const jsonMatch = res.match(/\[\s*([\s\S]*)\s*\]/);
+                            if (!jsonMatch) throw new Error("Could not find JSON array in AI response");
+                            
                             const links = JSON.parse(jsonMatch[0]);
+                            if (!Array.isArray(links)) throw new Error("AI response is not an array");
+
+                            if (links.length === 0) {
+                                showNotification('ИИ не нашел новых логических связей', 'info');
+                                return;
+                            }
 
                             let addedCount = 0;
+                            let savedCount = 0;
                             const processedIds = new Set();
+                            const savePromises = [];
 
-                            links.forEach(link => {
-                                if (!link.source || !link.target || link.source === link.target) return;
+                            for (const link of links) {
+                                if (!link.source || !link.target || link.source === link.target) continue;
 
                                 const edgeId = `ai_rel_${link.source}_${link.target}`;
-                                if (processedIds.has(edgeId)) return;
+                                if (processedIds.has(edgeId)) continue;
                                 processedIds.add(edgeId);
 
-                                if (cy.getElementById(link.source).length && cy.getElementById(link.target).length) {
+                                const sourceNode = cy.getElementById(link.source);
+                                const targetNode = cy.getElementById(link.target);
+
+                                if (sourceNode.length && targetNode.length) {
+                                    // Добавляем на карту, если еще нет
                                     if (cy.getElementById(edgeId).length === 0) {
                                         cy.add({
-                                            data: { id: edgeId, source: link.source, target: link.target, label: link.reason || '' },
+                                            data: { 
+                                                id: edgeId, 
+                                                source: link.source, 
+                                                target: link.target, 
+                                                label: link.reason || '' 
+                                            },
                                             classes: 'ai-relation'
                                         });
                                         addedCount++;
+
+                                        // СОХРАНЕНИЕ В БД ДЛЯ ПЕРСИСТЕНТНОСТИ
+                                        const sourceId = link.source.replace('proc_', '');
+                                        const targetId = link.target.replace('proc_', '');
+                                        
+                                        savePromises.push(
+                                            fetchWithAuth('/api/admin/relations', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    source_process_id: sourceId,
+                                                    target_process_id: targetId,
+                                                    relation_type: link.reason || 'AI Link'
+                                                })
+                                            }).then(r => { if(r.ok) savedCount++; })
+                                        );
                                     }
                                 }
-                            });
-                            showNotification(`ИИ нашел ${addedCount} новых связей!`, 'success');
-                            toggleAiLinksBtn.style.display = 'inline-block';
+                            }
+
+                            if (savePromises.length > 0) {
+                                await Promise.all(savePromises);
+                            }
+
+                            if (addedCount > 0) {
+                                showNotification(`ИИ нашел и сохранил ${addedCount} новых связей!`, 'success');
+                                toggleAiLinksBtn.style.display = 'inline-block';
+                            } else {
+                                showNotification('Новых связей не найдено (все уже есть на карте)', 'info');
+                            }
+
                         } catch (e) {
+                            console.error('AI Link Error:', e);
                             showNotification('Ошибка анализа: ' + e.message, 'error');
                         } finally {
                             setButtonLoading(aiLinkBtn, false, '🪄 Связь процессов (ИИ)');
@@ -2434,7 +2485,6 @@ ${brokenCode}
                     toggleAiLinksBtn.onclick = () => {
                         aiLinksVisible = !aiLinksVisible;
                         toggleAiLinksBtn.innerHTML = aiLinksVisible ? '👁️ Скрыть связи ИИ' : '👁️ Показать связи ИИ';
-                        // Скрываем все связи, которые не являются структурными (root, dept, chat)
                         cy.edges().filter(e => !e.hasClass('root-edge') && !e.hasClass('dept-edge') && !e.hasClass('chat-edge')).style('display', aiLinksVisible ? 'element' : 'none');
                     };
                 }
