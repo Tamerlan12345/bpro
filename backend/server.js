@@ -1299,7 +1299,7 @@ app.get('/dash', (req, res) => {
         </div>
         <div id="dash-panel-content" class="side-panel-content"></div>
     </div>
-    <script src="/dash.js"></script>
+    <script src="/dash.js?v=6"></script>
 </body>
 </html>
     `);
