@@ -309,6 +309,12 @@ const positionSchema = z.object({
     y: z.number()
 });
 
+const bulkPositionSchema = z.object({
+    departments: z.array(z.object({ id: z.string(), x: z.number(), y: z.number() })).optional(),
+    processes: z.array(z.object({ id: z.string(), x: z.number(), y: z.number() })).optional(),
+    chats: z.array(z.object({ id: z.string(), x: z.number(), y: z.number() })).optional()
+});
+
 const departmentPositionSchema = z.object({
     x: z.number().optional(),
     y: z.number().optional(),
@@ -1353,6 +1359,34 @@ app.put('/api/admin/chats/:id/position', isAuthenticated, isAdmin, validateBody(
     } catch (error) {
         logger.error(error, `Error updating position for chat ${id}`);
         res.status(500).json({ error: 'Failed to update position.' });
+    }
+});
+
+app.put('/api/admin/map/positions/bulk', isAuthenticated, isAdmin, validateBody(bulkPositionSchema), async (req, res) => {
+    const { departments = [], processes = [], chats = [] } = req.body;
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        for (const dept of departments) {
+            await client.query('UPDATE departments SET x = $1, y = $2 WHERE id = $3', [dept.x, dept.y, dept.id]);
+        }
+        for (const proc of processes) {
+            await client.query('UPDATE business_processes SET x = $1, y = $2 WHERE id = $3', [proc.x, proc.y, proc.id]);
+        }
+        for (const chat of chats) {
+            await client.query('UPDATE chats SET x = $1, y = $2 WHERE id = $3', [chat.x, chat.y, chat.id]);
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        logger.error(error, 'Error during bulk position update');
+        res.status(500).json({ error: 'Failed to update positions in bulk.' });
+    } finally {
+        client.release();
     }
 });
 

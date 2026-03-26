@@ -2625,6 +2625,45 @@ ${brokenCode}
                     };
                 }
 
+                const saveMapBtn = document.getElementById('save-map-btn');
+                if (saveMapBtn) {
+                    saveMapBtn.onclick = async () => {
+                        setButtonLoading(saveMapBtn, true, 'Сохранение...');
+                        try {
+                            const departments = [];
+                            const processes = [];
+                            const chats = [];
+
+                            cy.nodes('.department, .process, .chat').forEach(node => {
+                                const pos = node.position();
+                                if (node.hasClass('department')) {
+                                    departments.push({ id: node.id().replace('dept_', ''), x: pos.x, y: pos.y });
+                                } else if (node.hasClass('process')) {
+                                    processes.push({ id: node.id().replace('proc_', ''), x: pos.x, y: pos.y });
+                                } else if (node.hasClass('chat')) {
+                                    chats.push({ id: node.id().replace('chat_', ''), x: pos.x, y: pos.y });
+                                }
+                            });
+
+                            const res = await fetchWithAuth('/api/admin/map/positions/bulk', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ departments, processes, chats })
+                            });
+
+                            if (res.ok) {
+                                showNotification('Координаты всей карты успешно сохранены', 'success');
+                            } else {
+                                showNotification('Ошибка при сохранении карты', 'error');
+                            }
+                        } catch (e) {
+                            showNotification('Ошибка связи: ' + e.message, 'error');
+                        } finally {
+                            setButtonLoading(saveMapBtn, false);
+                        }
+                    };
+                }
+
                 const autoLayoutBtn = document.getElementById('auto-layout-btn');
                 if (autoLayoutBtn) {
                     autoLayoutBtn.onclick = async () => {
@@ -2673,26 +2712,33 @@ ${brokenCode}
 
                             cy.fit(cy.nodes(), 50);
 
-                            // Сохраняем новые координаты в БД
-                            const saveRequests = [];
+                            // Сохраняем новые координаты в БД единым запросом
+                            const departments = [];
+                            const processes = [];
+                            const chats = [];
+
                             cy.nodes('.department, .process, .chat').forEach(node => {
                                 const pos = node.position();
-                                let ep = '';
-                                if (node.hasClass('department')) ep = `/api/admin/departments/${node.id().replace('dept_', '')}/position`;
-                                else if (node.hasClass('process')) ep = `/api/admin/processes/${node.id().replace('proc_', '')}/position`;
-                                else if (node.hasClass('chat')) ep = `/api/admin/chats/${node.id().replace('chat_', '')}/position`;
-
-                                if (ep) {
-                                    saveRequests.push(fetchWithAuth(ep, {
-                                        method: 'PUT',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ x: pos.x, y: pos.y })
-                                    }));
+                                if (node.hasClass('department')) {
+                                    departments.push({ id: node.id().replace('dept_', ''), x: pos.x, y: pos.y });
+                                } else if (node.hasClass('process')) {
+                                    processes.push({ id: node.id().replace('proc_', ''), x: pos.x, y: pos.y });
+                                } else if (node.hasClass('chat')) {
+                                    chats.push({ id: node.id().replace('chat_', ''), x: pos.x, y: pos.y });
                                 }
                             });
-                            await Promise.all(saveRequests);
 
-                            showNotification('Авто-выравнивание завершено', 'success');
+                            const res = await fetchWithAuth('/api/admin/map/positions/bulk', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ departments, processes, chats })
+                            });
+
+                            if (res.ok) {
+                                showNotification('Авто-выравнивание и сохранение завершено', 'success');
+                            } else {
+                                showNotification('Ошибка при сохранении автоматического макета', 'error');
+                            }
                         }
                     };
                 }
