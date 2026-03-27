@@ -1,43 +1,94 @@
 const fs = require('fs');
+const path = require('path');
 const mammoth = require('mammoth');
 const { fetchWithRetry } = require('../utils/resilientFetch');
 
-let pdfParseFn = null;
+let PDFParseClass = null;
 async function getPdfParser() {
-    if (pdfParseFn) {
-        return pdfParseFn;
+    if (PDFParseClass) {
+        return PDFParseClass;
     }
 
-    // Lazy-load to avoid initializing heavy native deps when PDF parsing is not used.
-    const loaded = require('pdf-parse');
-    pdfParseFn = loaded;
-    return pdfParseFn;
+    try {
+        // pdf-parse v2+ exports a class PDFParse
+        const loaded = require('pdf-parse');
+        if (loaded.PDFParse) {
+            PDFParseClass = loaded.PDFParse;
+        } else if (typeof loaded === 'function') {
+            // Fallback for v1 if somehow it's downgraded
+            PDFParseClass = loaded;
+        } else {
+            throw new Error('Could not find PDFParse class or function in pdf-parse module');
+        }
+    } catch (error) {
+        console.error('Failed to load pdf-parse:', error);
+        throw error;
+    }
+    return PDFParseClass;
 }
 
 async function extractTextFromFile(filePath, mimeType) {
-    if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || filePath.endsWith('.docx')) {
+    const isWord = mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                   filePath.toLowerCase().endsWith('.docx');
+    
+    const isPdf = mimeType === 'application/pdf' || 
+                  filePath.toLowerCase().endsWith('.pdf');
+
+    console.log(`Extracting text from: ${filePath} (mimetype: ${mimeType})`);
+
+    if (isWord) {
         try {
             const result = await mammoth.extractRawText({ path: filePath });
-            return result.value;
+            if (result.messages && result.messages.length > 0) {
+                console.warn('Mammoth extraction warnings:', result.messages);
+            }
+            return result.value || '';
         } catch (error) {
             console.error('Mammoth extraction error:', error);
-            // Fallback to text reading if mammoth fails
-            return fs.readFileSync(filePath, 'utf8');
+            return '';
         }
-    } else if (mimeType === 'application/pdf' || filePath.toLowerCase().endsWith('.pdf')) {
+    } else if (isPdf) {
+        let parser = null;
         try {
+            console.log(`Extracting PDF text from: ${filePath}`);
             const dataBuffer = fs.readFileSync(filePath);
-            const parsePdf = await getPdfParser();
-            const data = await parsePdf(dataBuffer);
-            return data.text;
+            const PDFParse = await getPdfParser();
+            
+            // Handle both v2 (class) and v1 (function)
+            if (PDFParse.prototype && PDFParse.prototype.getText) {
+                parser = new PDFParse({ data: dataBuffer });
+                const data = await parser.getText();
+                return data.text || '';
+            } else {
+                // v1 fallback
+                const data = await PDFParse(dataBuffer);
+                return data.text || '';
+            }
         } catch (error) {
             console.error('PDF extraction error:', error);
             return '';
+        } finally {
+            if (parser && typeof parser.destroy === 'function') {
+                await parser.destroy();
+            }
         }
     }
 
-    // Default fallback for text files
+    // Default fallback for plain text files
     try {
+        const ext = path.extname(filePath).toLowerCase();
+        const binaryExts = ['.doc', '.xls', '.xlsx', '.ppt', '.pptx', '.bin', '.exe', '.zip', '.rar'];
+        
+        if (binaryExts.includes(ext)) {
+            console.warn(`Attempted to read binary file as text: ${filePath}. Unsupported format.`);
+            return '';
+        }
+
+        const stats = fs.statSync(filePath);
+        if (stats.size > 10 * 1024 * 1024) { // 10MB limit for text files
+            console.warn(`Text file too large: ${filePath}`);
+            return '';
+        }
         return fs.readFileSync(filePath, 'utf8');
     } catch (error) {
         console.error('File read error:', error);
