@@ -179,7 +179,14 @@ const uploadAudio = (req, res, next) => {
 
 app.use(express.json());
 app.use(cors({
-    origin: process.env.FRONTEND_URL,
+    origin: (origin, callback) => {
+        const allowedOrigin = process.env.FRONTEND_URL;
+        if (!origin || allowedOrigin === '*' || origin === allowedOrigin) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 
@@ -249,6 +256,7 @@ app.get('/api/csrf-token', (req, res) => {
 
 const isAuthenticated = (req, res, next) => {
     if (req.session.user) return next();
+    logger.warn({ url: req.url, ip: req.ip }, 'Unauthenticated access attempt');
     res.status(401).json({ error: 'Unauthorized: You must be logged in.' });
 };
 const isAdmin = (req, res, next) => {
@@ -770,9 +778,16 @@ app.post('/api/auth/chat', isAuthenticated, authLimiter, validateBody(authChatSc
             [department_id, name]
         );
         const chat = rows[0];
-        if (!chat) return res.status(401).json({ error: 'Invalid chat or password' });
+        if (!chat) {
+            logger.warn({ chatName: name, departmentId: department_id }, 'Chat login failed: Chat not found');
+            return res.status(401).json({ error: 'Invalid chat or password' });
+        }
+
         const passwordMatches = await bcrypt.compare(password, chat.hashed_password);
-        if (!passwordMatches) return res.status(401).json({ error: 'Invalid chat or password' });
+        if (!passwordMatches) {
+            logger.warn({ chatId: chat.id, chatName: name }, 'Chat login failed: Incorrect password');
+            return res.status(401).json({ error: 'Invalid chat or password' });
+        }
         res.json({ id: chat.id, name: chat.name });
     } catch (error) {
         logger.error(error, 'Error during chat authentication');
