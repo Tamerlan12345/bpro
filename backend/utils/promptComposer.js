@@ -4,7 +4,7 @@ function formatApprovedProcesses(approvedProcesses) {
     }
 
     const lines = approvedProcesses.map((proc) => {
-        const name = proc && proc.name ? String(proc.name).trim() : 'Без названия';
+        const name = proc && proc.name ? String(proc.name).trim() : 'Unnamed process';
         const description = proc && proc.description ? String(proc.description).trim() : '';
         if (!description) {
             return `- ${name}`;
@@ -12,17 +12,17 @@ function formatApprovedProcesses(approvedProcesses) {
         return `- ${name}: ${description}`;
     });
 
-    return `КОНТЕКСТ УТВЕРЖДЕННЫХ ПРОЦЕССОВ:\n${lines.join('\n')}`;
+    return `APPROVED PROCESS CONTEXT:\n${lines.join('\n')}`;
 }
 
-const SYSTEM_PROMPT = `ТЫ — БИЗНЕС-АНАЛИТИК И АГЕНТ КОМПАНИИ ПО ОПТИМИЗАЦИИ ПРОЦЕССОВ.
-ТВОЯ ЗАДАЧА: ПОМОЧЬ ПОЛЬЗОВАТЕЛЮ СФОРМУЛИРОВАТЬ И УСОВЕРШЕНСТВОВАТЬ БИЗНЕС-ПРОЦЕСС.
+const SYSTEM_PROMPT = `YOU ARE A BUSINESS ANALYST ASSISTANT.
+GOAL: help refine, improve, or generate business process content using the available company context.
 
-ПРАВИЛА ОФОРМЛЕНИЯ:
-1. ИСПОЛЬЗУЙ СТРУКТУРУ И СТИЛЬ ИЗ ЖЕСТКОГО КОНТЕКСТА УТВЕРЖДЕННЫХ ПРОЦЕССОВ (ЕСЛИ ОНИ ПРЕДОСТАВЛЕНЫ).
-2. ЕСЛИ В ПРИМЕРАХ НИЖЕ ИСПОЛЬЗУЕТСЯ НУМЕРАЦИЯ, ОПРЕДЕЛЕННЫЙ УРОВЕНЬ ДЕТАЛИЗАЦИИ ИЛИ СПЕЦИФИЧЕСКИЕ ТЕРМИНЫ — ДЕЛАЙ ТАК ЖЕ.
-3. ПРОЦЕСС ДОЛЖЕН БЫТЬ ПОНЯТНЫМ, ЛОГИЧНЫМ И ГОТОВЫМ К ВИЗУАЛИЗАЦИИ В ВИДЕ ДИАГРАММЫ.
-4. ОТВЕЧАЙ ТОЛЬКО ТЕКСТОМ ПРОЦЕССА ИЛИ ПРЕДЛОЖЕНИЯМИ ПО ЕГО УЛУЧШЕНИЮ, БЕЗ ЛИШНИХ ВСТУПЛЕНИЙ.`;
+RULES:
+1. Treat approved processes, the initial template, and the latest version as reference context.
+2. Preserve the exact output format requested in the user's prompt.
+3. If the user's prompt asks for JSON, XML, BPMN, Markdown, or plain text, return exactly that format.
+4. Do not add commentary outside the requested format.`;
 
 function composeGeneratePrompt({
     userPrompt,
@@ -36,24 +36,25 @@ function composeGeneratePrompt({
     const latestBlock = typeof latestVersion === 'string' ? latestVersion.trim() : '';
 
     if (!approvedBlock && !initialBlock && !latestBlock) {
-        return `${SYSTEM_PROMPT}\n\nЗАПРОС ПОЛЬЗОВАТЕЛЯ:\n${normalizedPrompt}`;
+        return normalizedPrompt;
     }
 
-    const sections = [
-        SYSTEM_PROMPT,
-        approvedBlock ? `${approvedBlock}\n\n⚠️ ВАЖНО: Твои ответы по структуре, стилистике и глубине описания должны СООТВЕТСТВОВАТЬ примерам выше.` : ''
-    ];
+    const sections = [SYSTEM_PROMPT];
+
+    if (approvedBlock) {
+        sections.push(approvedBlock);
+    }
 
     if (initialBlock) {
-        sections.push(`ЭТАЛОННЫЙ ШАБЛОН ДЛЯ ЭТОГО ЧАТА (ИСПОЛЬЗУЙ КАК ОСНОВУ):\n${initialBlock}`);
+        sections.push(`CHAT TEMPLATE:\n${initialBlock}`);
     }
 
     if (latestBlock) {
-        sections.push(`ТЕКУЩАЯ РАБОЧАЯ ВЕРСИЯ:\n${latestBlock}`);
+        sections.push(`CURRENT WORKING VERSION:\n${latestBlock}`);
     }
 
-    sections.push(`ЗАПРОС ПОЛЬЗОВАТЕЛЯ (ВНЕСИ ПРАВКИ ИЛИ СОЗДАЙ НОВЫЙ ВЕРНОЙ СТРУКТУРЕ):\n${normalizedPrompt}`);
-    
+    sections.push(`PRIMARY USER INSTRUCTION (follow the required output format exactly):\n${normalizedPrompt}`);
+
     return sections.filter(Boolean).join('\n\n');
 }
 
