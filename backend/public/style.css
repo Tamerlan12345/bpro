@@ -153,6 +153,38 @@ body {
     color: inherit;
 }
 
+/* --- Brand Centras Badge --- */
+.brand-centras {
+    display: inline-block;
+    font-family: "Outfit", sans-serif;
+    font-size: 0.5em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #f59e0b, #ef4444, #ec4899);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding: 0.1em 0.5em;
+    border: 1.5px solid rgba(245, 158, 11, 0.35);
+    border-radius: 999px;
+    vertical-align: middle;
+    position: relative;
+    top: -0.15em;
+    margin-left: 0.15em;
+    transition: all 0.3s ease;
+}
+
+.brand-centras:hover {
+    border-color: rgba(245, 158, 11, 0.6);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.2), 0 0 24px rgba(236, 72, 153, 0.1);
+    transform: scale(1.05);
+}
+
+header h1 .brand-centras {
+    font-size: 0.45em;
+}
+
 /* --- Tabs Styling --- */
 .admin-tabs {
     display: flex;
