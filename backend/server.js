@@ -421,12 +421,14 @@ app.post('/api/transcribe', isAuthenticated, uploadAudio, async (req, res) => {
             appId: 'bizpro-backend'
         });
         
-        const fileStream = fs.createReadStream(req.file.path);
+        // SDK expects File/Blob, not a ReadStream — read file into a Blob
+        const fileBuffer = await fs.promises.readFile(req.file.path);
+        const audioBlob = new Blob([fileBuffer], { type: req.file.mimetype || 'audio/webm' });
 
-        logger.info(`Starting transcription for file: ${req.file.path}`);
+        logger.info(`Starting transcription for file: ${req.file.originalname}, size: ${fileBuffer.length} bytes`);
         
         const response = await client.transcribe(
-            fileStream,
+            { data: audioBlob, fileName: req.file.originalname || 'recording.webm' },
             {
                 transcription_config: {
                     language: 'ru',
@@ -1633,8 +1635,8 @@ app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (
         }, {
             fetchImpl: fetch,
             retries: 2,
-            timeoutMs: 15000,
-            retryDelayMs: 300
+            timeoutMs: 120000,
+            retryDelayMs: 1000
         });
         if (!apiResponse.ok) {
             const errorData = await apiResponse.json().catch(() => ({}));
