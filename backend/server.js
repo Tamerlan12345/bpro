@@ -415,9 +415,16 @@ app.post('/api/transcribe', isAuthenticated, uploadAudio, async (req, res) => {
             return res.status(500).json({ error: 'Transcription service is not configured.' });
         }
 
-        const client = new BatchClient({ apiKey: process.env.SPEECHMATICS_API_KEY });
+        // Added appId: 'bizpro-backend' to satisfy SDK requirement
+        const client = new BatchClient({ 
+            apiKey: process.env.SPEECHMATICS_API_KEY,
+            appId: 'bizpro-backend'
+        });
+        
         const fileStream = fs.createReadStream(req.file.path);
 
+        logger.info(`Starting transcription for file: ${req.file.path}`);
+        
         const response = await client.transcribe(
             fileStream,
             {
@@ -428,13 +435,27 @@ app.post('/api/transcribe', isAuthenticated, uploadAudio, async (req, res) => {
             'json-v2',
         );
 
+        if (!response || !response.results) {
+            logger.error({ response }, 'Speechmatics returned empty or invalid response');
+            throw new Error('Invalid response from transcription service');
+        }
+
         const fullTranscript = response.results.map((r) => r.alternatives?.[0].content).join(' ');
 
+        logger.info(`Transcription successful. Length: ${fullTranscript.length}`);
         res.json({ transcript: fullTranscript });
 
     } catch (error) {
-        logger.error(error, 'Speechmatics transcription error');
-        res.status(500).json({ error: 'Failed to transcribe audio.' });
+        logger.error({ 
+            error: error.message, 
+            stack: error.stack,
+            details: error.response || error.cause || error 
+        }, 'Speechmatics transcription error');
+        
+        res.status(500).json({ 
+            error: 'Failed to transcribe audio.', 
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+        });
     } finally {
         try {
             await fs.promises.unlink(req.file.path);
@@ -1616,14 +1637,29 @@ app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (
             retryDelayMs: 300
         });
         if (!apiResponse.ok) {
-            const errorData = await apiResponse.json();
-            return res.status(apiResponse.status).json({ error: 'Failed to fetch from Google API', details: errorData });
+            const errorData = await apiResponse.json().catch(() => ({}));
+            logger.error({ 
+                status: apiResponse.status, 
+                errorData,
+                prompt: finalPrompt.substring(0, 200) + '...' 
+            }, 'Google API error in /api/generate');
+            return res.status(apiResponse.status).json({ 
+                error: 'Failed to fetch from Google API', 
+                details: errorData 
+            });
         }
         const data = await apiResponse.json();
         res.status(200).json(data);
     } catch (error) {
-        logger.error(error);
-        res.status(500).json({ error: 'An internal server error occurred.' });
+        logger.error({ 
+            error: error.message, 
+            stack: error.stack,
+            chat_id 
+        }, 'Internal error in /api/generate');
+        res.status(500).json({ 
+            error: 'An internal server error occurred.',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+        });
     }
 });
 app.post('/api/chats/:id/validate', isAuthenticated, async (req, res) => {
