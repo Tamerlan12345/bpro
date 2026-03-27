@@ -67,6 +67,19 @@
         return flows;
     }
 
+    function collectElementTypes(xml) {
+        const types = new Map();
+        const elementPattern = /<bpmn2:([A-Za-z0-9_]+)\b[^>]*\bid="([^"]+)"/gi;
+        let match = elementPattern.exec(xml);
+
+        while (match) {
+            types.set(match[2], match[1]);
+            match = elementPattern.exec(xml);
+        }
+
+        return types;
+    }
+
     function replaceShapeBounds(xml, bpmnElement, nextBounds) {
         const shapePattern = new RegExp(
             `(<bpmndi:BPMNShape\\b[^>]*bpmnElement="${bpmnElement}"[^>]*>[\\s\\S]*?<dc:Bounds\\b)([^>]*?)(?:\\/?>)([\\s\\S]*?<\\/bpmndi:BPMNShape>)`,
@@ -150,6 +163,7 @@
 
         const shapes = collectShapes(xml);
         const flows = collectFlows(xml);
+        const elementTypes = collectElementTypes(xml);
         if (shapes.length < 2 || flows.length === 0) {
             return xml;
         }
@@ -160,20 +174,29 @@
         }
 
         const averageCenterX = orderedShapes.reduce((sum, shape) => sum + shape.x + (shape.width / 2), 0) / orderedShapes.length;
-        const topMargin = 80;
-        const verticalGap = 150;
+        const centerX = Math.max(averageCenterX, 520);
+        const topMargin = 64;
+        const verticalGap = 72;
         const nextShapeMap = new Map();
 
         let currentY = topMargin;
         orderedShapes.forEach((shape) => {
+            const elementType = (elementTypes.get(shape.bpmnElement) || '').toLowerCase();
+            const isTask = elementType.includes('task');
+            const isGateway = elementType.includes('gateway');
+            const isEvent = elementType.includes('event');
+
+            const nextWidth = isTask ? Math.max(shape.width, 220) : (isGateway ? Math.max(shape.width, 72) : shape.width);
+            const nextHeight = isTask ? Math.max(shape.height, 90) : (isEvent ? Math.max(shape.height, 36) : shape.height);
+
             const nextShape = {
-                x: averageCenterX - (shape.width / 2),
+                x: centerX - (nextWidth / 2),
                 y: currentY,
-                width: shape.width,
-                height: shape.height
+                width: nextWidth,
+                height: nextHeight
             };
             nextShapeMap.set(shape.bpmnElement, nextShape);
-            currentY += shape.height + verticalGap;
+            currentY += nextHeight + verticalGap;
         });
 
         let nextXml = xml;

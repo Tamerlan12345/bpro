@@ -330,6 +330,7 @@
                     </div>
                     <div class="prompt-block">
                         <label for="user-prompt">Дополнительный контекст для ИИ (необязательно)</label>
+                        <p class="prompt-help">Промпт применяется и к улучшениям текста, и к построению схемы.</p>
                         <input type="text" id="user-prompt"
                             placeholder="Например: 'Сделай акцент на безопасности' или 'Учти, что это для малого бизнеса'">
                     </div>
@@ -380,10 +381,10 @@
                 <div class="legend">
                     <h4>Легенда</h4>
                     <ul>
-                        <li><span class="legend-shape rect"></span> - Стандартный шаг процесса</li>
-                        <li><span class="legend-shape diamond"></span> - Принятие решения</li>
-                        <li><span class="legend-shape cylinder"></span> - База данных / Хранилище</li>
-                        <li><span class="legend-shape document"></span> - Документ / Отчет</li>
+                        <li><span class="legend-shape event-circle"></span> - Событие (старт/завершение)</li>
+                        <li><span class="legend-shape task-rect"></span> - Задача процесса</li>
+                        <li><span class="legend-shape gateway-diamond"></span> - Шлюз / решение</li>
+                        <li><span class="legend-shape flow-arrow"></span> - Поток выполнения</li>
                     </ul>
                 </div>
             </div>

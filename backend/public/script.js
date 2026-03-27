@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<?xml version="1.0" encoding="UTF-8"?><bpmn2:definitions xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="sample-diagram" targetNamespace="http://bpmn.io/schema/bpmn"><bpmn2:process id="Process_1" isExecutable="false"><bpmn2:startEvent id="StartEvent_1"/></bpmn2:process><bpmndi:BPMNDiagram id="BPMNDiagram_1"><bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1"><bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1"><dc:Bounds height="36.0" width="36.0" x="100.0" y="100.0"/></bpmndi:BPMNShape></bpmndi:BPMNPlane></bpmndi:BPMNDiagram></bpmn2:definitions>`;
     }
 
-    function safelyFitBpmnViewport(viewerInstance) {
+    function safelyFitBpmnViewport(viewerInstance, container = diagramContainer) {
         const canvas = viewerInstance.get('canvas');
         const viewbox = canvas.viewbox();
         const hasFiniteViewbox = viewbox
@@ -288,13 +288,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hasFiniteViewbox) {
             try {
                 canvas.zoom('fit-viewport');
-                return;
             } catch (error) {
                 console.warn('BPMN fit-viewport fallback triggered:', error);
             }
+        } else {
+            canvas.zoom(1);
         }
 
-        canvas.zoom(1);
+        const minReadableZoom = 0.82;
+        const currentZoom = canvas.zoom();
+        if (Number.isFinite(currentZoom) && currentZoom < minReadableZoom) {
+            canvas.zoom(minReadableZoom);
+        }
+
+        if (container) {
+            container.style.overflow = 'auto';
+        }
     }
 
     async function renderDiagram(bpmnCode, container = diagramContainer, isRetry = false) {
@@ -302,9 +311,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await loadBpmnJs();
             container.innerHTML = '';
-            container.style.height = '450px';
+            container.style.height = '560px';
             container.style.border = '1px solid #e2e8f0';
             container.style.backgroundColor = '#fff';
+            container.style.maxHeight = '72vh';
+            container.style.overflow = 'auto';
 
             if (!bpmnViewer || container !== diagramContainer) {
                 bpmnViewer = new window.BpmnJS({ container: container, keyboard: { bindTo: document } });
@@ -312,7 +323,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const xml = (bpmnCode && bpmnCode.trim()) ? bpmnCode : getEmptyBpmnTemplate();
             await bpmnViewer.importXML(xml);
-            safelyFitBpmnViewport(bpmnViewer);
+            safelyFitBpmnViewport(bpmnViewer, container);
+
+            const viewerRoot = container.querySelector('.djs-container, .bjs-container');
+            if (viewerRoot) {
+                viewerRoot.style.margin = '0 auto';
+                viewerRoot.style.width = '100%';
+            }
 
             if (container === diagramContainer) {
                 currentDiagramScale = 1;
@@ -353,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const xml = (latestVersion && latestVersion.mermaid_code) ? latestVersion.mermaid_code : getEmptyBpmnTemplate();
             await bpmnModeler.importXML(xml);
-            safelyFitBpmnViewport(bpmnModeler);
+            safelyFitBpmnViewport(bpmnModeler, mermaidEditorPreview);
         } catch (e) {
             console.error(e);
         }
