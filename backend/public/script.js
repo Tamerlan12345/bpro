@@ -1665,6 +1665,91 @@ ${brokenCode}
         improveBtn.disabled = lines.length === 0;
     }
 
+    function extractFirstJsonArray(text) {
+        if (typeof text !== 'string') return null;
+
+        let start = -1;
+        let depth = 0;
+        let inString = false;
+        let escaped = false;
+
+        for (let i = 0; i < text.length; i += 1) {
+            const ch = text[i];
+
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                } else if (ch === '\\') {
+                    escaped = true;
+                } else if (ch === '"') {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (ch === '"') {
+                inString = true;
+                continue;
+            }
+
+            if (ch === '[') {
+                if (depth === 0) start = i;
+                depth += 1;
+                continue;
+            }
+
+            if (ch === ']') {
+                if (depth > 0) depth -= 1;
+                if (depth === 0 && start !== -1) {
+                    return text.slice(start, i + 1);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    function normalizeSuggestions(raw) {
+        const candidates = Array.isArray(raw)
+            ? raw
+            : (raw && Array.isArray(raw.suggestions) ? raw.suggestions : []);
+
+        return candidates
+            .map(item => ({
+                problem: String(item?.problem || item?.issue || '').trim(),
+                suggestion: String(item?.suggestion || item?.solution || '').trim()
+            }))
+            .filter(item => item.problem && item.suggestion);
+    }
+
+    function parseSuggestionsResponse(responseText) {
+        const text = String(responseText || '').trim();
+
+        // 1) Try strict JSON parsing first (sometimes model returns pure JSON).
+        try {
+            const direct = JSON.parse(text);
+            const normalized = normalizeSuggestions(direct);
+            if (normalized.length > 0) return normalized;
+        } catch (_error) {
+            // Fallbacks below.
+        }
+
+        // 2) Try fenced block and first-array extraction from mixed text.
+        const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+        const source = fenced ? fenced[1] : text;
+        const arrayText = extractFirstJsonArray(source);
+        if (!arrayText) {
+            throw new Error('Не удалось найти JSON-массив с улучшениями в ответе ИИ.');
+        }
+
+        const parsed = JSON.parse(arrayText);
+        const normalized = normalizeSuggestions(parsed);
+        if (normalized.length === 0) {
+            throw new Error('ИИ вернул ответ, но в нем нет валидных пунктов улучшений.');
+        }
+        return normalized;
+    }
+
     async function getSuggestionsForProcess(processText) {
         const prompt = `Ты — элитный бизнес-аналитик. Проанализируй следующее описание бизнес-процесса и предложи 3-5 конкретных, действенных улучшений. Для каждого улучшения укажи, какую проблему оно решает.
 
@@ -1680,18 +1765,22 @@ ${brokenCode}
     "suggestion": "Автоматизировать ввод данных в CRM с помощью интеграции по API."
   }
 ]`;
-        const responseText = await callGeminiAPI(prompt, { chatId });
-        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) {
-            console.error("Invalid response from AI, no JSON array found. Raw response:", responseText);
-            throw new Error("Не удалось получить корректный JSON-массив от AI.");
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= 2; attempt += 1) {
+            try {
+                const responseText = await callGeminiAPI(prompt, { chatId });
+                return parseSuggestionsResponse(responseText);
+            } catch (error) {
+                lastError = error;
+                console.error(`Suggestions parse/generate failed (attempt ${attempt})`, error);
+                if (attempt < 2) {
+                    await new Promise(resolve => setTimeout(resolve, 600));
+                }
+            }
         }
-        try {
-            return JSON.parse(jsonMatch[0]);
-        } catch (error) {
-            console.error("Failed to parse JSON from AI response. Raw JSON string:", jsonMatch[0], "Error:", error);
-            throw new Error("Ошибка парсинга JSON ответа от AI.");
-        }
+
+        throw new Error(`Ошибка получения улучшений: ${lastError?.message || 'неизвестная ошибка'}`);
     }
 
     async function handleImproveProcess() {
