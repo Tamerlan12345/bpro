@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             let xml = (bpmnCode && bpmnCode.trim()) ? bpmnCode : getEmptyBpmnTemplate();
-            xml = xml.replace(/^```(xml|bpmn)?\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+            xml = extractPureBpmnXml(xml);
             await bpmnViewer.importXML(xml);
             safelyFitBpmnViewport(bpmnViewer, container);
 
@@ -370,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             let xml = (latestVersion && latestVersion.mermaid_code) ? latestVersion.mermaid_code : getEmptyBpmnTemplate();
-            xml = xml.replace(/^```(xml|bpmn)?\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+            xml = extractPureBpmnXml(xml);
             await bpmnModeler.importXML(xml);
             safelyFitBpmnViewport(bpmnModeler, mermaidEditorPreview);
         } catch (e) {
@@ -455,12 +455,26 @@ document.addEventListener('DOMContentLoaded', () => {
         return data.candidates[0].content.parts[0].text;
     }
 
+        function extractPureBpmnXml(text) {
+        if (typeof text !== 'string') return text;
+        let xml = text.replace(/```(xml|bpmn)?/gi, '').replace(/```/g, '');
+        const xmlStart = xml.search(/<\?xml|<bpmn\d*:definitions|<definitions/i);
+        if (xmlStart !== -1) {
+            xml = xml.substring(xmlStart);
+        }
+        const xmlEnd = xml.search(/<\/bpmn\d*:definitions>|<\/definitions>/i);
+        if (xmlEnd !== -1) {
+            const match = xml.match(/<\/bpmn\d*:definitions>|<\/definitions>/i);
+            xml = xml.substring(0, xmlEnd + match[0].length);
+        }
+        return xml.trim();
+    }
     function normalizeGeneratedBpmnXml(xml) {
         if (typeof xml !== 'string') {
             return xml;
         }
 
-        xml = xml.replace(/^```(xml|bpmn)?\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+        xml = extractPureBpmnXml(xml);
 
         if (typeof normalizeBpmnVerticalLayout !== 'function') {
             return xml;
