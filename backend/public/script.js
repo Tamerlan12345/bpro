@@ -321,7 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 bpmnViewer = new window.BpmnJS({ container: container, keyboard: { bindTo: document } });
             }
 
-            const xml = (bpmnCode && bpmnCode.trim()) ? bpmnCode : getEmptyBpmnTemplate();
+            let xml = (bpmnCode && bpmnCode.trim()) ? bpmnCode : getEmptyBpmnTemplate();
+            xml = xml.replace(/^```(xml|bpmn)?\n?/i, '').replace(/\n?```\s*$/i, '').trim();
             await bpmnViewer.importXML(xml);
             safelyFitBpmnViewport(bpmnViewer, container);
 
@@ -368,7 +369,8 @@ document.addEventListener('DOMContentLoaded', () => {
         bpmnModeler = new window.BpmnJS({ container: mermaidEditorPreview, keyboard: { bindTo: document } });
 
         try {
-            const xml = (latestVersion && latestVersion.mermaid_code) ? latestVersion.mermaid_code : getEmptyBpmnTemplate();
+            let xml = (latestVersion && latestVersion.mermaid_code) ? latestVersion.mermaid_code : getEmptyBpmnTemplate();
+            xml = xml.replace(/^```(xml|bpmn)?\n?/i, '').replace(/\n?```\s*$/i, '').trim();
             await bpmnModeler.importXML(xml);
             safelyFitBpmnViewport(bpmnModeler, mermaidEditorPreview);
         } catch (e) {
@@ -457,6 +459,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof xml !== 'string') {
             return xml;
         }
+
+        xml = xml.replace(/^```(xml|bpmn)?\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
         if (typeof normalizeBpmnVerticalLayout !== 'function') {
             return xml;
