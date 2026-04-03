@@ -295,7 +295,7 @@ const passwordUpdateSchema = z.object({
 });
 
 const generateSchema = z.object({
-    prompt: z.string().min(1).max(10000),
+    prompt: z.string().min(1).max(100000),
     chat_id: z.string().uuid().or(z.string()).optional()
 });
 
