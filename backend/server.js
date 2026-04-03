@@ -41,8 +41,8 @@ app.use(
             directives: {
                 "default-src": ["'self'"],
                 "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://unpkg.com", "'unsafe-eval'"],
-                "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com"],
-                "font-src": ["'self'", "data:", "https://fonts.gstatic.com", "https://unpkg.com"],
+                "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+                "font-src": ["'self'", "data:", "https://fonts.gstatic.com", "https://unpkg.com", "https://cdn.jsdelivr.net"],
                 "media-src": ["'self'", "blob:"], // <-- Р Р°Р·СЂРµС€Р°РµРј РїР»РµРµСЂСѓ РІРѕСЃРїСЂРѕРёР·РІРѕРґРёС‚СЊ Р·Р°РїРёСЃР°РЅРЅРѕРµ Р°СѓРґРёРѕ
                 "img-src": ["'self'", "data:", "blob:"], // <-- Р Р°Р·СЂРµС€Р°РµРј РєР°СЂС‚РёРЅРєРё-СЃС…РµРјС‹ (Mermaid)
                 "connect-src": ["'self'", "https://api.github.com", "https://cdn.jsdelivr.net"],
