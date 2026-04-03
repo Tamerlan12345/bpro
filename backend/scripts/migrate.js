@@ -33,6 +33,7 @@ async function main() {
         direction,
         count,
         migrationsTable: 'pgmigrations',
+        checkOrder: false,
         verbose: false
     });
 }
