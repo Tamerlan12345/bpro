@@ -310,6 +310,10 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
         try {
             await loadBpmnJs();
+            if (bpmnViewer && container === diagramContainer) {
+                bpmnViewer.destroy();
+                bpmnViewer = null;
+            }
             container.innerHTML = '';
             container.style.height = '560px';
             container.style.border = '1px solid #e2e8f0';
