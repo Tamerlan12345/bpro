@@ -251,25 +251,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let bpmnScriptsLoaded = false;
+    let bpmnLoadingPromise = null;
     let bpmnViewer = null;
     let bpmnModeler = null;
 
     function loadBpmnJs() {
-        return new Promise((resolve) => {
-            if (bpmnScriptsLoaded) return resolve();
+        if (bpmnScriptsLoaded) return Promise.resolve();
+        if (bpmnLoadingPromise) return bpmnLoadingPromise;
 
-            const css1 = document.createElement('link'); css1.rel = 'stylesheet'; css1.href = 'https://unpkg.com/bpmn-js@17.11.1/dist/assets/diagram-js.css'; document.head.appendChild(css1);
-            const css2 = document.createElement('link'); css2.rel = 'stylesheet'; css2.href = 'https://unpkg.com/bpmn-js@17.11.1/dist/assets/bpmn-js.css'; document.head.appendChild(css2);
-            const css3 = document.createElement('link'); css3.rel = 'stylesheet'; css3.href = 'https://unpkg.com/bpmn-js@17.11.1/dist/assets/bpmn-font/css/bpmn.css'; document.head.appendChild(css3);
+        bpmnLoadingPromise = new Promise((resolve, reject) => {
+            const addCss = (href) => {
+                if (!document.querySelector(`link[href='${href}']`)) {
+                    const link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = href;
+                    document.head.appendChild(link);
+                }
+            };
+            addCss('https://cdn.jsdelivr.net/npm/bpmn-js@17.11.1/dist/assets/diagram-js.css');
+            addCss('https://cdn.jsdelivr.net/npm/bpmn-js@17.11.1/dist/assets/bpmn-js.css');
+            addCss('https://cdn.jsdelivr.net/npm/bpmn-js@17.11.1/dist/assets/bpmn-font/css/bpmn.css');
 
             const script = document.createElement('script');
-            script.src = 'https://unpkg.com/bpmn-js@17.11.1/dist/bpmn-modeler.development.js';
+            script.src = 'https://cdn.jsdelivr.net/npm/bpmn-js@17.11.1/dist/bpmn-modeler.development.js';
             script.onload = () => {
                 bpmnScriptsLoaded = true;
                 resolve();
             };
+            script.onerror = () => {
+                bpmnLoadingPromise = null;
+                reject(new Error('Не удалось загрузить библиотеку BPMN. Проверьте подключение к интернету.'));
+            };
             document.head.appendChild(script);
         });
+        return bpmnLoadingPromise;
     }
 
     function getEmptyBpmnTemplate() {
@@ -326,7 +341,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             let xml = (bpmnCode && bpmnCode.trim()) ? bpmnCode : getEmptyBpmnTemplate();
-            xml = extractPureBpmnXml(xml);
+            const extracted = extractPureBpmnXml(xml);
+            // Fallback to template if extraction gave us non-XML (e.g. AI error text)
+            xml = (extracted && /(<\?xml|<bpmn|<definitions)/i.test(extracted)) ? extracted : getEmptyBpmnTemplate();
             await bpmnViewer.importXML(xml);
             safelyFitBpmnViewport(bpmnViewer, container);
 
@@ -977,16 +994,23 @@ ${brokenCode}
             return;
         }
         setButtonLoading(button, true, 'Создание схемы...');
+        const timeoutId = setTimeout(() => {
+            setButtonLoading(button, false);
+            showNotification('Генерация заняла слишком много времени. Попробуйте ещё раз.', 'error');
+        }, 60000);
         try {
             const mermaidCode = await generateDiagramFromText(process_text);
             if (mermaidCode) {
                 placeholderContent.style.display = 'none';
                 diagramContainer.style.display = 'flex';
                 await renderDiagram(mermaidCode);
+            } else {
+                showNotification('ИИ не вернул код схемы. Попробуйте ещё раз.', 'error');
             }
         } catch (error) {
             showNotification(`Ошибка создания схемы: ${error.message}`, "error");
         } finally {
+            clearTimeout(timeoutId);
             setButtonLoading(button, false);
         }
     }
