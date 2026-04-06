@@ -305,6 +305,7 @@ describe('normalizeBpmnVerticalLayout', () => {
         expect(loopback.length).toBeGreaterThanOrEqual(4);
         expect(loopback[0].y).toBeGreaterThan(loopback[loopback.length - 1].y);
         expect(loopback.some((point) => point.x < centerX(gateway) - 60)).toBe(true);
+        expect(Math.max(...loopback.map((point) => point.x))).toBeGreaterThan(approve.x + approve.width + 100);
     });
 
     test('sanitizes invalid condition labels on full-tag linear flows', () => {
