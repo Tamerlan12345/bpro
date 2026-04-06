@@ -62,6 +62,7 @@
             if (attrs.id && attrs.sourceRef && attrs.targetRef) {
                 flows.push({
                     id: attrs.id,
+                    name: attrs.name || '',
                     sourceRef: attrs.sourceRef,
                     targetRef: attrs.targetRef
                 });
@@ -199,11 +200,13 @@
     function buildGraphIndexes(shapes, flows) {
         const shapeMap = new Map(shapes.map((shape) => [shape.bpmnElement, shape]));
         const outgoing = new Map();
+        const outgoingFlows = new Map();
         const incoming = new Map();
         const indegree = new Map();
 
         shapeMap.forEach((_shape, nodeId) => {
             outgoing.set(nodeId, []);
+            outgoingFlows.set(nodeId, []);
             incoming.set(nodeId, []);
             indegree.set(nodeId, 0);
         });
@@ -214,6 +217,7 @@
             }
 
             outgoing.get(flow.sourceRef).push(flow.targetRef);
+            outgoingFlows.get(flow.sourceRef).push(flow);
             incoming.get(flow.targetRef).push(flow.sourceRef);
             indegree.set(flow.targetRef, (indegree.get(flow.targetRef) || 0) + 1);
         });
@@ -221,12 +225,73 @@
         return {
             shapeMap,
             outgoing,
+            outgoingFlows,
             incoming,
             indegree
         };
     }
 
-    function buildLayeredRows(shapes, flows) {
+    function getFlowDirectionSlot(flowName) {
+        const normalizedName = String(flowName || '').trim().toLowerCase();
+        if (normalizedName === 'нет' || normalizedName === 'no') {
+            return -1;
+        }
+        if (normalizedName === 'да' || normalizedName === 'yes') {
+            return 1;
+        }
+        return 0;
+    }
+
+    function detectBackFlowIds(shapes, flows) {
+        const graph = buildGraphIndexes(shapes, flows);
+        const { shapeMap, outgoingFlows, indegree } = graph;
+        const originalOrder = (nodeId) => {
+            const shape = shapeMap.get(nodeId);
+            return (shape.y * 10000) + shape.x;
+        };
+
+        const preferredStarts = Array.from(shapeMap.keys())
+            .filter((nodeId) => (indegree.get(nodeId) || 0) === 0)
+            .sort((left, right) => originalOrder(left) - originalOrder(right));
+        const visited = new Set();
+        const visiting = new Set();
+        const backFlowIds = new Set();
+
+        function walk(nodeId) {
+            if (visited.has(nodeId) || !shapeMap.has(nodeId)) {
+                return;
+            }
+
+            visited.add(nodeId);
+            visiting.add(nodeId);
+
+            const nextFlows = (outgoingFlows.get(nodeId) || [])
+                .slice()
+                .sort((left, right) => originalOrder(left.targetRef) - originalOrder(right.targetRef));
+
+            nextFlows.forEach((flow) => {
+                if (visiting.has(flow.targetRef)) {
+                    backFlowIds.add(flow.id);
+                    return;
+                }
+                if (!visited.has(flow.targetRef)) {
+                    walk(flow.targetRef);
+                }
+            });
+
+            visiting.delete(nodeId);
+        }
+
+        preferredStarts.forEach(walk);
+
+        Array.from(shapeMap.keys())
+            .sort((left, right) => originalOrder(left) - originalOrder(right))
+            .forEach(walk);
+
+        return backFlowIds;
+    }
+
+    function buildLayeredRows(shapes, flows, ignoredFlowIds) {
         const graph = buildGraphIndexes(shapes, flows);
         const { shapeMap, outgoing, incoming, indegree } = graph;
         const nodeIds = Array.from(shapeMap.keys());
@@ -239,7 +304,29 @@
             return (shape.y * 10000) + shape.x;
         };
 
-        const remainingIndegree = new Map(indegree);
+        const effectiveOutgoing = new Map();
+        const effectiveIncoming = new Map();
+        const remainingIndegree = new Map();
+
+        nodeIds.forEach((nodeId) => {
+            effectiveOutgoing.set(nodeId, []);
+            effectiveIncoming.set(nodeId, []);
+            remainingIndegree.set(nodeId, 0);
+        });
+
+        flows.forEach((flow) => {
+            if (ignoredFlowIds && ignoredFlowIds.has(flow.id)) {
+                return;
+            }
+            if (!shapeMap.has(flow.sourceRef) || !shapeMap.has(flow.targetRef)) {
+                return;
+            }
+
+            effectiveOutgoing.get(flow.sourceRef).push(flow.targetRef);
+            effectiveIncoming.get(flow.targetRef).push(flow.sourceRef);
+            remainingIndegree.set(flow.targetRef, (remainingIndegree.get(flow.targetRef) || 0) + 1);
+        });
+
         const pending = nodeIds
             .filter((nodeId) => (remainingIndegree.get(nodeId) || 0) === 0)
             .sort((left, right) => originalOrder(left) - originalOrder(right));
@@ -253,7 +340,7 @@
             visited.add(nodeId);
 
             const baseLevel = levels.get(nodeId) || 0;
-            const targets = (outgoing.get(nodeId) || []).slice().sort((left, right) => originalOrder(left) - originalOrder(right));
+            const targets = (effectiveOutgoing.get(nodeId) || []).slice().sort((left, right) => originalOrder(left) - originalOrder(right));
             targets.forEach((targetId) => {
                 levels.set(targetId, Math.max(levels.get(targetId) || 0, baseLevel + 1));
                 remainingIndegree.set(targetId, (remainingIndegree.get(targetId) || 0) - 1);
@@ -290,8 +377,8 @@
 
         rows.forEach((row) => {
             row.sort((left, right) => {
-                const leftParents = incoming.get(left.bpmnElement) || [];
-                const rightParents = incoming.get(right.bpmnElement) || [];
+                const leftParents = effectiveIncoming.get(left.bpmnElement) || [];
+                const rightParents = effectiveIncoming.get(right.bpmnElement) || [];
                 const leftAnchor = leftParents.length
                     ? leftParents.reduce((sum, nodeId) => sum + originalCenter(nodeId), 0) / leftParents.length
                     : originalCenter(left.bpmnElement);
@@ -306,7 +393,130 @@
         return rows.filter(Boolean);
     }
 
-    function buildBranchLayoutMap(rows, elementTypes) {
+    function collectAncestorIds(nodeId, incoming, cache) {
+        if (cache.has(nodeId)) {
+            return cache.get(nodeId);
+        }
+
+        const ancestors = new Set();
+        const pending = (incoming.get(nodeId) || []).slice();
+
+        while (pending.length) {
+            const parentId = pending.pop();
+            if (ancestors.has(parentId)) {
+                continue;
+            }
+            ancestors.add(parentId);
+            (incoming.get(parentId) || []).forEach((nextParentId) => {
+                if (!ancestors.has(nextParentId)) {
+                    pending.push(nextParentId);
+                }
+            });
+        }
+
+        cache.set(nodeId, ancestors);
+        return ancestors;
+    }
+
+    function canReachAnyTarget(startId, targetIds, outgoing) {
+        if (!targetIds || targetIds.size === 0) {
+            return false;
+        }
+
+        const visited = new Set();
+        const pending = [startId];
+
+        while (pending.length) {
+            const nodeId = pending.pop();
+            if (targetIds.has(nodeId)) {
+                return true;
+            }
+            if (visited.has(nodeId)) {
+                continue;
+            }
+            visited.add(nodeId);
+            (outgoing.get(nodeId) || []).forEach((nextNodeId) => {
+                if (!visited.has(nextNodeId)) {
+                    pending.push(nextNodeId);
+                }
+            });
+        }
+
+        return false;
+    }
+
+    function buildGatewayBranchHints(flows, elementTypes, graph) {
+        const hints = new Map();
+        const exclusiveGatewayIds = collectExclusiveGatewayIds(elementTypes);
+        const ancestorCache = new Map();
+
+        const createFallbackSlotOrder = (gatewayFlows) => {
+            const slotByTarget = new Map();
+            const sortedFlows = gatewayFlows.slice().sort((left, right) => {
+                const leftSlot = getFlowDirectionSlot(left.name);
+                const rightSlot = getFlowDirectionSlot(right.name);
+                return leftSlot - rightSlot || left.targetRef.localeCompare(right.targetRef);
+            });
+            const slotOrder = [];
+
+            if (sortedFlows.length === 2) {
+                slotOrder.push(-1, 1);
+            } else {
+                for (let index = 0; index < sortedFlows.length; index += 1) {
+                    const magnitude = Math.floor(index / 2) + 1;
+                    slotOrder.push(index % 2 === 0 ? -magnitude : magnitude);
+                }
+            }
+
+            sortedFlows.forEach((flow, index) => {
+                slotByTarget.set(flow.targetRef, slotOrder[index] || 0);
+            });
+
+            return slotByTarget;
+        };
+
+        exclusiveGatewayIds.forEach((gatewayId) => {
+            const gatewayFlows = (graph.outgoingFlows.get(gatewayId) || []).slice();
+            if (gatewayFlows.length < 2) {
+                return;
+            }
+
+            const ancestorIds = collectAncestorIds(gatewayId, graph.incoming, ancestorCache);
+            const loopFlows = gatewayFlows.filter((flow) => canReachAnyTarget(flow.targetRef, ancestorIds, graph.outgoing));
+            const forwardFlows = gatewayFlows.filter((flow) => !loopFlows.some((loopFlow) => loopFlow.id === flow.id));
+            const slotByTarget = new Map();
+
+            if (forwardFlows.length === 1 && loopFlows.length >= 1) {
+                slotByTarget.set(forwardFlows[0].targetRef, 0);
+                const orderedLoopFlows = loopFlows.slice().sort((left, right) => {
+                    const leftSlot = getFlowDirectionSlot(left.name);
+                    const rightSlot = getFlowDirectionSlot(right.name);
+                    return leftSlot - rightSlot || left.targetRef.localeCompare(right.targetRef);
+                });
+
+                orderedLoopFlows.forEach((flow, index) => {
+                    const hintedSlot = getFlowDirectionSlot(flow.name);
+                    if (orderedLoopFlows.length === 1 && hintedSlot) {
+                        slotByTarget.set(flow.targetRef, hintedSlot < 0 ? -1 : 1);
+                        return;
+                    }
+
+                    const magnitude = Math.floor(index / 2) + 1;
+                    slotByTarget.set(flow.targetRef, index % 2 === 0 ? -magnitude : magnitude);
+                });
+            } else {
+                createFallbackSlotOrder(gatewayFlows).forEach((slot, targetId) => {
+                    slotByTarget.set(targetId, slot);
+                });
+            }
+
+            hints.set(gatewayId, { slotByTarget });
+        });
+
+        return hints;
+    }
+
+    function buildBranchLayoutMap(rows, elementTypes, graph, gatewayBranchHints) {
         const averageCenterX = rows
             .flat()
             .reduce((sum, shape) => sum + shape.x + (shape.width / 2), 0) / rows.flat().length;
@@ -315,27 +525,60 @@
         const verticalGap = 120;
         const horizontalGap = 110;
         const leftPadding = 64;
+        const branchLaneOffset = 340;
         const nextShapeMap = new Map();
 
         let currentY = topMargin;
 
-        rows.forEach((row) => {
+        rows.forEach((row, rowIndex) => {
             const metricsRow = row.map((shape) => ({
                 shape,
                 ...getShapeLayoutMetrics(shape, elementTypes)
             }));
             const rowHeight = metricsRow.reduce((maxHeight, item) => Math.max(maxHeight, item.height), 0);
-            const totalWidth = metricsRow.reduce((sum, item) => sum + item.width, 0) + (Math.max(metricsRow.length - 1, 0) * horizontalGap);
-            let currentX = Math.max(leftPadding, centerX - (totalWidth / 2));
+            const positionedItems = metricsRow.map((item) => {
+                const nodeId = item.shape.bpmnElement;
+                const parentIds = (graph.incoming.get(nodeId) || []).filter((parentId) => nextShapeMap.has(parentId));
+                let preferredCenter = centerX;
 
-            metricsRow.forEach((item) => {
+                if (parentIds.length) {
+                    preferredCenter = parentIds.reduce((sum, parentId) => {
+                        const parentBounds = nextShapeMap.get(parentId);
+                        return sum + parentBounds.x + (parentBounds.width / 2);
+                    }, 0) / parentIds.length;
+                } else if (rowIndex === 0) {
+                    preferredCenter = centerX;
+                }
+
+                parentIds.forEach((parentId) => {
+                    const branchHint = gatewayBranchHints.get(parentId);
+                    const parentBounds = nextShapeMap.get(parentId);
+                    if (!branchHint || !parentBounds || !branchHint.slotByTarget.has(nodeId)) {
+                        return;
+                    }
+
+                    preferredCenter = parentBounds.x + (parentBounds.width / 2) + (branchHint.slotByTarget.get(nodeId) * branchLaneOffset);
+                });
+
+                return {
+                    ...item,
+                    preferredCenter
+                };
+            }).sort((left, right) => {
+                return left.preferredCenter - right.preferredCenter || left.shape.x - right.shape.x || left.shape.y - right.shape.y;
+            });
+
+            let currentX = leftPadding;
+            positionedItems.forEach((item) => {
+                const desiredX = item.preferredCenter - (item.width / 2);
+                const resolvedX = Math.max(currentX, desiredX);
                 nextShapeMap.set(item.shape.bpmnElement, {
-                    x: currentX,
+                    x: resolvedX,
                     y: currentY + ((rowHeight - item.height) / 2),
                     width: item.width,
                     height: item.height
                 });
-                currentX += item.width + horizontalGap;
+                currentX = resolvedX + item.width + horizontalGap;
             });
 
             currentY += rowHeight + verticalGap;
@@ -349,6 +592,23 @@
         const sourceBottomY = source.y + source.height;
         const targetCenterX = target.x + (target.width / 2);
         const targetTopY = target.y;
+        const targetIsAboveSource = targetTopY <= source.y;
+
+        if (targetIsAboveSource) {
+            const routeLeft = targetCenterX <= sourceCenterX;
+            const sideX = routeLeft
+                ? Math.min(source.x, target.x) - 80
+                : Math.max(source.x + source.width, target.x + target.width) + 80;
+            const upperY = Math.max(24, targetTopY - 40);
+
+            return [
+                { x: sourceCenterX, y: sourceBottomY },
+                { x: sideX, y: sourceBottomY },
+                { x: sideX, y: upperY },
+                { x: targetCenterX, y: upperY },
+                { x: targetCenterX, y: targetTopY }
+            ];
+        }
 
         if (Math.abs(sourceCenterX - targetCenterX) < 1) {
             return [
@@ -535,12 +795,15 @@
         const sanitizedXml = sanitizedResult.xml;
 
         if (hasNonLinearTopology(elementTypes, flows)) {
-            const rows = buildLayeredRows(shapes, flows);
+            const graph = buildGraphIndexes(shapes, flows);
+            const backFlowIds = detectBackFlowIds(shapes, flows);
+            const rows = buildLayeredRows(shapes, flows, backFlowIds);
             if (rows.length < 2) {
                 return sanitizedXml;
             }
 
-            const nextShapeMap = buildBranchLayoutMap(rows, elementTypes);
+            const gatewayBranchHints = buildGatewayBranchHints(flows, elementTypes, graph);
+            const nextShapeMap = buildBranchLayoutMap(rows, elementTypes, graph, gatewayBranchHints);
             let nextXml = sanitizedXml;
 
             shapes.forEach((shape) => {

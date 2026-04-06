@@ -1597,6 +1597,13 @@ input:checked+.slider:before {
     margin-bottom: 0;
 }
 
+.legend-note {
+    margin: var(--space-md) 0 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--text-muted-color);
+}
+
 .legend-shape {
     width: 18px;
     height: 18px;
