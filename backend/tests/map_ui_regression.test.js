@@ -47,13 +47,15 @@ describe('map ui regression', () => {
     test('bpmn rendering uses guarded fit logic instead of raw fit-viewport zoom', () => {
         const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 
-        expect(scriptSource).toContain('function safelyFitBpmnViewport(viewerInstance)');
+        expect(scriptSource).toContain('function safelyFitBpmnViewport(viewerInstance, container = diagramContainer)');
         expect(scriptSource).toContain('const canvas = viewerInstance.get(\'canvas\');');
         expect(scriptSource).toContain('Number.isFinite(viewbox.width)');
-        expect(scriptSource).toContain('safelyFitBpmnViewport(bpmnViewer);');
-        expect(scriptSource).toContain('safelyFitBpmnViewport(bpmnModeler);');
+        expect(scriptSource).toContain('safelyFitBpmnViewport(bpmnViewer, container);');
+        expect(scriptSource).toContain('safelyFitBpmnViewport(bpmnModeler, mermaidEditorPreview);');
         expect(scriptSource).not.toContain("bpmnViewer.get('canvas').zoom('fit-viewport');");
         expect(scriptSource).not.toContain("bpmnModeler.get('canvas').zoom('fit-viewport');");
+        expect(scriptSource).not.toContain('const minReadableZoom = 0.3;');
+        expect(scriptSource).not.toContain('canvas.zoom(minReadableZoom);');
     });
 
     test('dash and module map use miro node geometry for departments, processes and chats', () => {

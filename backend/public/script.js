@@ -310,13 +310,6 @@
             canvas.zoom(1);
         }
 
-        // Allow smaller zoom for large diagrams - user can scroll/zoom manually
-        const minReadableZoom = 0.3;
-        const currentZoom = canvas.zoom();
-        if (Number.isFinite(currentZoom) && currentZoom < minReadableZoom) {
-            canvas.zoom(minReadableZoom);
-        }
-
         if (container) {
             container.style.overflow = 'auto';
         }
