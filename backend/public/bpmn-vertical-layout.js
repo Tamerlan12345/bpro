@@ -108,6 +108,31 @@
         });
     }
 
+    function extractWellFormedEdgeLabel(innerContent) {
+        if (typeof innerContent !== 'string') {
+            return '';
+        }
+
+        const labelMatch = innerContent.match(/<bpmndi:BPMNLabel\b[\s\S]*?<\/bpmndi:BPMNLabel>/i);
+        return labelMatch ? labelMatch[0].trim() : '';
+    }
+
+    function buildEdgeInnerContent(waypoints, labelMarkup) {
+        const parts = [];
+        const waypointMarkup = waypoints
+            .map((point) => `        <di:waypoint x="${point.x.toFixed(1)}" y="${point.y.toFixed(1)}" />`)
+            .join('\n');
+
+        if (waypointMarkup) {
+            parts.push(waypointMarkup);
+        }
+        if (labelMarkup) {
+            parts.push(labelMarkup);
+        }
+
+        return parts.join('\n');
+    }
+
     function replaceEdgeWaypoints(xml, flowId, waypoints) {
         const edgePattern = new RegExp(
             `(<bpmndi:BPMNEdge\\b[^>]*bpmnElement="${flowId}"[^>]*>)([\\s\\S]*?)(<\\/bpmndi:BPMNEdge>)`,
@@ -115,11 +140,8 @@
         );
 
         return xml.replace(edgePattern, function (_match, openTag, innerContent, closeTag) {
-            const remainingContent = innerContent.replace(/<di:waypoint\b[^>]*\/?>/gi, '').trim();
-            const waypointMarkup = waypoints
-                .map((point) => `        <di:waypoint x="${point.x.toFixed(1)}" y="${point.y.toFixed(1)}" />`)
-                .join('\n');
-            const nextInner = remainingContent ? `${waypointMarkup}\n${remainingContent}` : waypointMarkup;
+            const labelMarkup = extractWellFormedEdgeLabel(innerContent);
+            const nextInner = buildEdgeInnerContent(waypoints, labelMarkup);
             return `${openTag}\n${nextInner}\n      ${closeTag}`;
         });
     }

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { DOMParser } = require('@xmldom/xmldom');
 const { normalizeBpmnVerticalLayout } = require('../public/bpmn-vertical-layout');
 
 function extractShapeBounds(xml, bpmnElement) {
@@ -35,6 +36,19 @@ function extractWaypoints(xml, edgeId) {
         x: Number.parseFloat(match[1]),
         y: Number.parseFloat(match[2])
     }));
+}
+
+function expectXmlToParse(xml) {
+    const issues = [];
+    new DOMParser({
+        errorHandler: {
+            warning: (message) => issues.push(message),
+            error: (message) => issues.push(message),
+            fatalError: (message) => issues.push(message)
+        }
+    }).parseFromString(xml, 'text/xml');
+
+    expect(issues).toEqual([]);
 }
 
 describe('normalizeBpmnVerticalLayout', () => {
@@ -344,6 +358,40 @@ describe('normalizeBpmnVerticalLayout', () => {
 
         expect(result).not.toMatch(/name="нет"/i);
         expect(result).not.toMatch(/<bpmndi:BPMNLabel>/i);
+    });
+
+    test('rebuilds BPMNEdge markup into valid XML when original waypoints use paired tags', () => {
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn2:definitions targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+  <bpmn2:process id="Process_1" isExecutable="false">
+    <bpmn2:startEvent id="StartEvent_1"><bpmn2:outgoing>Flow_1</bpmn2:outgoing></bpmn2:startEvent>
+    <bpmn2:task id="Task_1"><bpmn2:incoming>Flow_1</bpmn2:incoming><bpmn2:outgoing>Flow_2</bpmn2:outgoing></bpmn2:task>
+    <bpmn2:endEvent id="EndEvent_1"><bpmn2:incoming>Flow_2</bpmn2:incoming></bpmn2:endEvent>
+    <bpmn2:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_1" />
+    <bpmn2:sequenceFlow id="Flow_2" sourceRef="Task_1" targetRef="EndEvent_1" />
+  </bpmn2:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1"><dc:Bounds x="100" y="120" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_1_di" bpmnElement="Task_1"><dc:Bounds x="220" y="100" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_1"><dc:Bounds x="380" y="120" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="136" y="138"></di:waypoint>
+        <di:waypoint x="220" y="138"></di:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="320" y="138"></di:waypoint>
+        <di:waypoint x="380" y="138"></di:waypoint>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn2:definitions>`;
+
+        const result = normalizeBpmnVerticalLayout(xml);
+
+        expectXmlToParse(result);
+        expect(extractWaypoints(result, 'Flow_1')).toHaveLength(2);
+        expect(extractWaypoints(result, 'Flow_2')).toHaveLength(2);
     });
 
     test('frontend generation flow normalizes BPMN xml before render and save', () => {
