@@ -1542,13 +1542,29 @@ ${brokenCode}
         }
         setButtonLoading(button, true, 'Сохранение...');
         try {
-            // Save text as-is without AI processing; reuse existing diagram if available
-            const existingMermaidCode = (chatVersions && chatVersions.length > 0) ? (chatVersions[0].mermaid_code || '') : '';
+            let mermaid_code = '';
+
+            if (bpmnViewer && typeof bpmnViewer.saveXML === 'function') {
+                try {
+                    const { xml } = await bpmnViewer.saveXML({ format: true });
+                    mermaid_code = xml || '';
+                } catch (error) {
+                    console.warn('Failed to extract current BPMN XML before raw save:', error);
+                }
+            }
+
+            if (!mermaid_code) {
+                mermaid_code = (chatVersions && chatVersions.length > 0) ? (chatVersions[0].mermaid_code || '') : '';
+            }
+
             await fetchWithAuth(`/api/chats/${chatId}/versions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ process_text: process_text, mermaid_code: existingMermaidCode })
+                body: JSON.stringify({ process_text, mermaid_code })
             });
+            if (typeof localStorage !== 'undefined') {
+                localStorage.removeItem(`autosave_chat_${chatId}`);
+            }
             showNotification("Версия успешно сохранена (без изменений от ИИ).", "success");
             await loadChatData();
         } catch (error) {
