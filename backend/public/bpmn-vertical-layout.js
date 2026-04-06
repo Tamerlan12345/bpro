@@ -49,7 +49,8 @@
 
     function collectFlows(xml) {
         const flows = [];
-        const flowPattern = /<bpmn2:sequenceFlow\b([^>]*)\/?>/gi;
+        // Support bpmn:, bpmn2:, and no-prefix sequenceFlow
+        const flowPattern = /<(?:bpmn2?:)?sequenceFlow\b([^>]*)\/?>/gi;
         let match = flowPattern.exec(xml);
 
         while (match) {
@@ -69,11 +70,16 @@
 
     function collectElementTypes(xml) {
         const types = new Map();
-        const elementPattern = /<bpmn2:([A-Za-z0-9_]+)\b[^>]*\bid="([^"]+)"/gi;
+        // Support bpmn:, bpmn2:, and no-prefix elements
+        const elementPattern = /<(?:bpmn2?:)?([A-Za-z0-9_]+)\b[^>]*\bid="([^"]+)"/gi;
         let match = elementPattern.exec(xml);
 
         while (match) {
-            types.set(match[2], match[1]);
+            const tagName = match[1].toLowerCase();
+            // Skip container tags that are not visual elements
+            if (tagName !== 'definitions' && tagName !== 'process') {
+                types.set(match[2], match[1]);
+            }
             match = elementPattern.exec(xml);
         }
 
@@ -157,7 +163,11 @@
     }
 
     function normalizeBpmnVerticalLayout(xml) {
-        if (typeof xml !== 'string' || !xml.includes('<bpmndi:BPMNShape') || !xml.includes('<bpmn2:sequenceFlow')) {
+        if (typeof xml !== 'string' || !xml.includes('<bpmndi:BPMNShape')) {
+            return xml;
+        }
+        // Check for sequenceFlow with any namespace prefix (bpmn:, bpmn2:, or none)
+        if (!/<(?:bpmn2?:)?sequenceFlow\b/i.test(xml)) {
             return xml;
         }
 
@@ -176,7 +186,7 @@
         const averageCenterX = orderedShapes.reduce((sum, shape) => sum + shape.x + (shape.width / 2), 0) / orderedShapes.length;
         const centerX = Math.max(averageCenterX, 520);
         const topMargin = 64;
-        const verticalGap = 72;
+        const verticalGap = 100;
         const nextShapeMap = new Map();
 
         let currentY = topMargin;

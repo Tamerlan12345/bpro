@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+﻿document.addEventListener('DOMContentLoaded', () => {
 
     const API_URL = '/api/generate';
 
@@ -310,7 +310,8 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.zoom(1);
         }
 
-        const minReadableZoom = 0.82;
+        // Allow smaller zoom for large diagrams - user can scroll/zoom manually
+        const minReadableZoom = 0.3;
         const currentZoom = canvas.zoom();
         if (Number.isFinite(currentZoom) && currentZoom < minReadableZoom) {
             canvas.zoom(minReadableZoom);
@@ -322,6 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function renderDiagram(bpmnCode, container = diagramContainer, isRetry = false) {
+        container.classList.remove('hidden');
         container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
         try {
             await loadBpmnJs();
@@ -340,10 +342,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 bpmnViewer = new window.BpmnJS({ container: container, keyboard: { bindTo: document } });
             }
 
-            let xml = (bpmnCode && bpmnCode.trim()) ? bpmnCode : getEmptyBpmnTemplate();
-            const extracted = extractPureBpmnXml(xml);
-            // Fallback to template if extraction gave us non-XML (e.g. AI error text)
-            xml = (extracted && /(<\?xml|<bpmn|<definitions)/i.test(extracted)) ? extracted : getEmptyBpmnTemplate();
+            // If bpmnCode was provided, it MUST contain valid XML - otherwise we error
+            let xml;
+            if (bpmnCode && bpmnCode.trim()) {
+                const extracted = extractPureBpmnXml(bpmnCode);
+                if (!extracted || !(/(<\?xml|<bpmn|<definitions)/i.test(extracted))) {
+                    throw new Error('�� ������ ����� ������ BPMN XML. ���������� ������ ������������������ ��� ���.');
+                }
+                xml = extracted;
+            } else {
+                // No bpmnCode at all - show empty template (diagram not generated yet)
+                xml = getEmptyBpmnTemplate();
+            }
             await bpmnViewer.importXML(xml);
             safelyFitBpmnViewport(bpmnViewer, container);
 
@@ -539,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
 - Верни валидный, корректный и полный XML документ.
 - Обязательно включи блок <bpmndi:BPMNDiagram> и <bpmndi:BPMNPlane>.
 - Для каждого элемента (task, startEvent, endEvent, gateway) и для каждой связи (sequenceFlow) ДОЛЖНЫ быть сгенерированы соответствующие элементы DI (BPMNShape с dc:Bounds и BPMNEdge с di:waypoint) с математически корректными координатами X и Y.
-- ВАЖНО: Располагай элементы СТРОГО СВЕРХУ ВНИЗ (вертикально один под другим), увеличивая координату Y для каждого следующего шага. Отступ между элементами делай не менее 150px по вертикали.
+- ВАЖНО: Координаты элементов выставляй приблизительно сверху вниз — точная раскладка будет выполнена автоматически.
 - ВАЖНО: Используй тег <bpmn2:task> (прямоугольники) для основных шагов процесса. Кругами (<bpmn2:startEvent> и <bpmn2:endEvent>) делай только начало и конец.
 - Без координат (DI) визуальный редактор не сможет отобразить схему! Прояви математическую точность.
 - Не обрезай XML, верни его полностью.
@@ -595,7 +605,7 @@ ${brokenCode}
     async function generateDiagramFromText(processDescription) {
         const prompt = `Ты — элитный бизнес-аналитик. Твоя задача — взять описание процесса от пользователя и превратить его в код для диаграммы в строгом стандарте BPMN 2.0 XML.
 Обязательно включи блок <bpmndi:BPMNDiagram> и сгенерируй координаты (Bounds/waypoint) для всех элементов, чтобы диаграмма отображалась визуально. 
-ВАЖНО: Располагай элементы СТРОГО СВЕРХУ ВНИЗ (вертикально один под другим), увеличивая координату Y. Отступ между элементами минимум 150px по вертикали.
+ВАЖНО: Координаты элементов выставляй приблизительно сверху вниз — точная раскладка будет выполнена автоматически.
 ВАЖНО: Используй <bpmn2:task> (прямоугольники) для основных шагов процесса. Кругами (<bpmn2:startEvent> и <bpmn2:endEvent>) делай только начало и конец.
 
 ФОРМАТ ОТВЕТА:
@@ -891,7 +901,8 @@ ${brokenCode}
         if (!version) {
             processDescriptionInput.value = '';
             updateStepCounter();
-            placeholderContent.style.display = 'flex';
+            diagramPlaceholder.style.display = 'block';
+            diagramContainer.classList.add('hidden');
             diagramContainer.innerHTML = '';
             diagramContainer.style.display = 'none';
             diagramToolbar.style.display = 'none';
@@ -910,12 +921,14 @@ ${brokenCode}
 
         updateStepCounter();
         if (version.mermaid_code && version.mermaid_code.trim() !== '') {
-            placeholderContent.style.display = 'none';
-            diagramContainer.style.display = 'flex';
+            diagramPlaceholder.style.display = 'none';
+            diagramContainer.classList.remove('hidden');
+            diagramContainer.style.display = 'block';
             diagramContainer.innerHTML = '';
             await renderDiagram(version.mermaid_code);
         } else {
-            placeholderContent.style.display = 'flex';
+            diagramPlaceholder.style.display = 'block';
+            diagramContainer.classList.add('hidden');
             diagramContainer.innerHTML = '';
             diagramContainer.style.display = 'none';
             diagramToolbar.style.display = 'none';
@@ -1001,7 +1014,7 @@ ${brokenCode}
         try {
             const mermaidCode = await generateDiagramFromText(process_text);
             if (mermaidCode) {
-                placeholderContent.style.display = 'none';
+                diagramPlaceholder.style.display = 'none';
                 diagramContainer.style.display = 'flex';
                 await renderDiagram(mermaidCode);
             } else {
@@ -1511,11 +1524,12 @@ ${brokenCode}
         }
         setButtonLoading(button, true, 'Сохранение...');
         try {
-            const mermaidCode = await generateDiagramFromText(process_text);
+            // Save text as-is without AI processing; reuse existing diagram if available
+            const existingMermaidCode = (chatVersions && chatVersions.length > 0) ? (chatVersions[0].mermaid_code || '') : '';
             await fetchWithAuth(`/api/chats/${chatId}/versions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ process_text: process_text, mermaid_code: mermaidCode })
+                body: JSON.stringify({ process_text: process_text, mermaid_code: existingMermaidCode })
             });
             showNotification("Версия успешно сохранена (без изменений от ИИ).", "success");
             await loadChatData();
