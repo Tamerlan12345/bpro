@@ -1,4 +1,8 @@
 (function (globalScope) {
+    function escapeRegExp(value) {
+        return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     function parseAttributes(fragment) {
         const attributes = {};
         if (!fragment) return attributes;
@@ -162,6 +166,132 @@
         return ordered;
     }
 
+    function collectExclusiveGatewayIds(elementTypes) {
+        const exclusiveGatewayIds = new Set();
+
+        elementTypes.forEach((tagName, elementId) => {
+            if (String(tagName).toLowerCase().includes('exclusivegateway')) {
+                exclusiveGatewayIds.add(elementId);
+            }
+        });
+
+        return exclusiveGatewayIds;
+    }
+
+    function hasNonLinearTopology(elementTypes, flows) {
+        const outgoingCounts = new Map();
+        const incomingCounts = new Map();
+
+        for (const tagName of elementTypes.values()) {
+            if (String(tagName).toLowerCase().includes('gateway')) {
+                return true;
+            }
+        }
+
+        flows.forEach((flow) => {
+            outgoingCounts.set(flow.sourceRef, (outgoingCounts.get(flow.sourceRef) || 0) + 1);
+            incomingCounts.set(flow.targetRef, (incomingCounts.get(flow.targetRef) || 0) + 1);
+        });
+
+        for (const count of outgoingCounts.values()) {
+            if (count > 1) {
+                return true;
+            }
+        }
+
+        for (const count of incomingCounts.values()) {
+            if (count > 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function sanitizeConditionFlows(xml, flows, elementTypes) {
+        if (typeof xml !== 'string') {
+            return { xml, sanitizedFlowIds: new Set() };
+        }
+
+        const exclusiveGatewayIds = collectExclusiveGatewayIds(elementTypes);
+        const sanitizedFlowIds = new Set();
+        let sanitizedXml = xml;
+
+        flows.forEach((flow) => {
+            if (exclusiveGatewayIds.has(flow.sourceRef)) {
+                return;
+            }
+
+            const flowIdPattern = escapeRegExp(flow.id);
+            const fullTagPattern = new RegExp(
+                `(<((?:bpmn2?:)?sequenceFlow)\\b[^>]*\\bid="${flowIdPattern}"[^>]*>)([\\s\\S]*?)(<\\/\\2>)`,
+                'i'
+            );
+            const selfClosingPattern = new RegExp(
+                `(<((?:bpmn2?:)?sequenceFlow)\\b[^>]*\\bid="${flowIdPattern}"[^>]*?)(\\s*\\/>)`,
+                'i'
+            );
+
+            const cleanOpenTag = (openTag) => {
+                let didSanitize = false;
+                const nextOpenTag = openTag.replace(/\sname="([^"]*)"/gi, (match, rawValue) => {
+                    const value = String(rawValue).trim().toLowerCase();
+                    if (value === 'да' || value === 'нет' || value === 'yes' || value === 'no') {
+                        didSanitize = true;
+                        return '';
+                    }
+                    return match;
+                });
+
+                return { nextOpenTag, didSanitize };
+            };
+
+            sanitizedXml = sanitizedXml.replace(fullTagPattern, function (_match, openTag, tagName, innerContent, closingTag) {
+                const { nextOpenTag, didSanitize } = cleanOpenTag(openTag);
+                const nextInnerContent = innerContent.replace(
+                    /<(?:bpmn2?:)?conditionExpression\b[^>]*>[\s\S]*?<\/(?:bpmn2?:)?conditionExpression>/gi,
+                    ''
+                );
+                const removedConditionExpression = nextInnerContent !== innerContent;
+
+                if (didSanitize || removedConditionExpression) {
+                    sanitizedFlowIds.add(flow.id);
+                }
+
+                return `${nextOpenTag}${nextInnerContent}${closingTag}`;
+            });
+
+            sanitizedXml = sanitizedXml.replace(selfClosingPattern, function (_match, openTag, _tagName, suffix) {
+                const { nextOpenTag, didSanitize } = cleanOpenTag(openTag);
+                if (didSanitize) {
+                    sanitizedFlowIds.add(flow.id);
+                }
+                return `${nextOpenTag}${suffix}`;
+            });
+        });
+
+        sanitizedFlowIds.forEach((flowId) => {
+            const flowIdPattern = escapeRegExp(flowId);
+            const edgePattern = new RegExp(
+                `(<bpmndi:BPMNEdge\\b[^>]*bpmnElement="${flowIdPattern}"[^>]*>)([\\s\\S]*?)(<\\/bpmndi:BPMNEdge>)`,
+                'gi'
+            );
+
+            sanitizedXml = sanitizedXml.replace(edgePattern, function (_match, openTag, innerContent, closeTag) {
+                const nextInnerContent = innerContent.replace(/<bpmndi:BPMNLabel\b[\s\S]*?<\/bpmndi:BPMNLabel>/gi, '').trim();
+                if (!nextInnerContent) {
+                    return `${openTag}${closeTag}`;
+                }
+                return `${openTag}\n${nextInnerContent}\n      ${closeTag}`;
+            });
+        });
+
+        return {
+            xml: sanitizedXml,
+            sanitizedFlowIds
+        };
+    }
+
     function normalizeBpmnVerticalLayout(xml) {
         if (typeof xml !== 'string' || !xml.includes('<bpmndi:BPMNShape')) {
             return xml;
@@ -178,9 +308,16 @@
             return xml;
         }
 
+        const sanitizedResult = sanitizeConditionFlows(xml, flows, elementTypes);
+        const sanitizedXml = sanitizedResult.xml;
+
+        if (hasNonLinearTopology(elementTypes, flows)) {
+            return sanitizedXml;
+        }
+
         const orderedShapes = buildLinearOrder(shapes, flows);
         if (orderedShapes.length < 2) {
-            return xml;
+            return sanitizedXml;
         }
 
         const averageCenterX = orderedShapes.reduce((sum, shape) => sum + shape.x + (shape.width / 2), 0) / orderedShapes.length;
@@ -209,7 +346,7 @@
             currentY += nextHeight + verticalGap;
         });
 
-        let nextXml = xml;
+        let nextXml = sanitizedXml;
         orderedShapes.forEach((shape) => {
             nextXml = replaceShapeBounds(nextXml, shape.bpmnElement, nextShapeMap.get(shape.bpmnElement));
         });

@@ -131,6 +131,93 @@ describe('normalizeBpmnVerticalLayout', () => {
         expect(flow3[0].y).toBeLessThan(flow3[1].y);
     });
 
+    test('does not reposition diagrams with exclusive gateway branching', () => {
+        const branchXml = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn2:definitions targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC">
+  <bpmn2:process id="Process_1" isExecutable="false">
+    <bpmn2:startEvent id="StartEvent_1"><bpmn2:outgoing>Flow_1</bpmn2:outgoing></bpmn2:startEvent>
+    <bpmn2:exclusiveGateway id="Gateway_1"><bpmn2:incoming>Flow_1</bpmn2:incoming><bpmn2:outgoing>Flow_2</bpmn2:outgoing><bpmn2:outgoing>Flow_3</bpmn2:outgoing></bpmn2:exclusiveGateway>
+    <bpmn2:task id="Task_Yes"><bpmn2:incoming>Flow_2</bpmn2:incoming></bpmn2:task>
+    <bpmn2:task id="Task_No"><bpmn2:incoming>Flow_3</bpmn2:incoming></bpmn2:task>
+    <bpmn2:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Gateway_1" />
+    <bpmn2:sequenceFlow id="Flow_2" name="да" sourceRef="Gateway_1" targetRef="Task_Yes" />
+    <bpmn2:sequenceFlow id="Flow_3" name="нет" sourceRef="Gateway_1" targetRef="Task_No" />
+  </bpmn2:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1"><dc:Bounds x="100" y="100" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_1_di" bpmnElement="Gateway_1"><dc:Bounds x="100" y="200" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Yes_di" bpmnElement="Task_Yes"><dc:Bounds x="10" y="300" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_No_di" bpmnElement="Task_No"><dc:Bounds x="150" y="300" width="100" height="80" /></bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn2:definitions>`;
+
+        const result = normalizeBpmnVerticalLayout(branchXml);
+        const taskYes = extractShapeBounds(result, 'Task_Yes');
+        const taskNo = extractShapeBounds(result, 'Task_No');
+
+        expect(taskYes.x).toBe(10);
+        expect(taskYes.y).toBe(300);
+        expect(taskNo.x).toBe(150);
+        expect(taskNo.y).toBe(300);
+        expect(result).toMatch(/name="да"/i);
+        expect(result).toMatch(/name="нет"/i);
+    });
+
+    test('sanitizes invalid condition labels on full-tag linear flows', () => {
+        const invalidXml = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn2:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC">
+  <bpmn2:process id="Process_1" isExecutable="false">
+    <bpmn2:task id="Task_1"><bpmn2:outgoing>Flow_1</bpmn2:outgoing></bpmn2:task>
+    <bpmn2:task id="Task_2"><bpmn2:incoming>Flow_1</bpmn2:incoming></bpmn2:task>
+    <bpmn2:sequenceFlow id="Flow_1" name="да" sourceRef="Task_1" targetRef="Task_2">
+      <bpmn2:conditionExpression xsi:type="bpmn2:tFormalExpression">Some condition</bpmn2:conditionExpression>
+    </bpmn2:sequenceFlow>
+  </bpmn2:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
+      <bpmndi:BPMNShape id="Task_1_di" bpmnElement="Task_1"><dc:Bounds x="100" y="100" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_2_di" bpmnElement="Task_2"><dc:Bounds x="100" y="300" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <bpmndi:BPMNLabel><dc:Bounds x="120" y="200" width="20" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn2:definitions>`;
+
+        const result = normalizeBpmnVerticalLayout(invalidXml);
+
+        expect(result).not.toMatch(/name="да"/i);
+        expect(result).not.toMatch(/<bpmn2:conditionExpression/i);
+        expect(result).not.toMatch(/<bpmndi:BPMNLabel>/i);
+    });
+
+    test('sanitizes invalid condition labels on self-closing linear flows', () => {
+        const invalidXml = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn2:definitions targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC">
+  <bpmn2:process id="Process_1" isExecutable="false">
+    <bpmn2:task id="Task_1"><bpmn2:outgoing>Flow_1</bpmn2:outgoing></bpmn2:task>
+    <bpmn2:task id="Task_2"><bpmn2:incoming>Flow_1</bpmn2:incoming></bpmn2:task>
+    <bpmn2:sequenceFlow id="Flow_1" name="нет" sourceRef="Task_1" targetRef="Task_2" />
+  </bpmn2:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
+      <bpmndi:BPMNShape id="Task_1_di" bpmnElement="Task_1"><dc:Bounds x="100" y="100" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_2_di" bpmnElement="Task_2"><dc:Bounds x="100" y="300" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <bpmndi:BPMNLabel><dc:Bounds x="120" y="200" width="20" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn2:definitions>`;
+
+        const result = normalizeBpmnVerticalLayout(invalidXml);
+
+        expect(result).not.toMatch(/name="нет"/i);
+        expect(result).not.toMatch(/<bpmndi:BPMNLabel>/i);
+    });
+
     test('frontend generation flow normalizes BPMN xml before render and save', () => {
         const scriptPath = path.join(__dirname, '..', 'public', 'script.js');
         const scriptSource = fs.readFileSync(scriptPath, 'utf8');
@@ -138,5 +225,8 @@ describe('normalizeBpmnVerticalLayout', () => {
         expect(scriptSource).toContain('function normalizeGeneratedBpmnXml(xml)');
         expect(scriptSource).toContain('parsedResponse.mermaidCode = normalizeGeneratedBpmnXml(parsedResponse.mermaidCode);');
         expect(scriptSource).toContain('normalizeGeneratedBpmnXml(code.replace(/```xml/g, \'\').replace(/```/g, \'\').trim())');
+        expect(scriptSource).toContain('exclusiveGateway');
+        expect(scriptSource).toContain('conditionExpression');
+        expect(scriptSource).toContain('да"/"нет"');
     });
 });
