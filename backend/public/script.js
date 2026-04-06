@@ -342,7 +342,7 @@
                 if (!extracted || !(/(<\?xml|<bpmn|<definitions)/i.test(extracted))) {
                     throw new Error('�� ������ ����� ������ BPMN XML. ���������� ������ ������������������ ��� ���.');
                 }
-                xml = extracted;
+                xml = normalizeGeneratedBpmnXml(extracted);
             } else {
                 // No bpmnCode at all - show empty template (diagram not generated yet)
                 xml = getEmptyBpmnTemplate();
@@ -394,7 +394,7 @@
 
         try {
             let xml = (latestVersion && latestVersion.mermaid_code) ? latestVersion.mermaid_code : getEmptyBpmnTemplate();
-            xml = extractPureBpmnXml(xml);
+            xml = normalizeGeneratedBpmnXml(xml);
             await bpmnModeler.importXML(xml);
             safelyFitBpmnViewport(bpmnModeler, mermaidEditorPreview);
         } catch (e) {
