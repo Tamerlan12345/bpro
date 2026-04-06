@@ -131,7 +131,7 @@ describe('normalizeBpmnVerticalLayout', () => {
         expect(flow3[0].y).toBeLessThan(flow3[1].y);
     });
 
-    test('does not reposition diagrams with exclusive gateway branching', () => {
+    test('repositions exclusive gateway branching into a top-down layout', () => {
         const branchXml = `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn2:definitions targetNamespace="http://bpmn.io/schema/bpmn" xmlns:bpmn2="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC">
   <bpmn2:process id="Process_1" isExecutable="false">
@@ -149,18 +149,46 @@ describe('normalizeBpmnVerticalLayout', () => {
       <bpmndi:BPMNShape id="Gateway_1_di" bpmnElement="Gateway_1"><dc:Bounds x="100" y="200" width="50" height="50" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Task_Yes_di" bpmnElement="Task_Yes"><dc:Bounds x="10" y="300" width="100" height="80" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Task_No_di" bpmnElement="Task_No"><dc:Bounds x="150" y="300" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="118" y="136" />
+        <di:waypoint x="125" y="200" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="125" y="250" />
+        <di:waypoint x="60" y="300" />
+        <bpmndi:BPMNLabel><dc:Bounds x="70" y="260" width="24" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3">
+        <di:waypoint x="125" y="250" />
+        <di:waypoint x="200" y="300" />
+        <bpmndi:BPMNLabel><dc:Bounds x="160" y="260" width="30" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </bpmn2:definitions>`;
 
         const result = normalizeBpmnVerticalLayout(branchXml);
+        const start = extractShapeBounds(result, 'StartEvent_1');
+        const gateway = extractShapeBounds(result, 'Gateway_1');
         const taskYes = extractShapeBounds(result, 'Task_Yes');
         const taskNo = extractShapeBounds(result, 'Task_No');
+        const flow2 = extractWaypoints(result, 'Flow_2');
+        const flow3 = extractWaypoints(result, 'Flow_3');
 
-        expect(taskYes.x).toBe(10);
-        expect(taskYes.y).toBe(300);
-        expect(taskNo.x).toBe(150);
-        expect(taskNo.y).toBe(300);
+        const startCenterX = start.x + (start.width / 2);
+        const gatewayCenterX = gateway.x + (gateway.width / 2);
+        const yesCenterX = taskYes.x + (taskYes.width / 2);
+        const noCenterX = taskNo.x + (taskNo.width / 2);
+
+        expect(start.y).toBeLessThan(gateway.y);
+        expect(gateway.y).toBeLessThan(taskYes.y);
+        expect(gateway.y).toBeLessThan(taskNo.y);
+        expect(taskYes.y).toBeCloseTo(taskNo.y, 3);
+        expect(startCenterX).toBeCloseTo(gatewayCenterX, 3);
+        expect(yesCenterX).toBeLessThan(gatewayCenterX);
+        expect(noCenterX).toBeGreaterThan(gatewayCenterX);
+        expect(flow2.length).toBeGreaterThanOrEqual(4);
+        expect(flow3.length).toBeGreaterThanOrEqual(4);
         expect(result).toMatch(/name="да"/i);
         expect(result).toMatch(/name="нет"/i);
     });
@@ -221,6 +249,8 @@ describe('normalizeBpmnVerticalLayout', () => {
     test('frontend generation flow normalizes BPMN xml before render and save', () => {
         const scriptPath = path.join(__dirname, '..', 'public', 'script.js');
         const scriptSource = fs.readFileSync(scriptPath, 'utf8');
+        const indexPath = path.join(__dirname, '..', 'public', 'index.html');
+        const indexSource = fs.readFileSync(indexPath, 'utf8');
 
         expect(scriptSource).toContain('function normalizeGeneratedBpmnXml(xml)');
         expect(scriptSource).toContain('parsedResponse.mermaidCode = normalizeGeneratedBpmnXml(parsedResponse.mermaidCode);');
@@ -228,5 +258,10 @@ describe('normalizeBpmnVerticalLayout', () => {
         expect(scriptSource).toContain('exclusiveGateway');
         expect(scriptSource).toContain('conditionExpression');
         expect(scriptSource).toContain('да"/"нет"');
+        expect(scriptSource).toContain('круги допустимы только для начала и завершения процесса');
+        expect(scriptSource).toContain('Каждый <bpmn2:exclusiveGateway> должен иметь короткий вопрос');
+        expect(scriptSource).toContain('Основной поток строй сверху вниз');
+        expect(indexSource).toContain('Событие (только старт/завершение)');
+        expect(indexSource).toContain('Шлюз / решение (ромб с вопросом)');
     });
 });

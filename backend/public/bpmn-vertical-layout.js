@@ -123,6 +123,24 @@
         });
     }
 
+    function replaceEdgeLabelBounds(xml, flowId, nextBounds) {
+        const flowIdPattern = escapeRegExp(flowId);
+        const labelPattern = new RegExp(
+            `(<bpmndi:BPMNEdge\\b[^>]*bpmnElement="${flowIdPattern}"[^>]*>[\\s\\S]*?<bpmndi:BPMNLabel\\b[^>]*>[\\s\\S]*?<dc:Bounds\\b)([^>]*?)(?:\\/?>)([\\s\\S]*?<\\/bpmndi:BPMNLabel>[\\s\\S]*?<\\/bpmndi:BPMNEdge>)`,
+            'i'
+        );
+
+        return xml.replace(labelPattern, function (_match, prefix, _attrs, suffix) {
+            const attrs = [
+                `x="${nextBounds.x.toFixed(1)}"`,
+                `y="${nextBounds.y.toFixed(1)}"`,
+                `width="${nextBounds.width.toFixed(1)}"`,
+                `height="${nextBounds.height.toFixed(1)}"`
+            ].join(' ');
+            return `${prefix} ${attrs} />${suffix}`;
+        });
+    }
+
     function buildLinearOrder(shapes, flows) {
         const shapeMap = new Map(shapes.map((shape) => [shape.bpmnElement, shape]));
         const outgoing = new Map();
@@ -164,6 +182,211 @@
             .forEach((shape) => walk(shape.bpmnElement));
 
         return ordered;
+    }
+
+    function getShapeLayoutMetrics(shape, elementTypes) {
+        const elementType = (elementTypes.get(shape.bpmnElement) || '').toLowerCase();
+        const isTask = elementType.includes('task');
+        const isGateway = elementType.includes('gateway');
+        const isEvent = elementType.includes('event');
+
+        return {
+            width: isTask ? Math.max(shape.width, 220) : (isGateway ? Math.max(shape.width, 72) : shape.width),
+            height: isTask ? Math.max(shape.height, 90) : (isEvent ? Math.max(shape.height, 36) : shape.height)
+        };
+    }
+
+    function buildGraphIndexes(shapes, flows) {
+        const shapeMap = new Map(shapes.map((shape) => [shape.bpmnElement, shape]));
+        const outgoing = new Map();
+        const incoming = new Map();
+        const indegree = new Map();
+
+        shapeMap.forEach((_shape, nodeId) => {
+            outgoing.set(nodeId, []);
+            incoming.set(nodeId, []);
+            indegree.set(nodeId, 0);
+        });
+
+        flows.forEach((flow) => {
+            if (!shapeMap.has(flow.sourceRef) || !shapeMap.has(flow.targetRef)) {
+                return;
+            }
+
+            outgoing.get(flow.sourceRef).push(flow.targetRef);
+            incoming.get(flow.targetRef).push(flow.sourceRef);
+            indegree.set(flow.targetRef, (indegree.get(flow.targetRef) || 0) + 1);
+        });
+
+        return {
+            shapeMap,
+            outgoing,
+            incoming,
+            indegree
+        };
+    }
+
+    function buildLayeredRows(shapes, flows) {
+        const graph = buildGraphIndexes(shapes, flows);
+        const { shapeMap, outgoing, incoming, indegree } = graph;
+        const nodeIds = Array.from(shapeMap.keys());
+        const originalCenter = (nodeId) => {
+            const shape = shapeMap.get(nodeId);
+            return shape.x + (shape.width / 2);
+        };
+        const originalOrder = (nodeId) => {
+            const shape = shapeMap.get(nodeId);
+            return (shape.y * 10000) + shape.x;
+        };
+
+        const remainingIndegree = new Map(indegree);
+        const pending = nodeIds
+            .filter((nodeId) => (remainingIndegree.get(nodeId) || 0) === 0)
+            .sort((left, right) => originalOrder(left) - originalOrder(right));
+        const levels = new Map();
+        const visited = new Set();
+
+        pending.forEach((nodeId) => levels.set(nodeId, 0));
+
+        while (pending.length) {
+            const nodeId = pending.shift();
+            visited.add(nodeId);
+
+            const baseLevel = levels.get(nodeId) || 0;
+            const targets = (outgoing.get(nodeId) || []).slice().sort((left, right) => originalOrder(left) - originalOrder(right));
+            targets.forEach((targetId) => {
+                levels.set(targetId, Math.max(levels.get(targetId) || 0, baseLevel + 1));
+                remainingIndegree.set(targetId, (remainingIndegree.get(targetId) || 0) - 1);
+                if ((remainingIndegree.get(targetId) || 0) === 0) {
+                    pending.push(targetId);
+                }
+            });
+
+            pending.sort((left, right) => {
+                const leftLevel = levels.get(left) || 0;
+                const rightLevel = levels.get(right) || 0;
+                return leftLevel - rightLevel || originalOrder(left) - originalOrder(right);
+            });
+        }
+
+        if (visited.size < nodeIds.length) {
+            const fallbackLevel = Array.from(levels.values()).reduce((maxLevel, level) => Math.max(maxLevel, level), 0);
+            nodeIds
+                .filter((nodeId) => !visited.has(nodeId))
+                .sort((left, right) => originalOrder(left) - originalOrder(right))
+                .forEach((nodeId, index) => {
+                    levels.set(nodeId, fallbackLevel + index + 1);
+                });
+        }
+
+        const rows = [];
+        nodeIds.forEach((nodeId) => {
+            const level = levels.get(nodeId) || 0;
+            if (!rows[level]) {
+                rows[level] = [];
+            }
+            rows[level].push(shapeMap.get(nodeId));
+        });
+
+        rows.forEach((row) => {
+            row.sort((left, right) => {
+                const leftParents = incoming.get(left.bpmnElement) || [];
+                const rightParents = incoming.get(right.bpmnElement) || [];
+                const leftAnchor = leftParents.length
+                    ? leftParents.reduce((sum, nodeId) => sum + originalCenter(nodeId), 0) / leftParents.length
+                    : originalCenter(left.bpmnElement);
+                const rightAnchor = rightParents.length
+                    ? rightParents.reduce((sum, nodeId) => sum + originalCenter(nodeId), 0) / rightParents.length
+                    : originalCenter(right.bpmnElement);
+
+                return leftAnchor - rightAnchor || left.x - right.x || left.y - right.y;
+            });
+        });
+
+        return rows.filter(Boolean);
+    }
+
+    function buildBranchLayoutMap(rows, elementTypes) {
+        const averageCenterX = rows
+            .flat()
+            .reduce((sum, shape) => sum + shape.x + (shape.width / 2), 0) / rows.flat().length;
+        const centerX = Math.max(averageCenterX, 520);
+        const topMargin = 64;
+        const verticalGap = 120;
+        const horizontalGap = 110;
+        const leftPadding = 64;
+        const nextShapeMap = new Map();
+
+        let currentY = topMargin;
+
+        rows.forEach((row) => {
+            const metricsRow = row.map((shape) => ({
+                shape,
+                ...getShapeLayoutMetrics(shape, elementTypes)
+            }));
+            const rowHeight = metricsRow.reduce((maxHeight, item) => Math.max(maxHeight, item.height), 0);
+            const totalWidth = metricsRow.reduce((sum, item) => sum + item.width, 0) + (Math.max(metricsRow.length - 1, 0) * horizontalGap);
+            let currentX = Math.max(leftPadding, centerX - (totalWidth / 2));
+
+            metricsRow.forEach((item) => {
+                nextShapeMap.set(item.shape.bpmnElement, {
+                    x: currentX,
+                    y: currentY + ((rowHeight - item.height) / 2),
+                    width: item.width,
+                    height: item.height
+                });
+                currentX += item.width + horizontalGap;
+            });
+
+            currentY += rowHeight + verticalGap;
+        });
+
+        return nextShapeMap;
+    }
+
+    function buildBranchWaypoints(source, target) {
+        const sourceCenterX = source.x + (source.width / 2);
+        const sourceBottomY = source.y + source.height;
+        const targetCenterX = target.x + (target.width / 2);
+        const targetTopY = target.y;
+
+        if (Math.abs(sourceCenterX - targetCenterX) < 1) {
+            return [
+                { x: sourceCenterX, y: sourceBottomY },
+                { x: targetCenterX, y: targetTopY }
+            ];
+        }
+
+        const bendY = sourceBottomY + Math.max(40, (targetTopY - sourceBottomY) / 2);
+        return [
+            { x: sourceCenterX, y: sourceBottomY },
+            { x: sourceCenterX, y: bendY },
+            { x: targetCenterX, y: bendY },
+            { x: targetCenterX, y: targetTopY }
+        ];
+    }
+
+    function buildEdgeLabelBounds(waypoints) {
+        if (!Array.isArray(waypoints) || waypoints.length === 0) {
+            return null;
+        }
+
+        const anchor = waypoints.length >= 4
+            ? {
+                x: (waypoints[1].x + waypoints[2].x) / 2,
+                y: waypoints[1].y
+            }
+            : {
+                x: (waypoints[0].x + waypoints[waypoints.length - 1].x) / 2,
+                y: (waypoints[0].y + waypoints[waypoints.length - 1].y) / 2
+            };
+
+        return {
+            x: anchor.x - 24,
+            y: anchor.y - 28,
+            width: 48,
+            height: 18
+        };
     }
 
     function collectExclusiveGatewayIds(elementTypes) {
@@ -312,7 +535,35 @@
         const sanitizedXml = sanitizedResult.xml;
 
         if (hasNonLinearTopology(elementTypes, flows)) {
-            return sanitizedXml;
+            const rows = buildLayeredRows(shapes, flows);
+            if (rows.length < 2) {
+                return sanitizedXml;
+            }
+
+            const nextShapeMap = buildBranchLayoutMap(rows, elementTypes);
+            let nextXml = sanitizedXml;
+
+            shapes.forEach((shape) => {
+                const nextShape = nextShapeMap.get(shape.bpmnElement);
+                if (!nextShape) return;
+                nextXml = replaceShapeBounds(nextXml, shape.bpmnElement, nextShape);
+            });
+
+            flows.forEach((flow) => {
+                const source = nextShapeMap.get(flow.sourceRef);
+                const target = nextShapeMap.get(flow.targetRef);
+                if (!source || !target) return;
+
+                const waypoints = buildBranchWaypoints(source, target);
+                nextXml = replaceEdgeWaypoints(nextXml, flow.id, waypoints);
+
+                const labelBounds = buildEdgeLabelBounds(waypoints);
+                if (labelBounds) {
+                    nextXml = replaceEdgeLabelBounds(nextXml, flow.id, labelBounds);
+                }
+            });
+
+            return nextXml;
         }
 
         const orderedShapes = buildLinearOrder(shapes, flows);
@@ -328,22 +579,16 @@
 
         let currentY = topMargin;
         orderedShapes.forEach((shape) => {
-            const elementType = (elementTypes.get(shape.bpmnElement) || '').toLowerCase();
-            const isTask = elementType.includes('task');
-            const isGateway = elementType.includes('gateway');
-            const isEvent = elementType.includes('event');
-
-            const nextWidth = isTask ? Math.max(shape.width, 220) : (isGateway ? Math.max(shape.width, 72) : shape.width);
-            const nextHeight = isTask ? Math.max(shape.height, 90) : (isEvent ? Math.max(shape.height, 36) : shape.height);
+            const metrics = getShapeLayoutMetrics(shape, elementTypes);
 
             const nextShape = {
-                x: centerX - (nextWidth / 2),
+                x: centerX - (metrics.width / 2),
                 y: currentY,
-                width: nextWidth,
-                height: nextHeight
+                width: metrics.width,
+                height: metrics.height
             };
             nextShapeMap.set(shape.bpmnElement, nextShape);
-            currentY += nextHeight + verticalGap;
+            currentY += metrics.height + verticalGap;
         });
 
         let nextXml = sanitizedXml;
