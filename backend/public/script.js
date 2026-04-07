@@ -634,7 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify({ bpmn_xml: xml })
         });
         const blob = await response.blob();
-        downloadBlob(blob, 'application/vnd.ms-visio.drawing', 'process-diagram.vsd');
+        downloadBlob(blob, 'application/vnd.ms-visio.drawing', 'process-diagram.vsdx');
     }
 
     async function downloadCurrentDiagram(format) {

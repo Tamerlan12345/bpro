@@ -84,4 +84,15 @@ describe('bpmn presentation model', () => {
         expect(svg).toContain('doc-edge-line');
         expect(svg).toContain('Передать в процесс согласования');
     });
+    test('uses a neutral office-like svg style for readability', () => {
+        const model = buildBpmnPresentationModel(sampleXml);
+        const svg = renderDocStyleSvg(model);
+
+        expect(svg).toContain('.doc-root { font-family: "Manrope", "Segoe UI", sans-serif; }');
+        expect(svg).toContain('.doc-node { stroke: #5f6b7a; stroke-width: 1.35; }');
+        expect(svg).toContain('.task-shape { fill: #ffffff; }');
+        expect(svg).toContain('.doc-edge-line { fill: none; stroke: #6a7482; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }');
+        expect(svg).toContain('.doc-lane-boundary { stroke: #9aa4b2; stroke-width: 1; stroke-dasharray: 6 6; }');
+        expect(svg).toContain('.responsibility-axis { stroke: #8fa2b2; stroke-width: 1.2; stroke-dasharray: 7 6; }');
+    });
 });
