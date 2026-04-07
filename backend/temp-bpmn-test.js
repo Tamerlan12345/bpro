@@ -1,4 +1,4 @@
-// Mirror of the updated sanitizeBpmnXml from script.js – must stay in sync
+// Mirror of the updated sanitizeBpmnXml from script.js - must stay in sync.
 function sanitizeBpmnXml(xml) {
     if (typeof xml !== 'string') return xml;
 
@@ -10,6 +10,40 @@ function sanitizeBpmnXml(xml) {
             openCount: (fragment.match(openRe) || []).length,
             closeCount: (fragment.match(closeRe) || []).length
         };
+    };
+
+    const normalizeWaypointTag = (attrs = '') => {
+        const xMatch = attrs.match(/\bx\s*=\s*(["'])([^"']+)\1/i);
+        const yMatch = attrs.match(/\by\s*=\s*(["'])([^"']+)\1/i);
+
+        if (!xMatch || !yMatch) {
+            return '';
+        }
+
+        const x = Number.parseFloat(xMatch[2]);
+        const y = Number.parseFloat(yMatch[2]);
+
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            return '';
+        }
+
+        return `<di:waypoint x="${xMatch[2]}" y="${yMatch[2]}" />`;
+    };
+
+    const rebuildEdgeBlock = block => {
+        const openTag = block.match(/^<bpmndi:BPMNEdge\b[^>]*>/i)?.[0];
+        if (!openTag) return '';
+
+        const labelBlock = block.match(/<bpmndi:BPMNLabel\b[\s\S]*?<\/bpmndi:BPMNLabel>/i)?.[0] || '';
+        const normalizedWaypoints = [...block.matchAll(/<(?:di:)?waypoint\b([^>]*?)(?:\/>|>)(?:\s*<\/(?:di:)?waypoint>)?/gi)]
+            .map(match => normalizeWaypointTag(match[1]))
+            .filter(Boolean);
+
+        if (normalizedWaypoints.length < 2) {
+            return '';
+        }
+
+        return `${openTag}${normalizedWaypoints.join('')}${labelBlock}</bpmndi:BPMNEdge>`;
     };
 
     const mutableTags = [
@@ -35,13 +69,16 @@ function sanitizeBpmnXml(xml) {
     orphanTags.forEach(tagName => {
         const closeRe = new RegExp(`<\\/(?:bpmn\\d*:)?${tagName}>`, 'gi');
         const openRe = new RegExp(`<(?:bpmn\\d*:)?${tagName}(?=[\\s>])`, 'gi');
-        const openCount  = (xml.match(openRe)  || []).length;
+        const openCount = (xml.match(openRe) || []).length;
         const closeCount = (xml.match(closeRe) || []).length;
         if (closeCount > openCount) {
             let surplus = closeCount - openCount;
-            xml = xml.replace(closeRe, m => {
-                if (surplus > 0) { surplus--; return ''; }
-                return m;
+            xml = xml.replace(closeRe, match => {
+                if (surplus > 0) {
+                    surplus--;
+                    return '';
+                }
+                return match;
             });
         }
     });
@@ -72,6 +109,31 @@ function sanitizeBpmnXml(xml) {
     xml = xml.replace(/<(?:bpmn\d*:)?dataInputAssociation[^>]*>\s*<\/(?:bpmn\d*:)?dataInputAssociation>/gi, '');
     xml = xml.replace(/<(?:bpmn\d*:)?dataOutputAssociation[^>]*>\s*<\/(?:bpmn\d*:)?dataOutputAssociation>/gi, '');
 
+    // 5. Normalize malformed DI waypoints before the XML reaches bpmn-js.
+    xml = xml.replace(/<(?:di:)?waypoint\b([^>]*?)>\s*<\/(?:di:)?waypoint>/gi, (_, attrs) => normalizeWaypointTag(attrs) || '');
+    xml = xml.replace(
+        /<(?:di:)?waypoint\b([^>]*?)>(?=\s*<(?:di:waypoint\b|bpmndi:BPMNLabel\b|\/bpmndi:BPMNEdge>))/gi,
+        (_, attrs) => normalizeWaypointTag(attrs) || ''
+    );
+    xml = xml.replace(/<\/(?:di:)?waypoint>/gi, '');
+
+    xml = xml.replace(/<bpmndi:BPMNEdge\b[^>]*>[\s\S]*?<\/bpmndi:BPMNEdge>/gi, block => {
+        const waypointCount = (block.match(/<(?:di:)?waypoint\b/gi) || []).length;
+        if (!waypointCount) {
+            return block;
+        }
+
+        const hasBrokenWaypointOpen = /<(?:di:)?waypoint\b[^>]*>(?=\s*<(?!\/(?:di:)?waypoint>))/i.test(block);
+        const hasLegacyWaypointPair = /<(?:di:)?waypoint\b[^>]*>\s*<\/(?:di:)?waypoint>/i.test(block);
+        const hasBrokenWaypointClose = /<\/(?:di:)?waypoint>/i.test(block);
+
+        if (!hasBrokenWaypointOpen && !hasLegacyWaypointPair && !hasBrokenWaypointClose) {
+            return block;
+        }
+
+        return rebuildEdgeBlock(block);
+    });
+
     return xml;
 }
 
@@ -82,91 +144,119 @@ function test(name, input, expectFn) {
     const result = sanitizeBpmnXml(input);
     try {
         expectFn(result);
-        console.log(`✅ ${name}`);
+        console.log(`PASS ${name}`);
         passed++;
-    } catch (e) {
-        console.log(`❌ ${name}: ${e.message}`);
+    } catch (error) {
+        console.log(`FAIL ${name}: ${error.message}`);
         console.log(`   Result: ${result}`);
         failed++;
     }
 }
 
-// Test 1: namespace mismatch on closing tag (different prefix)
-test('namespace mismatch fix (bpmn vs bpmn2)',
+test(
+    'namespace mismatch fix (bpmn vs bpmn2)',
     `<bpmn:dataInputAssociation id="da1"><bpmn:sourceRef>x</bpmn:sourceRef></bpmn2:dataInputAssociation>`,
-    r => {
-        if (!r.includes('</bpmn:dataInputAssociation>')) throw new Error('Expected closing tag fixed to bpmn:dataInputAssociation');
-        if (r.includes('</bpmn2:dataInputAssociation>')) throw new Error('Mismatched bpmn2 closing tag should be gone');
+    result => {
+        if (!result.includes('</bpmn:dataInputAssociation>')) throw new Error('Expected closing tag fixed to bpmn:dataInputAssociation');
+        if (result.includes('</bpmn2:dataInputAssociation>')) throw new Error('Mismatched bpmn2 closing tag should be gone');
     }
 );
 
-// Test 2: orphaned closing tag (no opener)
-test('orphaned closing tag removal',
+test(
+    'orphaned closing tag removal',
     `<bpmn2:task id="t1"><bpmn2:incoming>f1</bpmn2:incoming></bpmn2:dataInputAssociation></bpmn2:task>`,
-    r => {
-        if (r.includes('</bpmn2:dataInputAssociation>')) throw new Error('Expected orphan removed');
+    result => {
+        if (result.includes('</bpmn2:dataInputAssociation>')) throw new Error('Expected orphan removed');
     }
 );
 
-// Test 3: empty dataInputAssociation removed
-test('empty dataInputAssociation removed',
+test(
+    'empty dataInputAssociation removed',
     `<bpmn2:task id="t1"><bpmn2:dataInputAssociation id="x"></bpmn2:dataInputAssociation></bpmn2:task>`,
-    r => {
-        if (r.includes('dataInputAssociation')) throw new Error('Expected empty element removed');
+    result => {
+        if (result.includes('dataInputAssociation')) throw new Error('Expected empty element removed');
     }
 );
 
-// Test 4: valid dataInputAssociation preserved
-test('valid dataInputAssociation preserved',
+test(
+    'valid dataInputAssociation preserved',
     `<bpmn2:task id="t1"><bpmn2:dataInputAssociation id="x"><bpmn2:sourceRef>doc1</bpmn2:sourceRef></bpmn2:dataInputAssociation></bpmn2:task>`,
-    r => {
-        if (!r.includes('dataInputAssociation')) throw new Error('Expected valid element kept');
-        if (!r.includes('<bpmn2:sourceRef>')) throw new Error('Expected sourceRef preserved');
+    result => {
+        if (!result.includes('dataInputAssociation')) throw new Error('Expected valid element kept');
+        if (!result.includes('<bpmn2:sourceRef>')) throw new Error('Expected sourceRef preserved');
     }
 );
 
-// Test 5: real-world closing tag mismatch (bpmn: opener, bpmn2: closer)
-test('real-world: bpmn: opener, bpmn2: closer fixed',
+test(
+    'real-world: bpmn opener, bpmn2 closer fixed',
     `<bpmn2:task id="Task_1"><bpmn2:incoming>sf1</bpmn2:incoming><bpmn:dataInputAssociation id="dia_1"><bpmn:sourceRef>DataObjectReference_1</bpmn:sourceRef></bpmn2:dataInputAssociation></bpmn2:task>`,
-    r => {
-        if (r.includes('</bpmn2:dataInputAssociation>')) throw new Error('Mismatch closing tag should be fixed');
-        if (!r.includes('<bpmn:dataInputAssociation')) throw new Error('Element should be preserved');
-        if (!r.includes('DataObjectReference_1')) throw new Error('sourceRef content should be preserved');
+    result => {
+        if (result.includes('</bpmn2:dataInputAssociation>')) throw new Error('Mismatch closing tag should be fixed');
+        if (!result.includes('<bpmn:dataInputAssociation')) throw new Error('Element should be preserved');
+        if (!result.includes('DataObjectReference_1')) throw new Error('sourceRef content should be preserved');
     }
 );
 
-// Test 6: bpmn2: opener, bpmn: closer (reverse mismatch)
-test('reverse: bpmn2: opener, bpmn: closer fixed',
+test(
+    'reverse: bpmn2 opener, bpmn closer fixed',
     `<bpmn2:dataInputAssociation id="x"><bpmn2:sourceRef>doc1</bpmn2:sourceRef></bpmn:dataInputAssociation>`,
-    r => {
-        if (!r.includes('</bpmn2:dataInputAssociation>')) throw new Error('Expected closer normalised to bpmn2:');
-        if (r.includes('</bpmn:dataInputAssociation>')) throw new Error('Mismatched bpmn: closer should be gone');
+    result => {
+        if (!result.includes('</bpmn2:dataInputAssociation>')) throw new Error('Expected closer normalised to bpmn2');
+        if (result.includes('</bpmn:dataInputAssociation>')) throw new Error('Mismatched bpmn closer should be gone');
     }
 );
 
-// Test 7: conditionExpression orphan removal
-test('conditionExpression orphan removed from non-gateway flow',
+test(
+    'conditionExpression orphan removed from non-gateway flow',
     `<bpmn2:sequenceFlow id="sf1" sourceRef="Task_1" targetRef="Task_2"></bpmn2:conditionExpression></bpmn2:sequenceFlow>`,
-    r => {
-        if (r.includes('</bpmn2:conditionExpression>')) throw new Error('Expected conditionExpression orphan removed');
+    result => {
+        if (result.includes('</bpmn2:conditionExpression>')) throw new Error('Expected conditionExpression orphan removed');
     }
 );
 
-// Test 8: malformed dataInputAssociation with unclosed sourceRef removed
-test('malformed dataInputAssociation with broken nested sourceRef removed',
+test(
+    'malformed dataInputAssociation with broken nested sourceRef removed',
     `<bpmn2:task id="t1"><bpmn2:dataInputAssociation id="x"><bpmn2:sourceRef>doc1</bpmn2:dataInputAssociation></bpmn2:task>`,
-    r => {
-        if (r.includes('dataInputAssociation')) throw new Error('Expected malformed association removed');
-        if (r.includes('<bpmn2:sourceRef>')) throw new Error('Expected broken nested sourceRef removed with association');
+    result => {
+        if (result.includes('dataInputAssociation')) throw new Error('Expected malformed association removed');
+        if (result.includes('<bpmn2:sourceRef>')) throw new Error('Expected broken nested sourceRef removed with association');
     }
 );
 
-// Test 9: unprefixed opener keeps unprefixed closer
-test('unprefixed dataInputAssociation opener normalises prefixed closer',
+test(
+    'unprefixed dataInputAssociation opener normalises prefixed closer',
     `<dataInputAssociation id="x"><sourceRef>doc1</sourceRef></bpmn2:dataInputAssociation>`,
-    r => {
-        if (!r.includes('</dataInputAssociation>')) throw new Error('Expected closer normalised to unprefixed tag');
-        if (r.includes('</bpmn2:dataInputAssociation>')) throw new Error('Prefixed closer should be replaced');
+    result => {
+        if (!result.includes('</dataInputAssociation>')) throw new Error('Expected closer normalised to unprefixed tag');
+        if (result.includes('</bpmn2:dataInputAssociation>')) throw new Error('Prefixed closer should be replaced');
+    }
+);
+
+test(
+    'malformed BPMNEdge waypoint opener normalized',
+    `<bpmndi:BPMNEdge id="edge_1" bpmnElement="flow_1"><di:waypoint x="10" y="20"><di:waypoint x="30" y="40" /></bpmndi:BPMNEdge>`,
+    result => {
+        const waypoints = result.match(/<di:waypoint\b[^>]*\/>/g) || [];
+        if (waypoints.length !== 2) throw new Error('Expected two normalized self-closing waypoints');
+        if (/<di:waypoint\b[^>]*[^\/]>(?!\s*<\/di:waypoint>)/i.test(result)) throw new Error('Broken opening waypoint should be gone');
+    }
+);
+
+test(
+    'paired waypoint tags normalized',
+    `<bpmndi:BPMNEdge id="edge_2" bpmnElement="flow_2"><di:waypoint x="1" y="2"></di:waypoint><di:waypoint x="3" y="4"></di:waypoint></bpmndi:BPMNEdge>`,
+    result => {
+        const waypoints = result.match(/<di:waypoint\b[^>]*\/>/g) || [];
+        if (waypoints.length !== 2) throw new Error('Expected paired waypoints converted to self-closing tags');
+        if (result.includes('</di:waypoint>')) throw new Error('Legacy closing waypoint tags should be removed');
+    }
+);
+
+test(
+    'edge with one valid waypoint removed',
+    `<bpmndi:BPMNEdge id="edge_3" bpmnElement="flow_3"><di:waypoint x="10" y="20"></bpmndi:BPMNEdge>`,
+    result => {
+        if (result.includes('edge_3')) throw new Error('Malformed edge should be removed when it cannot be reconstructed');
     }
 );
 
