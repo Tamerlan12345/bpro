@@ -91,6 +91,170 @@
         return types;
     }
 
+    function classifyShapes(shapes, elementTypes) {
+        var containerTypeNames = ['participant', 'lane', 'laneset'];
+        var dataTypeNames = ['dataobjectreference', 'dataobject', 'datastorereference'];
+        var flowShapes = [];
+        var containerShapes = [];
+        var dataShapes = [];
+
+        shapes.forEach(function (shape) {
+            var typeName = (elementTypes.get(shape.bpmnElement) || '').toLowerCase();
+            var isContainer = containerTypeNames.indexOf(typeName) !== -1;
+            var isData = dataTypeNames.indexOf(typeName) !== -1;
+            if (isContainer) {
+                containerShapes.push(shape);
+            } else if (isData) {
+                dataShapes.push(shape);
+            } else {
+                flowShapes.push(shape);
+            }
+        });
+
+        return { flowShapes: flowShapes, containerShapes: containerShapes, dataShapes: dataShapes };
+    }
+
+    function collectLaneFlowRefs(xml) {
+        var laneRefs = new Map();
+        var lanePattern = /<(?:bpmn2?:)?lane\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/(?:bpmn2?:)?lane>/gi;
+        var match;
+        while ((match = lanePattern.exec(xml)) !== null) {
+            var laneId = match[1];
+            var laneBody = match[2];
+            var refs = [];
+            var refPattern = /<(?:bpmn2?:)?flowNodeRef>([^<]+)<\/(?:bpmn2?:)?flowNodeRef>/gi;
+            var refMatch;
+            while ((refMatch = refPattern.exec(laneBody)) !== null) {
+                refs.push(refMatch[1].trim());
+            }
+            if (refs.length > 0) {
+                laneRefs.set(laneId, refs);
+            }
+        }
+        return laneRefs;
+    }
+
+    function collectDataAssociations(xml) {
+        var dataToTask = new Map();
+        var taskPattern = /<(?:bpmn2?:)?(?:task|callActivity)\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/(?:bpmn2?:)?(?:task|callActivity)>/gi;
+        var match;
+        while ((match = taskPattern.exec(xml)) !== null) {
+            var taskId = match[1];
+            var taskBody = match[2];
+            var outputPattern = /<(?:bpmn2?:)?targetRef>([^<]+)<\/(?:bpmn2?:)?targetRef>/gi;
+            var outMatch;
+            while ((outMatch = outputPattern.exec(taskBody)) !== null) {
+                dataToTask.set(outMatch[1].trim(), taskId);
+            }
+            var inputPattern = /<(?:bpmn2?:)?sourceRef>([^<]+)<\/(?:bpmn2?:)?sourceRef>/gi;
+            var inMatch;
+            while ((inMatch = inputPattern.exec(taskBody)) !== null) {
+                dataToTask.set(inMatch[1].trim(), taskId);
+            }
+        }
+        return dataToTask;
+    }
+
+    function positionDataShapes(dataShapes, nextShapeMap, dataToTask) {
+        var dataShapeMap = new Map();
+        var sideOffset = 280;
+        dataShapes.forEach(function (shape) {
+            var connectedTaskId = dataToTask.get(shape.bpmnElement);
+            var taskBounds = connectedTaskId ? nextShapeMap.get(connectedTaskId) : null;
+            if (taskBounds) {
+                dataShapeMap.set(shape.bpmnElement, {
+                    x: taskBounds.x + taskBounds.width + sideOffset,
+                    y: taskBounds.y + (taskBounds.height / 2) - (shape.height / 2),
+                    width: shape.width,
+                    height: shape.height
+                });
+            } else {
+                dataShapeMap.set(shape.bpmnElement, {
+                    x: shape.x, y: shape.y, width: shape.width, height: shape.height
+                });
+            }
+        });
+        return dataShapeMap;
+    }
+
+    function recalculateContainerBounds(containerShapes, allShapeMap, laneFlowRefs, elementTypes) {
+        var containerBoundsMap = new Map();
+        var padding = 50;
+        containerShapes.forEach(function (shape) {
+            var typeName = (elementTypes.get(shape.bpmnElement) || '').toLowerCase();
+            if (typeName !== 'lane') return;
+            var refs = laneFlowRefs.get(shape.bpmnElement) || [];
+            if (refs.length === 0) return;
+            var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            refs.forEach(function (refId) {
+                var bounds = allShapeMap.get(refId);
+                if (!bounds) return;
+                minX = Math.min(minX, bounds.x);
+                minY = Math.min(minY, bounds.y);
+                maxX = Math.max(maxX, bounds.x + bounds.width);
+                maxY = Math.max(maxY, bounds.y + bounds.height);
+            });
+            if (Number.isFinite(minX)) {
+                containerBoundsMap.set(shape.bpmnElement, {
+                    x: minX - padding - 30,
+                    y: minY - padding,
+                    width: (maxX - minX) + (2 * padding) + 30,
+                    height: (maxY - minY) + (2 * padding)
+                });
+            }
+        });
+        containerShapes.forEach(function (shape) {
+            var typeName = (elementTypes.get(shape.bpmnElement) || '').toLowerCase();
+            if (typeName !== 'participant') return;
+            var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            var found = false;
+            containerBoundsMap.forEach(function (bounds) {
+                found = true;
+                minX = Math.min(minX, bounds.x); minY = Math.min(minY, bounds.y);
+                maxX = Math.max(maxX, bounds.x + bounds.width); maxY = Math.max(maxY, bounds.y + bounds.height);
+            });
+            if (!found) {
+                allShapeMap.forEach(function (bounds) {
+                    found = true;
+                    minX = Math.min(minX, bounds.x); minY = Math.min(minY, bounds.y);
+                    maxX = Math.max(maxX, bounds.x + bounds.width); maxY = Math.max(maxY, bounds.y + bounds.height);
+                });
+            }
+            if (found && Number.isFinite(minX)) {
+                containerBoundsMap.set(shape.bpmnElement, {
+                    x: minX - padding, y: minY - padding,
+                    width: (maxX - minX) + (2 * padding),
+                    height: (maxY - minY) + (2 * padding)
+                });
+            }
+        });
+        return containerBoundsMap;
+    }
+
+    function applyDataAndContainerBounds(nextXml, nextShapeMap, dataShapes, containerShapes, elementTypes, originalXml) {
+        var dataToTask = collectDataAssociations(originalXml);
+        var dataShapeMap = positionDataShapes(dataShapes, nextShapeMap, dataToTask);
+        dataShapes.forEach(function (shape) {
+            var nextBounds = dataShapeMap.get(shape.bpmnElement);
+            if (nextBounds) {
+                nextXml = replaceShapeBounds(nextXml, shape.bpmnElement, nextBounds);
+            }
+        });
+        if (containerShapes.length > 0) {
+            var laneFlowRefs = collectLaneFlowRefs(originalXml);
+            var allShapeMap = new Map(nextShapeMap);
+            dataShapeMap.forEach(function (bounds, id) { allShapeMap.set(id, bounds); });
+            var containerBoundsMap = recalculateContainerBounds(containerShapes, allShapeMap, laneFlowRefs, elementTypes);
+            containerShapes.forEach(function (shape) {
+                var nextBounds = containerBoundsMap.get(shape.bpmnElement);
+                if (nextBounds) {
+                    nextXml = replaceShapeBounds(nextXml, shape.bpmnElement, nextBounds);
+                }
+            });
+        }
+        return nextXml;
+    }
+
     function replaceShapeBounds(xml, bpmnElement, nextBounds) {
         const shapePattern = new RegExp(
             `(<bpmndi:BPMNShape\\b[^>]*bpmnElement="${bpmnElement}"[^>]*>[\\s\\S]*?<dc:Bounds\\b)([^>]*?)(?:\\/?>)([\\s\\S]*?<\\/bpmndi:BPMNShape>)`,
@@ -209,7 +373,7 @@
 
     function getShapeLayoutMetrics(shape, elementTypes) {
         const elementType = (elementTypes.get(shape.bpmnElement) || '').toLowerCase();
-        const isTask = elementType.includes('task');
+        const isTask = elementType.includes('task') || elementType.includes('callactivity');
         const isGateway = elementType.includes('gateway');
         const isEvent = elementType.includes('event');
 
@@ -812,7 +976,11 @@
         const shapes = collectShapes(xml);
         const flows = collectFlows(xml);
         const elementTypes = collectElementTypes(xml);
-        if (shapes.length < 2 || flows.length === 0) {
+        const classified = classifyShapes(shapes, elementTypes);
+        const flowShapes = classified.flowShapes;
+        const containerShapes = classified.containerShapes;
+        const dataShapes = classified.dataShapes;
+        if (flowShapes.length < 2 || flows.length === 0) {
             return xml;
         }
 
@@ -820,9 +988,9 @@
         const sanitizedXml = sanitizedResult.xml;
 
         if (hasNonLinearTopology(elementTypes, flows)) {
-            const graph = buildGraphIndexes(shapes, flows);
-            const backFlowIds = detectBackFlowIds(shapes, flows);
-            const rows = buildLayeredRows(shapes, flows, backFlowIds);
+            const graph = buildGraphIndexes(flowShapes, flows);
+            const backFlowIds = detectBackFlowIds(flowShapes, flows);
+            const rows = buildLayeredRows(flowShapes, flows, backFlowIds);
             if (rows.length < 2) {
                 return sanitizedXml;
             }
@@ -831,7 +999,7 @@
             const nextShapeMap = buildBranchLayoutMap(rows, elementTypes, graph, gatewayBranchHints);
             let nextXml = sanitizedXml;
 
-            shapes.forEach((shape) => {
+            flowShapes.forEach((shape) => {
                 const nextShape = nextShapeMap.get(shape.bpmnElement);
                 if (!nextShape) return;
                 nextXml = replaceShapeBounds(nextXml, shape.bpmnElement, nextShape);
@@ -851,10 +1019,10 @@
                 }
             });
 
-            return nextXml;
+            return applyDataAndContainerBounds(nextXml, nextShapeMap, dataShapes, containerShapes, elementTypes, xml);
         }
 
-        const orderedShapes = buildLinearOrder(shapes, flows);
+        const orderedShapes = buildLinearOrder(flowShapes, flows);
         if (orderedShapes.length < 2) {
             return sanitizedXml;
         }
@@ -897,7 +1065,7 @@
             ]);
         });
 
-        return nextXml;
+        return applyDataAndContainerBounds(nextXml, nextShapeMap, dataShapes, containerShapes, elementTypes, xml);
     }
 
     if (typeof module !== 'undefined' && module.exports) {

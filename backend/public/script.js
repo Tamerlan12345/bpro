@@ -158,47 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); white-space: pre-wrap;
             border: 1px solid rgba(255,255,255,0.1);
         }
-        .gateway-decision-card {
-            width: 220px;
-            min-height: 84px;
-            padding: 10px 12px;
-            border-radius: 14px;
-            border: 2px solid #334155;
-            background: rgba(255, 255, 255, 0.96);
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
-            color: #0f172a;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 8px;
-            text-align: center;
-            pointer-events: none;
-            box-sizing: border-box;
-        }
-        .gateway-decision-title {
-            font-size: 13px;
-            line-height: 1.35;
-            font-weight: 600;
-            word-break: break-word;
-        }
-        .gateway-decision-choices {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .gateway-decision-choice {
-            min-width: 44px;
-            padding: 3px 10px;
-            border-radius: 999px;
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
-            color: #1d4ed8;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.02em;
-        }
+
     `;
     document.head.appendChild(globalStyle);
 
@@ -356,96 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function buildGatewayDecisionCard(questionText, choiceTexts = []) {
-        const card = document.createElement('div');
-        card.className = 'gateway-decision-card';
 
-        const title = document.createElement('div');
-        title.className = 'gateway-decision-title';
-        title.textContent = questionText || 'Условие';
-        card.appendChild(title);
-
-        if (choiceTexts.length > 0) {
-            const choices = document.createElement('div');
-            choices.className = 'gateway-decision-choices';
-
-            choiceTexts.forEach((choiceText) => {
-                const chip = document.createElement('span');
-                chip.className = 'gateway-decision-choice';
-                chip.textContent = choiceText;
-                choices.appendChild(chip);
-            });
-
-            card.appendChild(choices);
-        }
-
-        return card;
-    }
-
-    function enhanceExclusiveGatewayPresentation(viewerInstance, container = diagramContainer) {
-        if (!viewerInstance || !container) {
-            return;
-        }
-
-        let elementRegistry;
-        let overlays;
-
-        try {
-            elementRegistry = viewerInstance.get('elementRegistry');
-            overlays = viewerInstance.get('overlays');
-        } catch (error) {
-            console.warn('Exclusive gateway enhancement skipped:', error);
-            return;
-        }
-
-        if (!elementRegistry || typeof elementRegistry.filter !== 'function' || !overlays) {
-            return;
-        }
-
-        const gateways = elementRegistry.filter((element) => element.type === 'bpmn:ExclusiveGateway');
-        gateways.forEach((gateway) => {
-            const gatewayGraphics = typeof elementRegistry.getGraphics === 'function'
-                ? elementRegistry.getGraphics(gateway)
-                : null;
-            const gatewayVisual = gatewayGraphics ? gatewayGraphics.querySelector('.djs-visual') : null;
-            if (gatewayVisual) {
-                gatewayVisual.style.opacity = '0';
-            }
-
-            const labelGraphics = gateway.label && typeof elementRegistry.getGraphics === 'function'
-                ? elementRegistry.getGraphics(gateway.label)
-                : null;
-            if (labelGraphics) {
-                labelGraphics.style.display = 'none';
-            }
-
-            const choiceTexts = (gateway.outgoing || [])
-                .map((flow) => (flow.businessObject && flow.businessObject.name) || flow.name || '')
-                .map((value) => String(value).trim())
-                .filter(Boolean)
-                .slice(0, 3);
-
-            (gateway.outgoing || []).forEach((flow) => {
-                const flowLabelGraphics = flow.label && typeof elementRegistry.getGraphics === 'function'
-                    ? elementRegistry.getGraphics(flow.label)
-                    : null;
-                if (flowLabelGraphics) {
-                    flowLabelGraphics.style.display = 'none';
-                }
-            });
-
-            overlays.add(gateway, {
-                position: {
-                    left: -92,
-                    top: -22
-                },
-                html: buildGatewayDecisionCard(
-                    (gateway.businessObject && gateway.businessObject.name) || gateway.name || 'Условие',
-                    choiceTexts
-                )
-            });
-        });
-    }
 
     async function renderDiagram(bpmnCode, container = diagramContainer, isRetry = false) {
         container.classList.remove('hidden');
@@ -481,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             await bpmnViewer.importXML(xml);
             safelyFitBpmnViewport(bpmnViewer, container);
-            enhanceExclusiveGatewayPresentation(bpmnViewer, container);
+
 
             const viewerRoot = container.querySelector('.djs-container, .bjs-container');
             if (viewerRoot) {
@@ -530,7 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
             xml = normalizeGeneratedBpmnXml(xml);
             await bpmnModeler.importXML(xml);
             safelyFitBpmnViewport(bpmnModeler, mermaidEditorPreview);
-            enhanceExclusiveGatewayPresentation(bpmnModeler, mermaidEditorPreview);
+
         } catch (e) {
             console.error(e);
         }
@@ -689,12 +560,13 @@ document.addEventListener('DOMContentLoaded', () => {
 - ВАЖНО: Основной поток строй сверху вниз. После gateway ветки разводи в стороны и затем возвращай продолжение процесса вниз. Не вытягивай весь процесс в длинную горизонтальную линию.
 - ВАЖНО: СТРОГАЯ ПРИВЯЗКА ЛОГИЧЕСКИХ БЛОКОВ (БАЗА):
   1) Вход/выход процесса = строго <bpmn2:startEvent> и <bpmn2:endEvent> (Круг).
-  2) Действие/шаг процесса = строго <bpmn2:task> (Прямоугольник).
-  3) Документ = строго <bpmn2:dataObjectReference>.
-  4) Ссылка на другой бизнес-процесс = <bpmn2:callActivity> или <bpmn2:task> с понятным именем отсылки.
-  5) Логический блок ИЛИ = строго <bpmn2:exclusiveGateway> (Ромб).
-  6) База данных = <bpmn2:dataStoreReference> (Цилиндр).
-  7) Зона ответственности/роли = указывай в атрибуте name для task, либо используй TextAnnotation.
+  2) Действие/шаг процесса = строго <bpmn2:task> (Прямоугольник). Каждый task должен содержать в name краткое название действия.
+  3) Документ (форма, заявление, акт, запись) = строго <bpmn2:dataObjectReference> + <bpmn2:dataObject>. Каждый документ, упомянутый в процессе, должен быть отражён как dataObjectReference с name документа. Для связи с task используй <bpmn2:dataOutputAssociation> или <bpmn2:dataInputAssociation>. Для каждого dataObjectReference и каждой dataOutputAssociation/dataInputAssociation обязательно генерируй BPMNShape (dc:Bounds) и BPMNEdge (di:waypoint) в блоке bpmndi.
+  4) Ссылка на другой бизнес-процесс = строго <bpmn2:callActivity> (отображается как task с двойной рамкой). Атрибут calledElement указывай как код процесса.
+  5) Логический блок ИЛИ = строго <bpmn2:exclusiveGateway> (Ромб). Атрибут name — краткий вопрос.
+  6) База данных (БД, КИАС, хранилище) = строго <bpmn2:dataStoreReference> (Цилиндр). Для связи с task используй <bpmn2:dataOutputAssociation>. Для dataStoreReference обязательно генерируй BPMNShape (dc:Bounds) в блоке bpmndi.
+  7) Зона ответственности/роли = если в описании процесса упоминаются конкретные роли или подразделения, оборачивай процесс в <bpmn2:collaboration> с <bpmn2:participant> и используй <bpmn2:laneSet> с <bpmn2:lane> внутри process. Каждая роль = отдельный lane. Если роли не упомянуты, используй простой process без lanes.
+  8) Направляющие (стрелки потока) = <bpmn2:sequenceFlow> для связи элементов процесса. Для связи с данными = <bpmn2:association> или dataOutputAssociation/dataInputAssociation.
 - Без координат (DI) визуальный редактор не сможет отобразить схему! Прояви математическую точность.
 - Не обрезай XML, верни его полностью.
 
@@ -750,7 +622,7 @@ ${brokenCode}
 Если одна ветка означает возврат на доработку, оставляй основное продолжение под gateway, а возвратную ветку делай боковой и возвращающейся к предыдущему шагу.
 Если две ветки после gateway сходятся в один общий шаг, располагай их по разным сторонам и соединяй с общим шагом ниже.
 Сохрани вертикальную композицию: основной поток сверху вниз, ветки после gateway в стороны, затем продолжение снова вниз.
-ВАЖНО: СТРОГАЯ ПРИВЯЗКА ЛОГИЧЕСКИХ БЛОКОВ (БАЗА): Вход/выход = <bpmn2:startEvent>/<bpmn2:endEvent>, Шаг = <bpmn2:task>, Документ = <bpmn2:dataObjectReference>, Ссылка на процесс = <bpmn2:callActivity>, Логическое ИЛИ = <bpmn2:exclusiveGateway>, База данных = <bpmn2:dataStoreReference>.
+ВАЖНО: СТРОГАЯ ПРИВЯЗКА ЛОГИЧЕСКИХ БЛОКОВ (БАЗА): Вход/выход = <bpmn2:startEvent>/<bpmn2:endEvent>, Шаг = <bpmn2:task>, Документ = <bpmn2:dataObjectReference> + <bpmn2:dataObject> (с BPMNShape в DI-блоке), Ссылка на процесс = строго <bpmn2:callActivity> (двойная рамка), Логическое ИЛИ = <bpmn2:exclusiveGateway>, База данных = <bpmn2:dataStoreReference> (с BPMNShape в DI-блоке). Если есть роли, используй <bpmn2:laneSet>/<bpmn2:lane>.
 
 Ответ должен содержать ТОЛЬКО ИСПРАВЛЕННЫЙ код BPMN XML, без объяснений и markdown.`;
         return callGeminiAPI(prompt, { chatId }).then(code => normalizeGeneratedBpmnXml(code.replace(/```xml/g, '').replace(/```/g, '').trim()));
@@ -770,12 +642,13 @@ ${brokenCode}
 ВАЖНО: Основной поток строй сверху вниз. После gateway ветки разводи в стороны и затем возвращай продолжение процесса вниз, а не в длинную горизонтальную линию.
 ВАЖНО: СТРОГАЯ ПРИВЯЗКА ЛОГИЧЕСКИХ БЛОКОВ (БАЗА):
   1) Вход/выход процесса = строго <bpmn2:startEvent> и <bpmn2:endEvent> (Круг).
-  2) Действие/шаг процесса = строго <bpmn2:task> (Прямоугольник).
-  3) Документ = строго <bpmn2:dataObjectReference>.
-  4) Ссылка на другой бизнес-процесс = <bpmn2:callActivity> или <bpmn2:task> с понятным именем отсылки.
-  5) Логический блок ИЛИ = строго <bpmn2:exclusiveGateway> (Ромб).
-  6) База данных = <bpmn2:dataStoreReference> (Цилиндр).
-  7) Зона ответственности/роли = указывай в атрибуте name для task, либо используй TextAnnotation.
+  2) Действие/шаг процесса = строго <bpmn2:task> (Прямоугольник). Каждый task должен содержать в name краткое название действия.
+  3) Документ (форма, заявление, акт, запись) = строго <bpmn2:dataObjectReference> + <bpmn2:dataObject>. Каждый документ, упомянутый в процессе, должен быть отражён как dataObjectReference с name документа. Для связи с task используй <bpmn2:dataOutputAssociation> или <bpmn2:dataInputAssociation>. Для каждого dataObjectReference и каждой dataOutputAssociation/dataInputAssociation обязательно генерируй BPMNShape (dc:Bounds) и BPMNEdge (di:waypoint) в блоке bpmndi.
+  4) Ссылка на другой бизнес-процесс = строго <bpmn2:callActivity> (отображается как task с двойной рамкой). Атрибут calledElement указывай как код процесса.
+  5) Логический блок ИЛИ = строго <bpmn2:exclusiveGateway> (Ромб). Атрибут name — краткий вопрос.
+  6) База данных (БД, КИАС, хранилище) = строго <bpmn2:dataStoreReference> (Цилиндр). Для связи с task используй <bpmn2:dataOutputAssociation>. Для dataStoreReference обязательно генерируй BPMNShape (dc:Bounds) в блоке bpmndi.
+  7) Зона ответственности/роли = если в описании процесса упоминаются конкретные роли или подразделения, оборачивай процесс в <bpmn2:collaboration> с <bpmn2:participant> и используй <bpmn2:laneSet> с <bpmn2:lane> внутри process. Каждая роль = отдельный lane. Если роли не упомянуты, используй простой process без lanes.
+  8) Направляющие (стрелки потока) = <bpmn2:sequenceFlow> для связи элементов процесса. Для связи с данными = <bpmn2:association> или dataOutputAssociation/dataInputAssociation.
 
 ФОРМАТ ОТВЕТА:
 Твой ответ должен содержать ТОЛЬКО код BPMN 2.0 XML, без объяснений и markdown.
