@@ -524,12 +524,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return xml.trim();
     }
+    /**
+     * Sanitizes common structural XML errors introduced by AI-generated BPMN:
+     * 1. Closing tag namespace mismatch  (<bpmn:dataInputAssociation> ... </bpmn2:dataInputAssociation>)
+     * 2. Orphaned closing tags with no matching opener
+     * 3. dataInputAssociation/dataOutputAssociation blocks that are completely empty
+     */
+    function sanitizeBpmnXml(xml) {
+        if (typeof xml !== 'string') return xml;
+
+        // Tags where namespace prefix mismatches are common in AI-generated XML
+        const mutableTags = [
+            'dataInputAssociation', 'dataOutputAssociation', 'conditionExpression',
+            'sourceRef', 'targetRef', 'flowNodeRef'
+        ];
+
+        // 1. Per-tag: detect the prefix used in the opening tag and normalise all
+        //    closing tags for that tag to use the same prefix.
+        mutableTags.forEach(tagName => {
+            const openTagRe  = new RegExp(`<(bpmn\\d*):${tagName}[\\s>]`, 'i');
+            const closeTagRe = new RegExp(`<\\/bpmn\\d*:${tagName}>`, 'gi');
+            const openMatch = xml.match(openTagRe);
+            if (!openMatch) return;                // tag not present → skip
+            const prefix = openMatch[1];           // e.g. "bpmn" or "bpmn2"
+            xml = xml.replace(closeTagRe, `</${prefix}:${tagName}>`);
+        });
+
+        // 2. Remove orphaned closing tags (more closes than opens) for the same set.
+        const orphanTags = ['dataInputAssociation', 'dataOutputAssociation', 'conditionExpression'];
+        orphanTags.forEach(tagName => {
+            const closeRe = new RegExp(`<\\/(?:bpmn\\d*:)?${tagName}>`, 'gi');
+            const openRe  = new RegExp(`<(?:bpmn\\d*:)?${tagName}[\\s>]`, 'gi');
+            const openCount  = (xml.match(openRe)  || []).length;
+            const closeCount = (xml.match(closeRe) || []).length;
+            if (closeCount > openCount) {
+                let surplus = closeCount - openCount;
+                xml = xml.replace(closeRe, m => {
+                    if (surplus > 0) { surplus--; return ''; }
+                    return m;
+                });
+            }
+        });
+
+        // 3. Remove dataInputAssociation/dataOutputAssociation elements that are
+        //    completely empty (no targetRef/sourceRef content) – they cause parse errors.
+        xml = xml.replace(/<(?:bpmn\d*:)?dataInputAssociation[^>]*>\s*<\/(?:bpmn\d*:)?dataInputAssociation>/gi, '');
+        xml = xml.replace(/<(?:bpmn\d*:)?dataOutputAssociation[^>]*>\s*<\/(?:bpmn\d*:)?dataOutputAssociation>/gi, '');
+
+        return xml;
+    }
+
     function normalizeGeneratedBpmnXml(xml) {
         if (typeof xml !== 'string') {
             return xml;
         }
 
         xml = extractPureBpmnXml(xml);
+        xml = sanitizeBpmnXml(xml);
 
         if (typeof normalizeBpmnVerticalLayout !== 'function') {
             return xml;
