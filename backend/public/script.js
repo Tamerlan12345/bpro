@@ -528,10 +528,20 @@ document.addEventListener('DOMContentLoaded', () => {
      * Sanitizes common structural XML errors introduced by AI-generated BPMN:
      * 1. Closing tag namespace mismatch  (<bpmn:dataInputAssociation> ... </bpmn2:dataInputAssociation>)
      * 2. Orphaned closing tags with no matching opener
-     * 3. dataInputAssociation/dataOutputAssociation blocks that are completely empty
+     * 3. Malformed dataInputAssociation/dataOutputAssociation blocks with broken nested refs
      */
     function sanitizeBpmnXml(xml) {
         if (typeof xml !== 'string') return xml;
+
+        const countTagPairs = (fragment, tagName) => {
+            const openRe = new RegExp(`<(?:bpmn\\d*:)?${tagName}(?=[\\s>])`, 'gi');
+            const closeRe = new RegExp(`<\\/(?:bpmn\\d*:)?${tagName}>`, 'gi');
+
+            return {
+                openCount: (fragment.match(openRe) || []).length,
+                closeCount: (fragment.match(closeRe) || []).length
+            };
+        };
 
         // Tags where namespace prefix mismatches are common in AI-generated XML
         const mutableTags = [
@@ -542,19 +552,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Per-tag: detect the prefix used in the opening tag and normalise all
         //    closing tags for that tag to use the same prefix.
         mutableTags.forEach(tagName => {
-            const openTagRe  = new RegExp(`<(bpmn\\d*):${tagName}[\\s>]`, 'i');
-            const closeTagRe = new RegExp(`<\\/bpmn\\d*:${tagName}>`, 'gi');
+            const openTagRe = new RegExp(`<(?:(bpmn\\d*):)?${tagName}(?=[\\s>])`, 'i');
+            const closeTagRe = new RegExp(`<\\/(?:bpmn\\d*:)?${tagName}>`, 'gi');
             const openMatch = xml.match(openTagRe);
             if (!openMatch) return;                // tag not present → skip
-            const prefix = openMatch[1];           // e.g. "bpmn" or "bpmn2"
-            xml = xml.replace(closeTagRe, `</${prefix}:${tagName}>`);
+            const prefix = openMatch[1] ? `${openMatch[1]}:` : '';
+            xml = xml.replace(closeTagRe, `</${prefix}${tagName}>`);
         });
 
         // 2. Remove orphaned closing tags (more closes than opens) for the same set.
-        const orphanTags = ['dataInputAssociation', 'dataOutputAssociation', 'conditionExpression'];
+        const orphanTags = [
+            'dataInputAssociation', 'dataOutputAssociation', 'conditionExpression',
+            'sourceRef', 'targetRef'
+        ];
         orphanTags.forEach(tagName => {
             const closeRe = new RegExp(`<\\/(?:bpmn\\d*:)?${tagName}>`, 'gi');
-            const openRe  = new RegExp(`<(?:bpmn\\d*:)?${tagName}[\\s>]`, 'gi');
+            const openRe = new RegExp(`<(?:bpmn\\d*:)?${tagName}(?=[\\s>])`, 'gi');
             const openCount  = (xml.match(openRe)  || []).length;
             const closeCount = (xml.match(closeRe) || []).length;
             if (closeCount > openCount) {
@@ -566,8 +579,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 3. Remove dataInputAssociation/dataOutputAssociation elements that are
+        // 3. Remove malformed association blocks where nested refs are unbalanced.
         //    completely empty (no targetRef/sourceRef content) – they cause parse errors.
+        ['dataInputAssociation', 'dataOutputAssociation'].forEach(tagName => {
+            const blockRe = new RegExp(
+                `<(?:bpmn\\d*:)?${tagName}\\b[^>]*>[\\s\\S]*?<\\/(?:bpmn\\d*:)?${tagName}>`,
+                'gi'
+            );
+
+            xml = xml.replace(blockRe, block => {
+                const hasUnbalancedRefs = ['sourceRef', 'targetRef'].some(refTag => {
+                    const { openCount, closeCount } = countTagPairs(block, refTag);
+                    return openCount !== closeCount;
+                });
+
+                if (hasUnbalancedRefs) {
+                    return '';
+                }
+
+                const { openCount, closeCount } = countTagPairs(block, tagName);
+                return openCount === 1 && closeCount === 1 ? block : '';
+            });
+        });
+
         xml = xml.replace(/<(?:bpmn\d*:)?dataInputAssociation[^>]*>\s*<\/(?:bpmn\d*:)?dataInputAssociation>/gi, '');
         xml = xml.replace(/<(?:bpmn\d*:)?dataOutputAssociation[^>]*>\s*<\/(?:bpmn\d*:)?dataOutputAssociation>/gi, '');
 

@@ -2,6 +2,16 @@
 function sanitizeBpmnXml(xml) {
     if (typeof xml !== 'string') return xml;
 
+    const countTagPairs = (fragment, tagName) => {
+        const openRe = new RegExp(`<(?:bpmn\\d*:)?${tagName}(?=[\\s>])`, 'gi');
+        const closeRe = new RegExp(`<\\/(?:bpmn\\d*:)?${tagName}>`, 'gi');
+
+        return {
+            openCount: (fragment.match(openRe) || []).length,
+            closeCount: (fragment.match(closeRe) || []).length
+        };
+    };
+
     const mutableTags = [
         'dataInputAssociation', 'dataOutputAssociation', 'conditionExpression',
         'sourceRef', 'targetRef', 'flowNodeRef'
@@ -9,19 +19,22 @@ function sanitizeBpmnXml(xml) {
 
     // 1. Per-tag: detect the prefix used in the opening tag and normalise all closing tags.
     mutableTags.forEach(tagName => {
-        const openTagRe  = new RegExp(`<(bpmn\\d*):${tagName}[\\s>]`, 'i');
-        const closeTagRe = new RegExp(`<\\/bpmn\\d*:${tagName}>`, 'gi');
+        const openTagRe = new RegExp(`<(?:(bpmn\\d*):)?${tagName}(?=[\\s>])`, 'i');
+        const closeTagRe = new RegExp(`<\\/(?:bpmn\\d*:)?${tagName}>`, 'gi');
         const openMatch = xml.match(openTagRe);
         if (!openMatch) return;
-        const prefix = openMatch[1];
-        xml = xml.replace(closeTagRe, `</${prefix}:${tagName}>`);
+        const prefix = openMatch[1] ? `${openMatch[1]}:` : '';
+        xml = xml.replace(closeTagRe, `</${prefix}${tagName}>`);
     });
 
     // 2. Remove orphaned closing tags (more closes than opens).
-    const orphanTags = ['dataInputAssociation', 'dataOutputAssociation', 'conditionExpression'];
+    const orphanTags = [
+        'dataInputAssociation', 'dataOutputAssociation', 'conditionExpression',
+        'sourceRef', 'targetRef'
+    ];
     orphanTags.forEach(tagName => {
         const closeRe = new RegExp(`<\\/(?:bpmn\\d*:)?${tagName}>`, 'gi');
-        const openRe  = new RegExp(`<(?:bpmn\\d*:)?${tagName}[\\s>]`, 'gi');
+        const openRe = new RegExp(`<(?:bpmn\\d*:)?${tagName}(?=[\\s>])`, 'gi');
         const openCount  = (xml.match(openRe)  || []).length;
         const closeCount = (xml.match(closeRe) || []).length;
         if (closeCount > openCount) {
@@ -33,7 +46,29 @@ function sanitizeBpmnXml(xml) {
         }
     });
 
-    // 3. Remove completely empty data association elements.
+    // 3. Remove malformed association blocks where nested refs are unbalanced.
+    ['dataInputAssociation', 'dataOutputAssociation'].forEach(tagName => {
+        const blockRe = new RegExp(
+            `<(?:bpmn\\d*:)?${tagName}\\b[^>]*>[\\s\\S]*?<\\/(?:bpmn\\d*:)?${tagName}>`,
+            'gi'
+        );
+
+        xml = xml.replace(blockRe, block => {
+            const hasUnbalancedRefs = ['sourceRef', 'targetRef'].some(refTag => {
+                const { openCount, closeCount } = countTagPairs(block, refTag);
+                return openCount !== closeCount;
+            });
+
+            if (hasUnbalancedRefs) {
+                return '';
+            }
+
+            const { openCount, closeCount } = countTagPairs(block, tagName);
+            return openCount === 1 && closeCount === 1 ? block : '';
+        });
+    });
+
+    // 4. Remove completely empty data association elements.
     xml = xml.replace(/<(?:bpmn\d*:)?dataInputAssociation[^>]*>\s*<\/(?:bpmn\d*:)?dataInputAssociation>/gi, '');
     xml = xml.replace(/<(?:bpmn\d*:)?dataOutputAssociation[^>]*>\s*<\/(?:bpmn\d*:)?dataOutputAssociation>/gi, '');
 
@@ -114,6 +149,24 @@ test('conditionExpression orphan removed from non-gateway flow',
     `<bpmn2:sequenceFlow id="sf1" sourceRef="Task_1" targetRef="Task_2"></bpmn2:conditionExpression></bpmn2:sequenceFlow>`,
     r => {
         if (r.includes('</bpmn2:conditionExpression>')) throw new Error('Expected conditionExpression orphan removed');
+    }
+);
+
+// Test 8: malformed dataInputAssociation with unclosed sourceRef removed
+test('malformed dataInputAssociation with broken nested sourceRef removed',
+    `<bpmn2:task id="t1"><bpmn2:dataInputAssociation id="x"><bpmn2:sourceRef>doc1</bpmn2:dataInputAssociation></bpmn2:task>`,
+    r => {
+        if (r.includes('dataInputAssociation')) throw new Error('Expected malformed association removed');
+        if (r.includes('<bpmn2:sourceRef>')) throw new Error('Expected broken nested sourceRef removed with association');
+    }
+);
+
+// Test 9: unprefixed opener keeps unprefixed closer
+test('unprefixed dataInputAssociation opener normalises prefixed closer',
+    `<dataInputAssociation id="x"><sourceRef>doc1</sourceRef></bpmn2:dataInputAssociation>`,
+    r => {
+        if (!r.includes('</dataInputAssociation>')) throw new Error('Expected closer normalised to unprefixed tag');
+        if (r.includes('</bpmn2:dataInputAssociation>')) throw new Error('Prefixed closer should be replaced');
     }
 );
 
