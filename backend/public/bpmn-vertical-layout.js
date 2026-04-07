@@ -642,6 +642,38 @@
         return false;
     }
 
+    function collectBranchDepthMetrics(startId, outgoing) {
+        if (!startId) {
+            return { reachableCount: 0, maxDepth: 0 };
+        }
+
+        const visited = new Set();
+        let maxDepth = 0;
+
+        function walk(nodeId, depth, activePath) {
+            if (!nodeId || activePath.has(nodeId)) {
+                return;
+            }
+
+            visited.add(nodeId);
+            maxDepth = Math.max(maxDepth, depth);
+            activePath.add(nodeId);
+
+            (outgoing.get(nodeId) || []).forEach((nextNodeId) => {
+                walk(nextNodeId, depth + 1, activePath);
+            });
+
+            activePath.delete(nodeId);
+        }
+
+        walk(startId, 0, new Set());
+
+        return {
+            reachableCount: visited.size,
+            maxDepth
+        };
+    }
+
     function buildGatewayBranchHints(flows, elementTypes, graph) {
         const hints = new Map();
         const exclusiveGatewayIds = collectExclusiveGatewayIds(elementTypes);
@@ -683,7 +715,32 @@
             const forwardFlows = gatewayFlows.filter((flow) => !loopFlows.some((loopFlow) => loopFlow.id === flow.id));
             const slotByTarget = new Map();
 
-            if (forwardFlows.length === 1 && loopFlows.length >= 1) {
+            if (loopFlows.length === 0 && forwardFlows.length === 2) {
+                const rankedForwardFlows = forwardFlows
+                    .map((flow) => ({
+                        flow,
+                        ...collectBranchDepthMetrics(flow.targetRef, graph.outgoing)
+                    }))
+                    .sort((left, right) => {
+                        return right.maxDepth - left.maxDepth
+                            || right.reachableCount - left.reachableCount
+                            || left.flow.targetRef.localeCompare(right.flow.targetRef);
+                    });
+                const [primaryForwardFlow, alternateForwardFlow] = rankedForwardFlows;
+                const hasDistinctPrimaryFlow = primaryForwardFlow && alternateForwardFlow
+                    && (primaryForwardFlow.maxDepth > alternateForwardFlow.maxDepth
+                        || primaryForwardFlow.reachableCount > alternateForwardFlow.reachableCount);
+
+                if (hasDistinctPrimaryFlow) {
+                    const hintedSlot = getFlowDirectionSlot(alternateForwardFlow.flow.name);
+                    slotByTarget.set(primaryForwardFlow.flow.targetRef, 0);
+                    slotByTarget.set(alternateForwardFlow.flow.targetRef, hintedSlot < 0 ? -1 : (hintedSlot > 0 ? 1 : -1));
+                } else {
+                    createFallbackSlotOrder(gatewayFlows).forEach((slot, targetId) => {
+                        slotByTarget.set(targetId, slot);
+                    });
+                }
+            } else if (forwardFlows.length === 1 && loopFlows.length >= 1) {
                 slotByTarget.set(forwardFlows[0].targetRef, 0);
                 const orderedLoopFlows = loopFlows.slice().sort((left, right) => {
                     const leftSlot = getFlowDirectionSlot(left.name);
@@ -739,10 +796,28 @@
                 let branchSlot = null;
 
                 if (parentIds.length) {
-                    preferredCenter = parentIds.reduce((sum, parentId) => {
-                        const parentBounds = nextShapeMap.get(parentId);
-                        return sum + parentBounds.x + (parentBounds.width / 2);
-                    }, 0) / parentIds.length;
+                    const parentCenters = parentIds
+                        .map((parentId) => {
+                            const parentBounds = nextShapeMap.get(parentId);
+                            return parentBounds
+                                ? { parentId, center: parentBounds.x + (parentBounds.width / 2) }
+                                : null;
+                        })
+                        .filter(Boolean);
+
+                    if (parentCenters.length) {
+                        preferredCenter = parentCenters.reduce((sum, parent) => sum + parent.center, 0) / parentCenters.length;
+
+                        if (parentCenters.length > 1) {
+                            const centeredParent = parentCenters
+                                .slice()
+                                .sort((left, right) => Math.abs(left.center - centerX) - Math.abs(right.center - centerX))[0];
+
+                            if (centeredParent && Math.abs(centeredParent.center - centerX) <= branchLaneOffset / 2) {
+                                preferredCenter = centeredParent.center;
+                            }
+                        }
+                    }
                 } else if (rowIndex === 0) {
                     preferredCenter = centerX;
                 }
