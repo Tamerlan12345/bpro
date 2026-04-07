@@ -835,10 +835,40 @@ document.addEventListener('DOMContentLoaded', () => {
         // 4b: open+explicit-close pair  <di:waypoint …>…</di:waypoint>
         xml = xml.replace(/<(?:di:)?waypoint\b([^<>]*?)>\s*<\/(?:di:)?waypoint>/gi, (_, attrs) => normalizeWaypointTag(attrs) || '');
         // 4c: open tag (no self-close) followed immediately by another element (the primary unclosed-tag bug)
-        //     Matches <di:waypoint …> where > is NOT preceded by / and is followed by whitespace+<
         xml = xml.replace(/<(di:waypoint|waypoint)\b([^<>]*?)>(?=\s*<)/gi, (_, _tag, attrs) => normalizeWaypointTag(attrs) || '');
         // 4d: orphaned closing tags left behind by earlier passes
         xml = xml.replace(/<\/(?:di:)?waypoint>/gi, '');
+
+        // 5. Fix BPMNShape blocks — AI often produces open <dc:Bounds> without self-closing />
+        //    which causes 'unparsable content </bpmndi:BPMNShape detected; nested error: unclosed tag'
+        // 5a: Global: convert any open <dc:Bounds …> (with or without explicit close) to self-closing
+        xml = xml.replace(/<dc:Bounds\b([^<>]*?)>\s*(?:<\/dc:Bounds>)?/gi, (_, attrs) => `<dc:Bounds${attrs}/>`);
+        // 5b: In BPMNShape, fix <bpmndi:BPMNLabel> without closing tag (empty label blocks)
+        xml = xml.replace(
+            /<bpmndi:BPMNShape\b[^>]*>[\s\S]*?<\/bpmndi:BPMNShape>/gi,
+            shapeBlock => {
+                // Ensure BPMNLabel has a matching close tag
+                const labelOpenCount  = (shapeBlock.match(/<bpmndi:BPMNLabel(?=[\s>])/gi) || []).length;
+                const labelCloseCount = (shapeBlock.match(/<\/bpmndi:BPMNLabel>/gi) || []).length;
+                if (labelOpenCount > labelCloseCount) {
+                    // Append missing close tags before the Shape close
+                    const missing = labelOpenCount - labelCloseCount;
+                    return shapeBlock.replace(/<\/bpmndi:BPMNShape>/i,
+                        `${'</bpmndi:BPMNLabel>'.repeat(missing)}</bpmndi:BPMNShape>`);
+                }
+                return shapeBlock;
+            }
+        );
+        // 5c: BPMNShape open tag that was left without a matching close (bleeds into next shape)
+        xml = xml.replace(
+            /<bpmndi:BPMNShape\b[^>]*>[\s\S]*?(?=<bpmndi:BPMNShape\b|<\/bpmndi:BPMNPlane>|<\/bpmndi:BPMNDiagram>)/gi,
+            block => {
+                if (/<\/bpmndi:BPMNShape>/i.test(block)) return block; // already closed
+                // Ensure dc:Bounds self-closes and close the Shape
+                let fixed = block.replace(/<dc:Bounds\b([^<>]*?)>(?!\s*\/)/gi, (_, a) => `<dc:Bounds${a}/>`);
+                return `${fixed}</bpmndi:BPMNShape>`;
+            }
+        );
 
         xml = xml.replace(/<bpmndi:BPMNEdge\b[^>]*>[\s\S]*?<\/bpmndi:BPMNEdge>/gi, block => {
             if (!/<(?:di:waypoint|waypoint|di)\b/i.test(block)) {
@@ -848,7 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return rebuildEdgeBlock(block);
         });
 
-        // 5. Recover edge blocks that lost their explicit closing tag and now bleed into the next DI section.
+        // 6. Recover edge blocks that lost their explicit closing tag and now bleed into the next DI section.
         xml = xml.replace(
             /<bpmndi:BPMNEdge\b[^>]*>[\s\S]*?(?=(?:<bpmndi:BPMNEdge\b|<\/bpmndi:BPMNPlane>|<\/bpmndi:BPMNDiagram>|<\/bpmn\d*:definitions>|<\/definitions>))/gi,
             block => {
@@ -2532,47 +2562,218 @@ ${brokenCode}
         });
     }
 
-    // Fullscreen: open diagram container in browser fullscreen
+    // ===== DIAGRAM OVERLAY MODAL =====
+    const diagramOverlayModal  = document.getElementById('diagram-overlay-modal');
+    const diagramOverlayBody   = document.getElementById('diagram-overlay-body');
+    const diagramOverlayTitle  = document.getElementById('diagram-overlay-title');
+    const overlayModeLabel     = document.getElementById('overlay-mode-label');
+    const overlayCloseBtn      = document.getElementById('overlay-close-btn');
+    const overlayZoomInBtn     = document.getElementById('overlay-zoom-in-btn');
+    const overlayZoomOutBtn    = document.getElementById('overlay-zoom-out-btn');
+    const overlayFitBtn        = document.getElementById('overlay-fit-btn');
+    const overlayEditBtn       = document.getElementById('overlay-edit-btn');
+    const overlaySaveBtn       = document.getElementById('overlay-save-btn');
+
+    let overlayBpmnModeler = null;
+    let overlayScale = 1;
+
+    function openDiagramOverlay() {
+        if (!currentDiagramXml && !currentDiagramSvg) return;
+
+        // Set title
+        const titleEl = document.querySelector('.chat-header h2, #chat-title');
+        if (diagramOverlayTitle && titleEl) diagramOverlayTitle.textContent = titleEl.textContent;
+
+        // Render current SVG in overlay body (view mode)
+        if (diagramOverlayBody) {
+            diagramOverlayBody.innerHTML = '';
+            if (currentDiagramSvg) {
+                const shell = document.createElement('div');
+                shell.className = 'doc-diagram-shell';
+                const stage = document.createElement('div');
+                stage.className = 'doc-diagram-stage';
+                stage.innerHTML = currentDiagramSvg;
+                shell.appendChild(stage);
+                diagramOverlayBody.appendChild(shell);
+                // Auto-fit into overlay body
+                requestAnimationFrame(() => {
+                    const bodyW = diagramOverlayBody.clientWidth - 32;
+                    const bodyH = diagramOverlayBody.clientHeight - 32;
+                    const svgEl = stage.querySelector('svg');
+                    if (svgEl) {
+                        const svgW = parseFloat(svgEl.getAttribute('width')) || svgEl.viewBox.baseVal.width || bodyW;
+                        const svgH = parseFloat(svgEl.getAttribute('height')) || svgEl.viewBox.baseVal.height || bodyH;
+                        overlayScale = Math.min(bodyW / svgW, bodyH / svgH, 1);
+                        stage.style.transform = `scale(${overlayScale})`;
+                        stage.style.transformOrigin = 'top left';
+                        stage.style.width = `${Math.round(svgW * overlayScale)}px`;
+                        stage.style.height = `${Math.round(svgH * overlayScale)}px`;
+                    }
+                });
+            }
+        }
+
+        // Show/hide admin controls
+        const isAdmin = sessionUser && sessionUser.role === 'admin';
+        const canEdit = isAdmin && userCanEditDiagram();
+        if (overlayEditBtn) overlayEditBtn.style.display = canEdit ? 'inline-flex' : 'none';
+        if (overlaySaveBtn) overlaySaveBtn.style.display = 'none'; // hidden until edit mode
+
+        if (overlayModeLabel) {
+            overlayModeLabel.textContent = 'Просмотр';
+            overlayModeLabel.className = 'overlay-mode-badge';
+        }
+
+        diagramOverlayModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeDiagramOverlay() {
+        // Destroy modeler if open
+        if (overlayBpmnModeler) {
+            try { overlayBpmnModeler.destroy(); } catch {}
+            overlayBpmnModeler = null;
+        }
+        if (diagramOverlayBody) diagramOverlayBody.innerHTML = '';
+        if (diagramOverlayModal) diagramOverlayModal.classList.add('hidden');
+        document.body.style.overflow = '';
+        if (overlayModeLabel) {
+            overlayModeLabel.textContent = 'Просмотр';
+            overlayModeLabel.className = 'overlay-mode-badge';
+        }
+        if (overlaySaveBtn) overlaySaveBtn.style.display = 'none';
+        if (overlayEditBtn && userCanEditDiagram()) overlayEditBtn.style.display = 'inline-flex';
+    }
+
+    async function openOverlayEditMode() {
+        if (!currentDiagramXml) return;
+        // Ensure bpmn-js is loaded
+        await loadBpmnJs();
+        if (!window.BpmnJS) {
+            showNotification('BPMN редактор не загружен', 'error');
+            return;
+        }
+        // Clear view-mode content
+        if (diagramOverlayBody) {
+            diagramOverlayBody.innerHTML = '';
+            diagramOverlayBody.style.padding = '0';
+
+            // Create bpmn-js modeler in the overlay
+            overlayBpmnModeler = new window.BpmnJS({ container: diagramOverlayBody });
+            try {
+                await overlayBpmnModeler.importXML(currentDiagramXml);
+                const canvas = overlayBpmnModeler.get('canvas');
+                canvas.zoom('fit-viewport');
+            } catch (err) {
+                showNotification('Не удалось открыть редактор: ' + err.message, 'error');
+                closeDiagramOverlay();
+                return;
+            }
+        }
+
+        if (overlayModeLabel) {
+            overlayModeLabel.textContent = 'Редактирование';
+            overlayModeLabel.className = 'overlay-mode-badge edit-mode';
+        }
+
+        if (overlayEditBtn) overlayEditBtn.style.display = 'none';
+        if (overlaySaveBtn) overlaySaveBtn.style.display = 'inline-flex';
+    }
+
+    async function saveOverlayDiagram() {
+        if (!overlayBpmnModeler) return;
+        try {
+            setButtonLoading(overlaySaveBtn, true);
+            const { xml } = await overlayBpmnModeler.saveXML({ format: true });
+            const normalized = normalizeGeneratedBpmnXml(xml);
+            // Update global state
+            currentDiagramXml = normalized;
+            // Save as new version
+            const descEl = document.getElementById('process-description');
+            const processText = descEl ? (descEl.textContent || '') : '';
+            await fetchWithAuth(`/api/chats/${chatId}/versions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ process_text: processText, mermaid_code: normalized })
+            });
+            showNotification('Координаты сохранены как новая версия', 'success');
+            closeDiagramOverlay();
+            // Re-render with updated XML
+            renderLockedDiagramView(normalized);
+        } catch (err) {
+            showNotification('Ошибка сохранения: ' + err.message, 'error');
+        } finally {
+            setButtonLoading(overlaySaveBtn, false);
+        }
+    }
+
+    // Wire overlay buttons
     const fullscreenDiagramBtn = document.getElementById('fullscreen-diagram-btn');
     if (fullscreenDiagramBtn) {
-        fullscreenDiagramBtn.addEventListener('click', () => {
-            const el = diagramContainer;
-            if (!el) return;
-            if (el.requestFullscreen) {
-                el.requestFullscreen().catch(() => {});
-            } else if (el.webkitRequestFullscreen) {
-                el.webkitRequestFullscreen();
+        fullscreenDiagramBtn.addEventListener('click', openDiagramOverlay);
+    }
+    if (overlayCloseBtn) overlayCloseBtn.addEventListener('click', closeDiagramOverlay);
+    if (overlayEditBtn) overlayEditBtn.addEventListener('click', openOverlayEditMode);
+    if (overlaySaveBtn) overlaySaveBtn.addEventListener('click', saveOverlayDiagram);
+
+    if (overlayZoomInBtn) {
+        overlayZoomInBtn.addEventListener('click', () => {
+            if (overlayBpmnModeler) {
+                const canvas = overlayBpmnModeler.get('canvas');
+                canvas.zoom(canvas.zoom() * 1.2);
+            } else {
+                const stage = diagramOverlayBody?.querySelector('.doc-diagram-stage');
+                if (!stage) return;
+                overlayScale = Math.min(overlayScale * 1.2, 4);
+                stage.style.transform = `scale(${overlayScale})`;
             }
         });
     }
 
-    document.addEventListener('fullscreenchange', () => {
-        const isFs = Boolean(document.fullscreenElement);
-        if (diagramContainer) {
-            if (isFs) {
-                diagramContainer.style.maxHeight = '100vh';
-                diagramContainer.style.height = '100vh';
-                diagramContainer.style.overflow = 'auto';
-                // Refit to fullscreen dimensions after transition
-                setTimeout(() => {
-                    if (currentDiagramModel && diagramMode === 'view') {
-                        const fitScale = computeFitScale();
-                        setLockedDiagramScale(fitScale);
-                    } else if (bpmnViewer) {
-                        safelyFitBpmnViewport(bpmnViewer, diagramContainer);
-                    }
-                }, 100);
+    if (overlayZoomOutBtn) {
+        overlayZoomOutBtn.addEventListener('click', () => {
+            if (overlayBpmnModeler) {
+                const canvas = overlayBpmnModeler.get('canvas');
+                canvas.zoom(canvas.zoom() * 0.8);
             } else {
-                diagramContainer.style.maxHeight = '';
-                diagramContainer.style.height = '';
-                if (currentDiagramModel && diagramMode === 'view') {
-                    const fitScale = computeFitScale();
-                    setLockedDiagramScale(fitScale);
-                    diagramContainer.style.overflow = fitScale >= 1 ? 'auto' : 'hidden';
-                }
+                const stage = diagramOverlayBody?.querySelector('.doc-diagram-stage');
+                if (!stage) return;
+                overlayScale = Math.max(overlayScale * 0.8, 0.1);
+                stage.style.transform = `scale(${overlayScale})`;
             }
+        });
+    }
+
+    if (overlayFitBtn) {
+        overlayFitBtn.addEventListener('click', () => {
+            if (overlayBpmnModeler) {
+                overlayBpmnModeler.get('canvas').zoom('fit-viewport');
+            } else {
+                const stage = diagramOverlayBody?.querySelector('.doc-diagram-stage');
+                const svgEl = stage?.querySelector('svg');
+                if (!stage || !svgEl) return;
+                const bodyW = diagramOverlayBody.clientWidth - 32;
+                const bodyH = diagramOverlayBody.clientHeight - 32;
+                const svgW = parseFloat(svgEl.getAttribute('width')) || bodyW;
+                const svgH = parseFloat(svgEl.getAttribute('height')) || bodyH;
+                overlayScale = Math.min(bodyW / svgW, bodyH / svgH, 1);
+                stage.style.transform = `scale(${overlayScale})`;
+            }
+        });
+    }
+
+    // Close overlay on backdrop click
+    if (diagramOverlayModal) {
+        diagramOverlayModal.querySelector('.diagram-overlay-backdrop')?.addEventListener('click', closeDiagramOverlay);
+    }
+
+    // Close on Escape key
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && diagramOverlayModal && !diagramOverlayModal.classList.contains('hidden')) {
+            closeDiagramOverlay();
         }
     });
+
 
     editDiagramBtn.addEventListener('click', openInlineDiagramEditor);
     cancelMermaidEditBtn.addEventListener('click', cancelInlineDiagramEdit);

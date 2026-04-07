@@ -943,6 +943,178 @@ button.button-secondary:active:not(:disabled) {
     height: 100%;
 }
 
+/* ===== DIAGRAM OVERLAY MODAL ===== */
+.diagram-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.diagram-overlay.hidden {
+    display: none;
+}
+
+.diagram-overlay-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.diagram-overlay-panel {
+    position: relative;
+    z-index: 1;
+    width: calc(100vw - 48px);
+    max-width: 1400px;
+    height: calc(100vh - 48px);
+    max-height: 960px;
+    background: rgba(255, 255, 255, 0.97);
+    border-radius: 20px;
+    box-shadow: 0 32px 80px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(255,255,255,0.6);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: overlaySlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes overlaySlideIn {
+    from { transform: scale(0.94) translateY(16px); opacity: 0; }
+    to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.diagram-overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    flex-shrink: 0;
+}
+
+.diagram-overlay-title {
+    font-size: var(--font-lg);
+    font-weight: 700;
+    color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 40%;
+}
+
+.diagram-overlay-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.diagram-overlay-actions button {
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: var(--font-sm);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-secondary);
+    color: var(--text-color);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+
+.diagram-overlay-actions button:hover {
+    background: var(--border-color);
+    transform: translateY(-1px);
+}
+
+.diagram-overlay-actions button.button-success {
+    background: linear-gradient(135deg, var(--color-success), var(--accent-hover-color));
+    color: white;
+    border: none;
+}
+
+.diagram-overlay-actions button.button-success:hover {
+    background: linear-gradient(135deg, var(--accent-hover-color), #065f46);
+    transform: translateY(-1px);
+}
+
+.overlay-close-btn {
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-muted-color) !important;
+    padding: 6px !important;
+    border-radius: 50% !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+}
+
+.overlay-close-btn:hover {
+    background: var(--bg-surface-secondary) !important;
+    color: var(--color-danger) !important;
+    transform: rotate(90deg) !important;
+}
+
+.diagram-overlay-body {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    background: #f8fafc;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+.diagram-overlay-body .doc-diagram-shell {
+    padding: 16px;
+}
+
+.diagram-overlay-body .djs-container,
+.diagram-overlay-body .bjs-container {
+    width: 100%;
+    height: 100%;
+}
+
+.diagram-overlay-footer {
+    padding: 8px 20px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-surface-secondary);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.overlay-mode-badge {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--bg-primary-light);
+    color: var(--primary-color);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.overlay-mode-badge.edit-mode {
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706;
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* Admin-only elements hidden by default */
+.admin-only {
+    display: none !important;
+}
+
+.is-admin .admin-only {
+    display: inline-flex !important;
+}
+
 /* --- Responsive Design --- */
 @media (max-width: 1024px) {
     .main-content {
