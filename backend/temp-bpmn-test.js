@@ -30,13 +30,25 @@ function sanitizeBpmnXml(xml) {
         return `<di:waypoint x="${xMatch[2]}" y="${yMatch[2]}" />`;
     };
 
+    const extractWaypointFragments = block => {
+        const fragments = [...block.matchAll(/<(?:di:waypoint|waypoint|di)\b[^<>]*(?:\/?>)?/gi)]
+            .map(match => match[0]);
+
+        if (!fragments.length) {
+            return [...block.matchAll(/<[^<>]{0,80}\bx\s*=\s*(["'])[^"']+\1[^<>]{0,80}\by\s*=\s*(["'])[^"']+\2[^<>]{0,80}(?:\/?>)?/gi)]
+                .map(match => match[0]);
+        }
+
+        return fragments;
+    };
+
     const rebuildEdgeBlock = block => {
         const openTag = block.match(/^<bpmndi:BPMNEdge\b[^>]*>/i)?.[0];
         if (!openTag) return '';
 
         const labelBlock = block.match(/<bpmndi:BPMNLabel\b[\s\S]*?<\/bpmndi:BPMNLabel>/i)?.[0] || '';
-        const normalizedWaypoints = [...block.matchAll(/<(?:di:)?waypoint\b([^>]*?)(?:\/>|>)(?:\s*<\/(?:di:)?waypoint>)?/gi)]
-            .map(match => normalizeWaypointTag(match[1]))
+        const normalizedWaypoints = extractWaypointFragments(block)
+            .map(fragment => normalizeWaypointTag(fragment))
             .filter(Boolean);
 
         if (normalizedWaypoints.length < 2) {
@@ -110,29 +122,35 @@ function sanitizeBpmnXml(xml) {
     xml = xml.replace(/<(?:bpmn\d*:)?dataOutputAssociation[^>]*>\s*<\/(?:bpmn\d*:)?dataOutputAssociation>/gi, '');
 
     // 5. Normalize malformed DI waypoints before the XML reaches bpmn-js.
-    xml = xml.replace(/<(?:di:)?waypoint\b([^>]*?)>\s*<\/(?:di:)?waypoint>/gi, (_, attrs) => normalizeWaypointTag(attrs) || '');
+    xml = xml.replace(/<(?:di:)?waypoint\b([^<>]*?)>\s*<\/(?:di:)?waypoint>/gi, (_, attrs) => normalizeWaypointTag(attrs) || '');
     xml = xml.replace(
-        /<(?:di:)?waypoint\b([^>]*?)>(?=\s*<(?:di:waypoint\b|bpmndi:BPMNLabel\b|\/bpmndi:BPMNEdge>))/gi,
+        /<(?:di:)?waypoint\b([^<>]*?)>(?=\s*<(?:di:waypoint\b|bpmndi:BPMNLabel\b|\/bpmndi:BPMNEdge>))/gi,
         (_, attrs) => normalizeWaypointTag(attrs) || ''
     );
     xml = xml.replace(/<\/(?:di:)?waypoint>/gi, '');
 
     xml = xml.replace(/<bpmndi:BPMNEdge\b[^>]*>[\s\S]*?<\/bpmndi:BPMNEdge>/gi, block => {
-        const waypointCount = (block.match(/<(?:di:)?waypoint\b/gi) || []).length;
-        if (!waypointCount) {
-            return block;
-        }
-
-        const hasBrokenWaypointOpen = /<(?:di:)?waypoint\b[^>]*>(?=\s*<(?!\/(?:di:)?waypoint>))/i.test(block);
-        const hasLegacyWaypointPair = /<(?:di:)?waypoint\b[^>]*>\s*<\/(?:di:)?waypoint>/i.test(block);
-        const hasBrokenWaypointClose = /<\/(?:di:)?waypoint>/i.test(block);
-
-        if (!hasBrokenWaypointOpen && !hasLegacyWaypointPair && !hasBrokenWaypointClose) {
+        if (!/<(?:di:waypoint|waypoint|di)\b/i.test(block)) {
             return block;
         }
 
         return rebuildEdgeBlock(block);
     });
+
+    xml = xml.replace(
+        /<bpmndi:BPMNEdge\b[^>]*>[\s\S]*?(?=(?:<bpmndi:BPMNEdge\b|<\/bpmndi:BPMNPlane>|<\/bpmndi:BPMNDiagram>|<\/bpmn\d*:definitions>|<\/definitions>))/gi,
+        block => {
+            if (/<\/bpmndi:BPMNEdge>/i.test(block)) {
+                return block;
+            }
+
+            if (!/<(?:di:waypoint|waypoint|di)\b/i.test(block)) {
+                return block;
+            }
+
+            return rebuildEdgeBlock(`${block}</bpmndi:BPMNEdge>`);
+        }
+    );
 
     return xml;
 }
@@ -243,12 +261,32 @@ test(
 );
 
 test(
+    'waypoint missing closing angle bracket normalized',
+    `<bpmndi:BPMNEdge id="edge_1b" bpmnElement="flow_1b"><di:waypoint x="10" y="20"\n<di:waypoint x="30" y="40" /></bpmndi:BPMNEdge>`,
+    result => {
+        const waypoints = result.match(/<di:waypoint\b[^>]*\/>/g) || [];
+        if (waypoints.length !== 2) throw new Error('Expected malformed opener without > to be reconstructed');
+        if (result.includes('edge_1b') === false) throw new Error('Edge should be preserved after reconstruction');
+    }
+);
+
+test(
     'paired waypoint tags normalized',
     `<bpmndi:BPMNEdge id="edge_2" bpmnElement="flow_2"><di:waypoint x="1" y="2"></di:waypoint><di:waypoint x="3" y="4"></di:waypoint></bpmndi:BPMNEdge>`,
     result => {
         const waypoints = result.match(/<di:waypoint\b[^>]*\/>/g) || [];
         if (waypoints.length !== 2) throw new Error('Expected paired waypoints converted to self-closing tags');
         if (result.includes('</di:waypoint>')) throw new Error('Legacy closing waypoint tags should be removed');
+    }
+);
+
+test(
+    'edge missing explicit closing tag reconstructed before plane close',
+    `<bpmndi:BPMNEdge id="edge_4" bpmnElement="flow_4"><di:waypoint x="10" y="20"><di:waypoint x="30" y="40" /></bpmndi:BPMNPlane>`,
+    result => {
+        if (!result.includes('</bpmndi:BPMNEdge></bpmndi:BPMNPlane>')) {
+            throw new Error('Expected missing BPMNEdge closer to be restored before BPMNPlane close');
+        }
     }
 );
 
