@@ -150,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         #cy-search-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
         #diagram-container .djs-palette, #diagram-container .bjs-powered-by { display: none; }
+        #mermaid-editor-preview .djs-palette, #mermaid-editor-preview .bjs-powered-by { display: none; }
         #mermaid-editor-preview { height: 70vh; width: 100%; border: 1px solid #cbd5e1; background: #fff; }
         #cy-tooltip {
             position: absolute; display: none; background: rgba(15, 23, 42, 0.95);
@@ -157,6 +158,31 @@ document.addEventListener('DOMContentLoaded', () => {
             pointer-events: none; z-index: var(--z-tooltip); backdrop-filter: blur(4px);
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); white-space: pre-wrap;
             border: 1px solid rgba(255,255,255,0.1);
+        }
+        /* BPMN gateway labels: bigger, bold, readable */
+        .djs-label { font-family: 'Inter', 'Segoe UI', Arial, sans-serif !important; }
+        .djs-element[data-element-id*="Gateway"] .djs-label,
+        .djs-element[data-element-id*="gateway"] .djs-label {
+            font-size: 13px !important;
+            font-weight: 600 !important;
+        }
+        /* BPMN task labels: clean readable */
+        .djs-element .djs-label {
+            font-size: 13px !important;
+            line-height: 1.3 !important;
+        }
+        /* Sequence flow labels (да/нет): bigger, visible */
+        .djs-connection .djs-label {
+            font-size: 12px !important;
+            font-weight: 700 !important;
+            fill: #1e293b !important;
+        }
+        /* Data object and data store styling */
+        .djs-element[data-element-id*="DataObj"] .djs-visual,
+        .djs-element[data-element-id*="dataObj"] .djs-visual,
+        .djs-element[data-element-id*="DataStore"] .djs-visual,
+        .djs-element[data-element-id*="dataStore"] .djs-visual {
+            opacity: 1 !important;
         }
 
     `;

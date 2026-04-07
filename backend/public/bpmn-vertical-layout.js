@@ -707,11 +707,11 @@
             .flat()
             .reduce((sum, shape) => sum + shape.x + (shape.width / 2), 0) / rows.flat().length;
         const centerX = Math.max(averageCenterX, 520);
-        const topMargin = 64;
-        const verticalGap = 140;
-        const horizontalGap = 110;
-        const leftPadding = 64;
-        const branchLaneOffset = 400;
+        const topMargin = 80;
+        const verticalGap = 180;
+        const horizontalGap = 140;
+        const leftPadding = 80;
+        const branchLaneOffset = 450;
         const nextShapeMap = new Map();
 
         let currentY = topMargin;
@@ -783,9 +783,9 @@
         if (targetIsAboveSource) {
             const routeLeft = targetCenterX <= sourceCenterX;
             const sideX = routeLeft
-                ? Math.min(source.x, target.x) - 120
-                : Math.max(source.x + source.width, target.x + target.width) + 120;
-            const upperY = Math.max(24, targetTopY - 56);
+                ? Math.min(source.x, target.x) - 180
+                : Math.max(source.x + source.width, target.x + target.width) + 180;
+            const upperY = Math.max(24, targetTopY - 72);
 
             return [
                 { x: sourceCenterX, y: sourceBottomY },
@@ -1029,8 +1029,8 @@
 
         const averageCenterX = orderedShapes.reduce((sum, shape) => sum + shape.x + (shape.width / 2), 0) / orderedShapes.length;
         const centerX = Math.max(averageCenterX, 520);
-        const topMargin = 64;
-        const verticalGap = 100;
+        const topMargin = 80;
+        const verticalGap = 140;
         const nextShapeMap = new Map();
 
         let currentY = topMargin;
