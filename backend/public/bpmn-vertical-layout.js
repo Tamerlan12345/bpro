@@ -692,9 +692,8 @@
                 });
 
                 orderedLoopFlows.forEach((flow, index) => {
-                    const hintedSlot = getFlowDirectionSlot(flow.name);
-                    if (orderedLoopFlows.length === 1 && hintedSlot) {
-                        slotByTarget.set(flow.targetRef, hintedSlot < 0 ? -1 : 1);
+                    if (orderedLoopFlows.length === 1) {
+                        slotByTarget.set(flow.targetRef, -1);
                         return;
                     }
 
