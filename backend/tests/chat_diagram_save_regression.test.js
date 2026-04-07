@@ -17,6 +17,7 @@ describe('chat diagram save regression', () => {
             'processDescriptionInput',
             'setButtonLoading',
             'bpmnViewer',
+            'getCurrentDiagramXml',
             'chatVersions',
             'fetchWithAuth',
             'chatId',
@@ -33,6 +34,7 @@ describe('chat diagram save regression', () => {
         const setButtonLoading = jest.fn();
         const showNotification = jest.fn();
         const loadChatData = jest.fn().mockResolvedValue(undefined);
+        const getCurrentDiagramXml = jest.fn().mockResolvedValue('<xml>new-diagram</xml>');
         const bpmnViewer = {
             saveXML: jest.fn().mockResolvedValue({ xml: '<xml>new-diagram</xml>' })
         };
@@ -44,6 +46,7 @@ describe('chat diagram save regression', () => {
             processDescriptionInput,
             setButtonLoading,
             bpmnViewer,
+            getCurrentDiagramXml,
             [{ mermaid_code: '<xml>old-diagram</xml>' }],
             fetchWithAuth,
             'chat-123',
@@ -53,7 +56,7 @@ describe('chat diagram save regression', () => {
 
         await handleSaveRawVersion({});
 
-        expect(bpmnViewer.saveXML).toHaveBeenCalledWith({ format: true });
+        expect(getCurrentDiagramXml).toHaveBeenCalled();
         expect(fetchWithAuth).toHaveBeenCalledWith('/api/chats/chat-123/versions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

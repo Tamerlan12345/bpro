@@ -22,6 +22,7 @@ const multer = require('multer');
 const { z } = require('zod');
 const csrf = require('csurf');
 const { parseDocumentsWithAI } = require('./services/aiParserService');
+const { createVsdxFromBpmnXml } = require('./services/visioExportService');
 const { fetchWithRetry } = require('./utils/resilientFetch');
 const { composeGeneratePrompt } = require('./utils/promptComposer');
 const { createDatabaseConfig } = require('./utils/databaseConfig');
@@ -302,6 +303,10 @@ const generateSchema = z.object({
 const versionSchema = z.object({
     process_text: z.string().optional(),
     mermaid_code: z.string().optional()
+});
+
+const vsdxExportSchema = z.object({
+    bpmn_xml: z.string().min(1)
 });
 
 const commentSchema = z.object({
@@ -864,6 +869,32 @@ app.post('/api/chats/:id/versions', isAuthenticated, validateBody(versionSchema)
         res.status(201).json(rows[0]);
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/chats/:id/exports/vsdx', isAuthenticated, validateBody(vsdxExportSchema), async (req, res) => {
+    const { id } = req.params;
+    if (!(await checkChatAccess(id, req.session.user, res))) return;
+
+    try {
+        const fileBuffer = await createVsdxFromBpmnXml(req.body.bpmn_xml);
+        const { rows } = await pool.query('SELECT name FROM chats WHERE id = $1 LIMIT 1', [id]);
+        const chatName = rows[0]?.name || 'business-process';
+        const safeAsciiFileName = chatName
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]+/gi, '-')
+            .replace(/^-+|-+$/g, '') || 'business-process';
+        const encodedFileName = encodeURIComponent(`${chatName}.vsdx`);
+
+        res.setHeader('Content-Type', 'application/vnd.ms-visio.drawing');
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename="${safeAsciiFileName}.vsdx"; filename*=UTF-8''${encodedFileName}`
+        );
+        res.send(fileBuffer);
+    } catch (error) {
+        logger.error(error, 'Error exporting VSDX');
+        res.status(500).json({ error: error.message || 'Failed to export VSDX' });
     }
 });
 

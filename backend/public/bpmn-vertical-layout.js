@@ -1,4 +1,4 @@
-(function (globalScope) {
+﻿(function (globalScope) {
     function escapeRegExp(value) {
         return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
@@ -417,12 +417,23 @@
         };
     }
 
+    const NEGATIVE_FLOW_LABELS = new Set(['нет', 'РЅРµС‚', 'no']);
+    const POSITIVE_FLOW_LABELS = new Set(['да', 'РґР°', 'yes']);
+
+    function isNegativeFlowLabel(value) {
+        return NEGATIVE_FLOW_LABELS.has(String(value || '').trim().toLowerCase());
+    }
+
+    function isPositiveFlowLabel(value) {
+        return POSITIVE_FLOW_LABELS.has(String(value || '').trim().toLowerCase());
+    }
+
     function getFlowDirectionSlot(flowName) {
         const normalizedName = String(flowName || '').trim().toLowerCase();
-        if (normalizedName === 'нет' || normalizedName === 'no') {
+        if (isNegativeFlowLabel(normalizedName)) {
             return -1;
         }
-        if (normalizedName === 'да' || normalizedName === 'yes') {
+        if (isPositiveFlowLabel(normalizedName)) {
             return 1;
         }
         return 0;
@@ -726,6 +737,7 @@
                 const nodeId = item.shape.bpmnElement;
                 const parentIds = (graph.incoming.get(nodeId) || []).filter((parentId) => nextShapeMap.has(parentId));
                 let preferredCenter = centerX;
+                let branchSlot = null;
 
                 if (parentIds.length) {
                     preferredCenter = parentIds.reduce((sum, parentId) => {
@@ -743,29 +755,79 @@
                         return;
                     }
 
-                    preferredCenter = parentBounds.x + (parentBounds.width / 2) + (branchHint.slotByTarget.get(nodeId) * branchLaneOffset);
+                    branchSlot = branchHint.slotByTarget.get(nodeId);
+                    preferredCenter = parentBounds.x + (parentBounds.width / 2) + (branchSlot * branchLaneOffset);
                 });
 
                 return {
                     ...item,
-                    preferredCenter
+                    preferredCenter,
+                    branchSlot
                 };
             }).sort((left, right) => {
                 return left.preferredCenter - right.preferredCenter || left.shape.x - right.shape.x || left.shape.y - right.shape.y;
             });
 
-            let currentX = leftPadding;
-            positionedItems.forEach((item) => {
-                const desiredX = item.preferredCenter - (item.width / 2);
-                const resolvedX = Math.max(currentX, desiredX);
-                nextShapeMap.set(item.shape.bpmnElement, {
-                    x: resolvedX,
-                    y: currentY + ((rowHeight - item.height) / 2),
-                    width: item.width,
-                    height: item.height
+            const centerAnchoredItems = positionedItems.filter((item) => item.branchSlot === 0);
+            const leftBranchItems = positionedItems
+                .filter((item) => typeof item.branchSlot === 'number' && item.branchSlot < 0)
+                .sort((left, right) => right.branchSlot - left.branchSlot);
+            const rightBranchItems = positionedItems
+                .filter((item) => typeof item.branchSlot === 'number' && item.branchSlot > 0)
+                .sort((left, right) => left.branchSlot - right.branchSlot);
+            const neutralItems = positionedItems.filter((item) => item.branchSlot === null || typeof item.branchSlot === 'undefined');
+
+            if (centerAnchoredItems.length === 1 && (leftBranchItems.length || rightBranchItems.length)) {
+                const centerItem = centerAnchoredItems[0];
+                const centerResolvedX = Math.max(leftPadding, centerItem.preferredCenter - (centerItem.width / 2));
+                const centerResolvedY = currentY + ((rowHeight - centerItem.height) / 2);
+
+                nextShapeMap.set(centerItem.shape.bpmnElement, {
+                    x: centerResolvedX,
+                    y: centerResolvedY,
+                    width: centerItem.width,
+                    height: centerItem.height
                 });
-                currentX = resolvedX + item.width + horizontalGap;
-            });
+
+                let leftCursor = centerResolvedX - horizontalGap;
+                leftBranchItems.forEach((item) => {
+                    const desiredX = item.preferredCenter - (item.width / 2);
+                    const resolvedX = Math.max(leftPadding, Math.min(leftCursor - item.width, desiredX));
+                    nextShapeMap.set(item.shape.bpmnElement, {
+                        x: resolvedX,
+                        y: currentY + ((rowHeight - item.height) / 2),
+                        width: item.width,
+                        height: item.height
+                    });
+                    leftCursor = resolvedX - horizontalGap;
+                });
+
+                let rightCursor = centerResolvedX + centerItem.width + horizontalGap;
+                [...rightBranchItems, ...neutralItems].forEach((item) => {
+                    const desiredX = item.preferredCenter - (item.width / 2);
+                    const resolvedX = Math.max(rightCursor, desiredX);
+                    nextShapeMap.set(item.shape.bpmnElement, {
+                        x: resolvedX,
+                        y: currentY + ((rowHeight - item.height) / 2),
+                        width: item.width,
+                        height: item.height
+                    });
+                    rightCursor = resolvedX + item.width + horizontalGap;
+                });
+            } else {
+                let currentX = leftPadding;
+                positionedItems.forEach((item) => {
+                    const desiredX = item.preferredCenter - (item.width / 2);
+                    const resolvedX = Math.max(currentX, desiredX);
+                    nextShapeMap.set(item.shape.bpmnElement, {
+                        x: resolvedX,
+                        y: currentY + ((rowHeight - item.height) / 2),
+                        width: item.width,
+                        height: item.height
+                    });
+                    currentX = resolvedX + item.width + horizontalGap;
+                });
+            }
 
             currentY += rowHeight + verticalGap;
         });
@@ -907,12 +969,11 @@
             const cleanOpenTag = (openTag) => {
                 let didSanitize = false;
                 const nextOpenTag = openTag.replace(/\sname="([^"]*)"/gi, (match, rawValue) => {
-                    const value = String(rawValue).trim().toLowerCase();
-                    if (value === 'да' || value === 'нет' || value === 'yes' || value === 'no') {
+                    const value = String(rawValue).trim();
+                    if (value) {
                         didSanitize = true;
-                        return '';
                     }
-                    return match;
+                    return '';
                 });
 
                 return { nextOpenTag, didSanitize };

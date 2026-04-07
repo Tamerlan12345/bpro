@@ -1,4 +1,4 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 const { DOMParser } = require('@xmldom/xmldom');
 const { normalizeBpmnVerticalLayout } = require('../public/bpmn-vertical-layout');
@@ -154,8 +154,8 @@ describe('normalizeBpmnVerticalLayout', () => {
     <bpmn2:task id="Task_Yes"><bpmn2:incoming>Flow_2</bpmn2:incoming></bpmn2:task>
     <bpmn2:task id="Task_No"><bpmn2:incoming>Flow_3</bpmn2:incoming></bpmn2:task>
     <bpmn2:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Gateway_1" />
-    <bpmn2:sequenceFlow id="Flow_2" name="да" sourceRef="Gateway_1" targetRef="Task_Yes" />
-    <bpmn2:sequenceFlow id="Flow_3" name="нет" sourceRef="Gateway_1" targetRef="Task_No" />
+    <bpmn2:sequenceFlow id="Flow_2" name="РґР°" sourceRef="Gateway_1" targetRef="Task_Yes" />
+    <bpmn2:sequenceFlow id="Flow_3" name="РЅРµС‚" sourceRef="Gateway_1" targetRef="Task_No" />
   </bpmn2:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
@@ -203,8 +203,8 @@ describe('normalizeBpmnVerticalLayout', () => {
         expect(Math.max(yesCenterX, noCenterX)).toBeGreaterThan(gatewayCenterX);
         expect(flow2.length).toBeGreaterThanOrEqual(4);
         expect(flow3.length).toBeGreaterThanOrEqual(4);
-        expect(result).toMatch(/name="да"/i);
-        expect(result).toMatch(/name="нет"/i);
+        expect(result).toMatch(/name="РґР°"/i);
+        expect(result).toMatch(/name="РЅРµС‚"/i);
     });
 
     test('keeps the main path vertical when a gateway has a loopback correction branch', () => {
@@ -242,8 +242,8 @@ describe('normalizeBpmnVerticalLayout', () => {
     </bpmn2:endEvent>
     <bpmn2:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_Review" />
     <bpmn2:sequenceFlow id="Flow_2" sourceRef="Task_Review" targetRef="Gateway_1" />
-    <bpmn2:sequenceFlow id="Flow_3" name="нет" sourceRef="Gateway_1" targetRef="Task_Rework" />
-    <bpmn2:sequenceFlow id="Flow_4" name="да" sourceRef="Gateway_1" targetRef="Task_Approve" />
+    <bpmn2:sequenceFlow id="Flow_3" name="РЅРµС‚" sourceRef="Gateway_1" targetRef="Task_Rework" />
+    <bpmn2:sequenceFlow id="Flow_4" name="РґР°" sourceRef="Gateway_1" targetRef="Task_Approve" />
     <bpmn2:sequenceFlow id="Flow_5" sourceRef="Task_Rework" targetRef="Task_Review" />
     <bpmn2:sequenceFlow id="Flow_6" sourceRef="Task_Approve" targetRef="EndEvent_1" />
   </bpmn2:process>
@@ -314,7 +314,7 @@ describe('normalizeBpmnVerticalLayout', () => {
   <bpmn2:process id="Process_1" isExecutable="false">
     <bpmn2:task id="Task_1"><bpmn2:outgoing>Flow_1</bpmn2:outgoing></bpmn2:task>
     <bpmn2:task id="Task_2"><bpmn2:incoming>Flow_1</bpmn2:incoming></bpmn2:task>
-    <bpmn2:sequenceFlow id="Flow_1" name="да" sourceRef="Task_1" targetRef="Task_2">
+    <bpmn2:sequenceFlow id="Flow_1" name="РґР°" sourceRef="Task_1" targetRef="Task_2">
       <bpmn2:conditionExpression xsi:type="bpmn2:tFormalExpression">Some condition</bpmn2:conditionExpression>
     </bpmn2:sequenceFlow>
   </bpmn2:process>
@@ -331,7 +331,7 @@ describe('normalizeBpmnVerticalLayout', () => {
 
         const result = normalizeBpmnVerticalLayout(invalidXml);
 
-        expect(result).not.toMatch(/name="да"/i);
+        expect(result).not.toMatch(/name="РґР°"/i);
         expect(result).not.toMatch(/<bpmn2:conditionExpression/i);
         expect(result).not.toMatch(/<bpmndi:BPMNLabel>/i);
     });
@@ -342,7 +342,7 @@ describe('normalizeBpmnVerticalLayout', () => {
   <bpmn2:process id="Process_1" isExecutable="false">
     <bpmn2:task id="Task_1"><bpmn2:outgoing>Flow_1</bpmn2:outgoing></bpmn2:task>
     <bpmn2:task id="Task_2"><bpmn2:incoming>Flow_1</bpmn2:incoming></bpmn2:task>
-    <bpmn2:sequenceFlow id="Flow_1" name="нет" sourceRef="Task_1" targetRef="Task_2" />
+    <bpmn2:sequenceFlow id="Flow_1" name="РЅРµС‚" sourceRef="Task_1" targetRef="Task_2" />
   </bpmn2:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
@@ -357,7 +357,7 @@ describe('normalizeBpmnVerticalLayout', () => {
 
         const result = normalizeBpmnVerticalLayout(invalidXml);
 
-        expect(result).not.toMatch(/name="нет"/i);
+        expect(result).not.toMatch(/name="РЅРµС‚"/i);
         expect(result).not.toMatch(/<bpmndi:BPMNLabel>/i);
     });
 
@@ -395,22 +395,19 @@ describe('normalizeBpmnVerticalLayout', () => {
         expect(extractWaypoints(result, 'Flow_2')).toHaveLength(2);
     });
 
-    test('frontend generation flow normalizes BPMN xml before render and save', () => {
+    test('frontend diagram flow normalizes BPMN xml and uses doc-style rendering', () => {
         const scriptPath = path.join(__dirname, '..', 'public', 'script.js');
         const scriptSource = fs.readFileSync(scriptPath, 'utf8');
         const indexPath = path.join(__dirname, '..', 'public', 'index.html');
         const indexSource = fs.readFileSync(indexPath, 'utf8');
 
         expect(scriptSource).toContain('function normalizeGeneratedBpmnXml(xml)');
-        expect(scriptSource).toContain('parsedResponse.mermaidCode = normalizeGeneratedBpmnXml(parsedResponse.mermaidCode);');
-        expect(scriptSource).toContain('normalizeGeneratedBpmnXml(code.replace(/```xml/g, \'\').replace(/```/g, \'\').trim())');
-        expect(scriptSource).toContain('exclusiveGateway');
-        expect(scriptSource).toContain('conditionExpression');
-        expect(scriptSource).toContain('да"/"нет"');
-        expect(scriptSource).toContain('круги допустимы только для начала и завершения процесса');
-        expect(scriptSource).toContain('Каждый <bpmn2:exclusiveGateway> должен иметь короткий вопрос');
-        expect(scriptSource).toContain('Основной поток строй сверху вниз');
-        expect(indexSource).toContain('Событие (только старт/завершение)');
-        expect(indexSource).toContain('Шлюз / решение (ромб с вопросом)');
+        expect(scriptSource).toContain('xml = normalizeGeneratedBpmnXml(extracted);');
+        expect(scriptSource).toContain('return normalizeGeneratedBpmnXml(extractPureBpmnXml(xml));');
+        expect(scriptSource).toContain('currentDiagramModel = window.BpmnPresentation.buildBpmnPresentationModel(xml);');
+        expect(scriptSource).toContain('currentDiagramSvg = window.BpmnPresentation.renderDocStyleSvg(currentDiagramModel);');
+        expect(indexSource).toContain('Вход, выход или точка передачи процесса');
+        expect(indexSource).toContain('Составной блок шага с документом в нижней части');
+        expect(indexSource).toContain('Ортогональный поток с логикой "да/нет"');
     });
 });

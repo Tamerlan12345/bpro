@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+﻿document.addEventListener('DOMContentLoaded', () => {
 
     const API_URL = '/api/generate';
 
@@ -72,8 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const diagramToolbar = document.getElementById('diagram-toolbar');
     const zoomInBtn = document.getElementById('zoom-in-btn');
     const zoomOutBtn = document.getElementById('zoom-out-btn');
+    const downloadBpmnBtn = document.getElementById('download-bpmn-btn');
     const downloadPngBtn = document.getElementById('download-png-btn');
     const downloadSvgBtn = document.getElementById('download-svg-btn');
+    const downloadVsdxBtn = document.getElementById('download-vsdx-btn');
     const resultsBlock = document.querySelector('.results-block');
     const actionButtons = document.getElementById('action-buttons');
     const saveVersionBtn = document.getElementById('save-version-btn');
@@ -121,17 +123,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const finalizedTextDisplay = transcriptionReviewModal.querySelector('.finalized-text-display');
     const closeTranscriptionModalBtn = transcriptionReviewModal.querySelector('.close-btn');
 
-    const mermaidEditorModal = document.getElementById('mermaid-editor-modal');
     const editDiagramBtn = document.getElementById('edit-diagram-btn');
-    const mermaidEditorTextarea = document.getElementById('mermaid-editor-textarea');
-    const mermaidEditorPreview = document.getElementById('mermaid-editor-preview');
     const saveMermaidChangesBtn = document.getElementById('save-mermaid-changes-btn');
     const cancelMermaidEditBtn = document.getElementById('cancel-mermaid-edit-btn');
-    const closeMermaidEditorBtn = mermaidEditorModal.querySelector('.close-btn');
 
     const notificationContainer = document.getElementById('notification-container');
 
-    // Глобальные стили для фикса "съедания" текста в кнопках тулбаров
+    // Р“Р»РѕР±Р°Р»СЊРЅС‹Рµ СЃС‚РёР»Рё РґР»СЏ С„РёРєСЃР° "СЃСЉРµРґР°РЅРёСЏ" С‚РµРєСЃС‚Р° РІ РєРЅРѕРїРєР°С… С‚СѓР»Р±Р°СЂРѕРІ
     const globalStyle = document.createElement('style');
     globalStyle.innerHTML = `
         .cy-toolbar, .admin-section .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
@@ -150,8 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         #cy-search-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
         #diagram-container .djs-palette, #diagram-container .bjs-powered-by { display: none; }
-        #mermaid-editor-preview .djs-palette, #mermaid-editor-preview .bjs-powered-by { display: none; }
-        #mermaid-editor-preview { height: 70vh; width: 100%; border: 1px solid #cbd5e1; background: #fff; }
         #cy-tooltip {
             position: absolute; display: none; background: rgba(15, 23, 42, 0.95);
             color: #fff; padding: 12px; border-radius: 8px; font-size: 13px; line-height: 1.5;
@@ -171,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
             font-size: 13px !important;
             line-height: 1.3 !important;
         }
-        /* Sequence flow labels (да/нет): bigger, visible */
+        /* Sequence flow labels (РґР°/РЅРµС‚): bigger, visible */
         .djs-connection .djs-label {
             font-size: 12px !important;
             font-weight: 700 !important;
@@ -268,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return response;
     }
 
-    function setButtonLoading(button, isLoading, loadingText = 'Загрузка...') {
+    function setButtonLoading(button, isLoading, loadingText = 'Р—Р°РіСЂСѓР·РєР°...') {
         if (!button) return;
         if (!button.dataset.originalText) {
             button.dataset.originalText = button.innerHTML;
@@ -281,6 +277,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let bpmnLoadingPromise = null;
     let bpmnViewer = null;
     let bpmnModeler = null;
+    let currentDiagramXml = '';
+    let currentDiagramSvg = '';
+    let currentDiagramModel = null;
+    let currentChatStatus = null;
+    let diagramMode = 'view';
+    let lockedDiagramPanCleanup = null;
+    let editingBaselineDiagramXml = '';
 
     function loadBpmnJs() {
         if (bpmnScriptsLoaded) return Promise.resolve();
@@ -307,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             script.onerror = () => {
                 bpmnLoadingPromise = null;
-                reject(new Error('Не удалось загрузить библиотеку BPMN. Проверьте подключение к интернету.'));
+                reject(new Error('РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ Р±РёР±Р»РёРѕС‚РµРєСѓ BPMN. РџСЂРѕРІРµСЂСЊС‚Рµ РїРѕРґРєР»СЋС‡РµРЅРёРµ Рє РёРЅС‚РµСЂРЅРµС‚Сѓ.'));
             };
             document.head.appendChild(script);
         });
@@ -344,146 +347,303 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    async function renderDiagram(bpmnCode, container = diagramContainer, isRetry = false) {
-        container.classList.remove('hidden');
-        container.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+    function destroyLockedDiagramPan() {
+        if (typeof lockedDiagramPanCleanup === 'function') {
+            lockedDiagramPanCleanup();
+            lockedDiagramPanCleanup = null;
+        }
+    }
+
+    function destroyBpmnEditor() {
+        if (bpmnModeler) {
+            try {
+                bpmnModeler.destroy();
+            } catch (error) {
+                console.warn('Failed to destroy BPMN editor:', error);
+            }
+            bpmnModeler = null;
+        }
+        bpmnViewer = null;
+    }
+
+    function userCanEditDiagram() {
+        if (!sessionUser || sessionUser.role !== 'admin') return false;
+        if (!currentDiagramXml || !currentDiagramXml.trim()) return false;
+        return !['completed', 'archived'].includes(currentChatStatus);
+    }
+
+    function updateDiagramToolbarState() {
+        const hasDiagram = Boolean(currentDiagramXml && currentDiagramXml.trim());
+        diagramToolbar.style.display = hasDiagram ? 'flex' : 'none';
+        editDiagramBtn.style.display = hasDiagram && diagramMode === 'view' && userCanEditDiagram() ? 'inline-flex' : 'none';
+        saveMermaidChangesBtn.style.display = hasDiagram && diagramMode === 'edit' ? 'inline-flex' : 'none';
+        cancelMermaidEditBtn.style.display = hasDiagram && diagramMode === 'edit' ? 'inline-flex' : 'none';
+        renderDiagramBtn.style.display = hasDiagram ? 'none' : 'block';
+    }
+
+    function setLockedDiagramScale(scale) {
+        const stage = diagramContainer.querySelector('.doc-diagram-stage');
+        if (!stage) return;
+        currentDiagramScale = Number(Math.max(0.5, Math.min(scale, 2.4)).toFixed(2));
+        stage.style.transform = `scale(${currentDiagramScale})`;
+        stage.style.width = `${Math.round((currentDiagramModel?.viewBox?.width || stage.offsetWidth) * currentDiagramScale)}px`;
+        stage.style.height = `${Math.round((currentDiagramModel?.viewBox?.height || stage.offsetHeight) * currentDiagramScale)}px`;
+    }
+
+    function setupLockedDiagramPan() {
+        destroyLockedDiagramPan();
+        let isPointerDown = false;
+        let startX = 0;
+        let startY = 0;
+        let startScrollLeft = 0;
+        let startScrollTop = 0;
+
+        const onPointerDown = (event) => {
+            if (diagramMode !== 'view' || event.button !== 0) return;
+            isPointerDown = true;
+            startX = event.clientX;
+            startY = event.clientY;
+            startScrollLeft = diagramContainer.scrollLeft;
+            startScrollTop = diagramContainer.scrollTop;
+            diagramContainer.classList.add('is-panning');
+        };
+
+        const onPointerMove = (event) => {
+            if (!isPointerDown) return;
+            diagramContainer.scrollLeft = startScrollLeft - (event.clientX - startX);
+            diagramContainer.scrollTop = startScrollTop - (event.clientY - startY);
+        };
+
+        const onPointerUp = () => {
+            isPointerDown = false;
+            diagramContainer.classList.remove('is-panning');
+        };
+
+        diagramContainer.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+
+        lockedDiagramPanCleanup = () => {
+            diagramContainer.removeEventListener('pointerdown', onPointerDown);
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            diagramContainer.classList.remove('is-panning');
+        };
+    }
+
+    async function validateBpmnXml(xml) {
+        await loadBpmnJs();
+        const scratch = document.createElement('div');
+        scratch.style.position = 'absolute';
+        scratch.style.left = '-99999px';
+        scratch.style.top = '-99999px';
+        scratch.style.width = '1px';
+        scratch.style.height = '1px';
+        document.body.appendChild(scratch);
+
+        const validator = new window.BpmnJS({ container: scratch });
         try {
-            await loadBpmnJs();
-            if (bpmnViewer && container === diagramContainer) {
-                bpmnViewer.destroy();
-                bpmnViewer = null;
-            }
-            container.innerHTML = '';
-            container.style.height = '560px';
-            container.style.border = '1px solid #e2e8f0';
-            container.style.backgroundColor = '#fff';
-            container.style.maxHeight = '72vh';
-            container.style.overflow = 'auto';
+            await validator.importXML(xml);
+        } finally {
+            validator.destroy();
+            scratch.remove();
+        }
+    }
 
-            if (!bpmnViewer || container !== diagramContainer) {
-                bpmnViewer = new window.BpmnJS({ container: container, keyboard: { bindTo: document } });
-            }
+    async function getCurrentDiagramXml() {
+        if (diagramMode === 'edit' && bpmnModeler && typeof bpmnModeler.saveXML === 'function') {
+            const { xml } = await bpmnModeler.saveXML({ format: true });
+            return normalizeGeneratedBpmnXml(extractPureBpmnXml(xml));
+        }
 
-            // If bpmnCode was provided, it MUST contain valid XML - otherwise we error
+        return currentDiagramXml || '';
+    }
+
+    function downloadBlob(content, mimeType, fileName) {
+        const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function renderLockedDiagramView(xml) {
+        destroyBpmnEditor();
+        destroyLockedDiagramPan();
+        diagramMode = 'view';
+        currentDiagramModel = window.BpmnPresentation.buildBpmnPresentationModel(xml);
+        currentDiagramSvg = window.BpmnPresentation.renderDocStyleSvg(currentDiagramModel);
+        currentDiagramXml = xml;
+        diagramContainer.innerHTML = `<div class="doc-diagram-shell"><div class="doc-diagram-stage">${currentDiagramSvg}</div></div>`;
+        showSection(diagramContainer);
+        currentDiagramScale = 1;
+        setLockedDiagramScale(1);
+        setupLockedDiagramPan();
+        updateDiagramToolbarState();
+    }
+
+    async function renderDiagramView(bpmnCode, isRetry = false) {
+        diagramContainer.classList.remove('hidden');
+        diagramContainer.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+        try {
             let xml;
             if (bpmnCode && bpmnCode.trim()) {
                 const extracted = extractPureBpmnXml(bpmnCode);
                 if (!extracted || !(/(<\?xml|<bpmn|<definitions)/i.test(extracted))) {
-                    throw new Error('�� ������ ����� ������ BPMN XML. ���������� ������ ������������������ ��� ���.');
+                    throw new Error('Unable to recognize BPMN XML. Ensure the diagram contains valid BPMN 2.0 XML.');
                 }
                 xml = normalizeGeneratedBpmnXml(extracted);
             } else {
-                // No bpmnCode at all - show empty template (diagram not generated yet)
                 xml = getEmptyBpmnTemplate();
             }
-            await bpmnViewer.importXML(xml);
-            safelyFitBpmnViewport(bpmnViewer, container);
 
-
-            const viewerRoot = container.querySelector('.djs-container, .bjs-container');
-            if (viewerRoot) {
-                viewerRoot.style.margin = '0 auto';
-                viewerRoot.style.width = '100%';
-            }
-
-            if (container === diagramContainer) {
-                currentDiagramScale = 1;
-                diagramToolbar.style.display = 'flex';
-                renderDiagramBtn.style.display = 'none';
-                regenerateDiagramBtn.disabled = false;
-                if (sessionUser && sessionUser.role === 'admin') {
-                    editDiagramBtn.style.display = 'inline-block';
-                }
-            }
+            await validateBpmnXml(xml);
+            renderLockedDiagramView(xml);
+            regenerateDiagramBtn.disabled = false;
         } catch (error) {
-            console.error("BPMN render error:", error);
+            console.error('BPMN render error:', error);
             if (!isRetry) {
                 try {
                     const fixedCode = await getFixedBpmnCode(bpmnCode, error.message);
-                    showNotification("AI исправило ошибку в схеме. Повторный рендеринг...", "success");
-                    await renderDiagram(fixedCode, container, true); // Retry with the fixed code
+                    showNotification('AI fixed the BPMN issue. Re-rendering now...', 'success');
+                    await renderDiagramView(fixedCode, true);
                 } catch (fixError) {
-                    console.error("Failed to fix BPMN code:", fixError);
-                    container.innerHTML = `<div class="error-text">Не удалось исправить и отобразить схему: ${fixError.message}</div>`;
+                    console.error('Failed to fix BPMN code:', fixError);
+                    destroyBpmnEditor();
+                    destroyLockedDiagramPan();
+                    diagramMode = 'view';
+                    currentDiagramSvg = '';
+                    currentDiagramModel = null;
+                    diagramContainer.innerHTML = `<div class="error-text">Failed to fix and render the diagram: ${fixError.message}</div>`;
+                    updateDiagramToolbarState();
                 }
             } else {
-                container.innerHTML = `<div class="error-text">Ошибка рендеринга даже после исправления: ${error.message}</div>`;
+                diagramContainer.innerHTML = `<div class="error-text">Rendering still failed after repair: ${error.message}</div>`;
+                updateDiagramToolbarState();
             }
         }
     }
 
-    async function openMermaidEditor() {
-        const latestVersion = chatVersions[0];
-        mermaidEditorModal.style.display = 'block';
-        mermaidEditorTextarea.style.display = 'none';
-        mermaidEditorPreview.innerHTML = '';
-
-        await loadBpmnJs();
-        if (bpmnModeler) bpmnModeler.destroy();
-        bpmnModeler = new window.BpmnJS({ container: mermaidEditorPreview, keyboard: { bindTo: document } });
-
-        try {
-            let xml = (latestVersion && latestVersion.mermaid_code) ? latestVersion.mermaid_code : getEmptyBpmnTemplate();
-            xml = normalizeGeneratedBpmnXml(xml);
-            await bpmnModeler.importXML(xml);
-            safelyFitBpmnViewport(bpmnModeler, mermaidEditorPreview);
-
-        } catch (e) {
-            console.error(e);
+    async function openInlineDiagramEditor() {
+        if (!currentDiagramXml) {
+            showNotification('Generate the diagram first.', 'error');
+            return;
         }
-    }
 
-    function closeMermaidEditor() {
-        mermaidEditorModal.style.display = 'none';
-    }
+        destroyLockedDiagramPan();
+        await loadBpmnJs();
+        destroyBpmnEditor();
 
-    async function handleSaveMermaidChanges() {
-        const process_text = processDescriptionInput.value; // Keep the existing text description
+        diagramMode = 'edit';
+        editingBaselineDiagramXml = currentDiagramXml;
+        diagramContainer.innerHTML = '';
+        bpmnModeler = new window.BpmnJS({ container: diagramContainer, keyboard: { bindTo: document } });
+        bpmnViewer = bpmnModeler;
 
-        setButtonLoading(saveMermaidChangesBtn, true, 'Сохранение...');
         try {
-            const { xml } = await bpmnModeler.saveXML({ format: true });
+            await bpmnModeler.importXML(currentDiagramXml);
+            safelyFitBpmnViewport(bpmnModeler, diagramContainer);
+        } catch (error) {
+            console.error(error);
+            showNotification(`Failed to open the diagram editor: ${error.message}`, 'error');
+            diagramMode = 'view';
+            renderLockedDiagramView(editingBaselineDiagramXml || currentDiagramXml);
+            return;
+        }
+
+        updateDiagramToolbarState();
+    }
+
+    function cancelInlineDiagramEdit() {
+        if (diagramMode !== 'edit') return;
+        renderLockedDiagramView(editingBaselineDiagramXml || currentDiagramXml || getEmptyBpmnTemplate());
+    }
+
+    async function saveInlineDiagramEdit() {
+        const process_text = processDescriptionInput.value;
+
+        setButtonLoading(saveMermaidChangesBtn, true, 'Saving...');
+        try {
+            const xml = await getCurrentDiagramXml();
 
             await fetchWithAuth(`/api/chats/${chatId}/versions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ process_text, mermaid_code: xml }) // Используем поле mermaid_code для BPMN
+                body: JSON.stringify({ process_text, mermaid_code: xml })
             });
-            showNotification("Изменения в схеме успешно сохранены.", "success");
+            currentDiagramXml = xml;
+            editingBaselineDiagramXml = xml;
+            showNotification('Diagram changes were saved successfully.', 'success');
             await loadChatData();
-            closeMermaidEditor();
         } catch (error) {
-            showNotification(`Ошибка сохранения схемы: ${error.message}`, "error");
+            showNotification(`Failed to save the diagram: ${error.message}`, 'error');
         } finally {
             setButtonLoading(saveMermaidChangesBtn, false);
         }
     }
 
-    function zoomDiagram(factor) {
-        if (bpmnViewer) {
+    function zoomActiveDiagram(factor) {
+        if (diagramMode === 'edit' && bpmnViewer) {
             const canvas = bpmnViewer.get('canvas');
             canvas.zoom(canvas.zoom() * factor);
-        }
-    }
-
-    async function downloadDiagram(format) {
-        if (!bpmnViewer) {
-            showNotification("Сначала сгенерируйте схему.", "error");
             return;
         }
+
+        setLockedDiagramScale(currentDiagramScale * factor);
+    }
+
+    async function downloadCurrentBpmnXml() {
+        const xml = await getCurrentDiagramXml();
+        if (!xml) {
+            showNotification('Generate the diagram first.', 'error');
+            return;
+        }
+
+        downloadBlob(xml, 'application/bpmn+xml;charset=utf-8', 'process-diagram.bpmn');
+    }
+
+    async function downloadCurrentVsdx() {
+        const xml = await getCurrentDiagramXml();
+        if (!xml) {
+            showNotification('Сначала сгенерируйте схему.', 'error');
+            return;
+        }
+
+        const response = await fetchWithAuth(`/api/chats/${chatId}/exports/vsdx`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bpmn_xml: xml })
+        });
+        const blob = await response.blob();
+        downloadBlob(blob, 'application/vnd.ms-visio.drawing', 'process-diagram.vsdx');
+    }
+
+    async function downloadCurrentDiagram(format) {
+        if (!currentDiagramXml) {
+            showNotification('Сначала сгенерируйте схему.', 'error');
+            return;
+        }
+
         if (format === 'svg') {
-            try {
-                const { svg } = await bpmnViewer.saveSVG();
-                const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = 'process-diagram.svg';
-                link.click();
-                URL.revokeObjectURL(url);
-            } catch (e) { console.error(e); }
-        } else if (format === 'png') {
-            html2canvas(diagramContainer, { backgroundColor: null }).then(canvas => {
+            if (diagramMode === 'edit' && bpmnViewer && typeof bpmnViewer.saveSVG === 'function') {
+                try {
+                    const { svg } = await bpmnViewer.saveSVG();
+                    downloadBlob(svg, 'image/svg+xml;charset=utf-8', 'process-diagram.svg');
+                } catch (error) {
+                    console.error(error);
+                    showNotification(`Ошибка экспорта SVG: ${error.message}`, 'error');
+                }
+                return;
+            }
+
+            downloadBlob(currentDiagramSvg, 'image/svg+xml;charset=utf-8', 'process-diagram.svg');
+            return;
+        }
+
+        if (format === 'png') {
+            html2canvas(diagramContainer, { backgroundColor: '#ffffff' }).then(canvas => {
                 const link = document.createElement('a');
                 link.download = 'process-diagram.png';
                 link.href = canvas.toDataURL('image/png');
@@ -491,7 +651,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
-
 
     async function callGeminiAPI(prompt, options = {}) {
         const payload = { prompt: prompt };
@@ -555,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const openTagRe = new RegExp(`<(?:(bpmn\\d*):)?${tagName}(?=[\\s>])`, 'i');
             const closeTagRe = new RegExp(`<\\/(?:bpmn\\d*:)?${tagName}>`, 'gi');
             const openMatch = xml.match(openTagRe);
-            if (!openMatch) return;                // tag not present → skip
+            if (!openMatch) return;                // tag not present в†’ skip
             const prefix = openMatch[1] ? `${openMatch[1]}:` : '';
             xml = xml.replace(closeTagRe, `</${prefix}${tagName}>`);
         });
@@ -580,7 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // 3. Remove malformed association blocks where nested refs are unbalanced.
-        //    completely empty (no targetRef/sourceRef content) – they cause parse errors.
+        //    completely empty (no targetRef/sourceRef content) вЂ“ they cause parse errors.
         ['dataInputAssociation', 'dataOutputAssociation'].forEach(tagName => {
             const blockRe = new RegExp(
                 `<(?:bpmn\\d*:)?${tagName}\\b[^>]*>[\\s\\S]*?<\\/(?:bpmn\\d*:)?${tagName}>`,
@@ -629,74 +788,74 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function generateProcessArtifacts(processDescription) {
-        const prompt = `Ты — элитный бизнес-аналитик и эксперт по BPMN. Твоя задача — взять сырое описание процесса от пользователя и превратить его в два артефакта:
-1.  Структурированное описание шагов бизнес-процесса в формате Markdown.
-2.  Код диаграммы в строгом стандарте BPMN 2.0 XML (на основе которого будет строиться визуальная схема).
+        const prompt = `РўС‹ вЂ” СЌР»РёС‚РЅС‹Р№ Р±РёР·РЅРµСЃ-Р°РЅР°Р»РёС‚РёРє Рё СЌРєСЃРїРµСЂС‚ РїРѕ BPMN. РўРІРѕСЏ Р·Р°РґР°С‡Р° вЂ” РІР·СЏС‚СЊ СЃС‹СЂРѕРµ РѕРїРёСЃР°РЅРёРµ РїСЂРѕС†РµСЃСЃР° РѕС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ Рё РїСЂРµРІСЂР°С‚РёС‚СЊ РµРіРѕ РІ РґРІР° Р°СЂС‚РµС„Р°РєС‚Р°:
+1.  РЎС‚СЂСѓРєС‚СѓСЂРёСЂРѕРІР°РЅРЅРѕРµ РѕРїРёСЃР°РЅРёРµ С€Р°РіРѕРІ Р±РёР·РЅРµСЃ-РїСЂРѕС†РµСЃСЃР° РІ С„РѕСЂРјР°С‚Рµ Markdown.
+2.  РљРѕРґ РґРёР°РіСЂР°РјРјС‹ РІ СЃС‚СЂРѕРіРѕРј СЃС‚Р°РЅРґР°СЂС‚Рµ BPMN 2.0 XML (РЅР° РѕСЃРЅРѕРІРµ РєРѕС‚РѕСЂРѕРіРѕ Р±СѓРґРµС‚ СЃС‚СЂРѕРёС‚СЊСЃСЏ РІРёР·СѓР°Р»СЊРЅР°СЏ СЃС…РµРјР°).
 
-Ты должен СТРОГО следовать этим правилам:
+РўС‹ РґРѕР»Р¶РµРЅ РЎРўР РћР“Рћ СЃР»РµРґРѕРІР°С‚СЊ СЌС‚РёРј РїСЂР°РІРёР»Р°Рј:
 
-### ПРАВИЛА ДЛЯ ТЕКСТОВОГО ОПИСАНИЯ:
-Используй следующий шаблон Markdown, додумывая недостающие детали на основе контекста:
+### РџР РђР’РР›Рђ Р”Р›РЇ РўР•РљРЎРўРћР’РћР“Рћ РћРџРРЎРђРќРРЇ:
+РСЃРїРѕР»СЊР·СѓР№ СЃР»РµРґСѓСЋС‰РёР№ С€Р°Р±Р»РѕРЅ Markdown, РґРѕРґСѓРјС‹РІР°СЏ РЅРµРґРѕСЃС‚Р°СЋС‰РёРµ РґРµС‚Р°Р»Рё РЅР° РѕСЃРЅРѕРІРµ РєРѕРЅС‚РµРєСЃС‚Р°:
 
 \`\`\`markdown
-### 4. Начальное событие (Триггер):
-[Что запускает процесс]
+### 4. РќР°С‡Р°Р»СЊРЅРѕРµ СЃРѕР±С‹С‚РёРµ (РўСЂРёРіРіРµСЂ):
+[Р§С‚Рѕ Р·Р°РїСѓСЃРєР°РµС‚ РїСЂРѕС†РµСЃСЃ]
 
-### 5. Пошаговое описание процесса:
-* **Шаг [Номер]. [Название шага]**
-    * **Действие:** [Описание действия]
-    * **Исполнитель:** [Роль, если можно определить из контекста]
-    * **Условия/Переход:** [Описание логики перехода или ветвления]
+### 5. РџРѕС€Р°РіРѕРІРѕРµ РѕРїРёСЃР°РЅРёРµ РїСЂРѕС†РµСЃСЃР°:
+* **РЁР°Рі [РќРѕРјРµСЂ]. [РќР°Р·РІР°РЅРёРµ С€Р°РіР°]**
+    * **Р”РµР№СЃС‚РІРёРµ:** [РћРїРёСЃР°РЅРёРµ РґРµР№СЃС‚РІРёСЏ]
+    * **РСЃРїРѕР»РЅРёС‚РµР»СЊ:** [Р РѕР»СЊ, РµСЃР»Рё РјРѕР¶РЅРѕ РѕРїСЂРµРґРµР»РёС‚СЊ РёР· РєРѕРЅС‚РµРєСЃС‚Р°]
+    * **РЈСЃР»РѕРІРёСЏ/РџРµСЂРµС…РѕРґ:** [РћРїРёСЃР°РЅРёРµ Р»РѕРіРёРєРё РїРµСЂРµС…РѕРґР° РёР»Рё РІРµС‚РІР»РµРЅРёСЏ]
 
-### 6. Завершающее событие и результаты:
-[Чем заканчивается процесс и какие у него исходы]
+### 6. Р—Р°РІРµСЂС€Р°СЋС‰РµРµ СЃРѕР±С‹С‚РёРµ Рё СЂРµР·СѓР»СЊС‚Р°С‚С‹:
+[Р§РµРј Р·Р°РєР°РЅС‡РёРІР°РµС‚СЃСЏ РїСЂРѕС†РµСЃСЃ Рё РєР°РєРёРµ Сѓ РЅРµРіРѕ РёСЃС…РѕРґС‹]
 \`\`\`
 
-**ВАЖНО:** Если во входных данных присутствует секция \`### Предложения по улучшению:\`, ты должен использовать перечисленные в ней пункты как прямое руководство для улучшения и переписывания основного описания процесса. Интегрируй эти улучшения в итоговый \`standardDescription\`. Саму секцию \`### Предложения по улучшению:\` в свой финальный ответ включать НЕ НУЖНО.
+**Р’РђР–РќРћ:** Р•СЃР»Рё РІРѕ РІС…РѕРґРЅС‹С… РґР°РЅРЅС‹С… РїСЂРёСЃСѓС‚СЃС‚РІСѓРµС‚ СЃРµРєС†РёСЏ \`### РџСЂРµРґР»РѕР¶РµРЅРёСЏ РїРѕ СѓР»СѓС‡С€РµРЅРёСЋ:\`, С‚С‹ РґРѕР»Р¶РµРЅ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РїРµСЂРµС‡РёСЃР»РµРЅРЅС‹Рµ РІ РЅРµР№ РїСѓРЅРєС‚С‹ РєР°Рє РїСЂСЏРјРѕРµ СЂСѓРєРѕРІРѕРґСЃС‚РІРѕ РґР»СЏ СѓР»СѓС‡С€РµРЅРёСЏ Рё РїРµСЂРµРїРёСЃС‹РІР°РЅРёСЏ РѕСЃРЅРѕРІРЅРѕРіРѕ РѕРїРёСЃР°РЅРёСЏ РїСЂРѕС†РµСЃСЃР°. РРЅС‚РµРіСЂРёСЂСѓР№ СЌС‚Рё СѓР»СѓС‡С€РµРЅРёСЏ РІ РёС‚РѕРіРѕРІС‹Р№ \`standardDescription\`. РЎР°РјСѓ СЃРµРєС†РёСЋ \`### РџСЂРµРґР»РѕР¶РµРЅРёСЏ РїРѕ СѓР»СѓС‡С€РµРЅРёСЋ:\` РІ СЃРІРѕР№ С„РёРЅР°Р»СЊРЅС‹Р№ РѕС‚РІРµС‚ РІРєР»СЋС‡Р°С‚СЊ РќР• РќРЈР–РќРћ.
 
-### ПРАВИЛА ДЛЯ BPMN 2.0 XML:
-- Верни валидный, корректный и полный XML документ.
-- Обязательно включи блок <bpmndi:BPMNDiagram> и <bpmndi:BPMNPlane>.
-- Для каждого элемента (task, startEvent, endEvent, gateway) и для каждой связи (sequenceFlow) ДОЛЖНЫ быть сгенерированы соответствующие элементы DI (BPMNShape с dc:Bounds и BPMNEdge с di:waypoint) с математически корректными координатами X и Y.
-- ВАЖНО: Координаты элементов выставляй приблизительно сверху вниз — точная раскладка будет выполнена автоматически.
-- ВАЖНО: У каждого элемента списки <incoming> и <outgoing> должны точно соответствовать реальным <bpmn2:sequenceFlow sourceRef/targetRef>. Не допускай ссылок на чужие или дублирующиеся потоки.
-- ВАЖНО: Используй тег <bpmn2:task> (прямоугольники) для основных шагов процесса. Кругами (<bpmn2:startEvent> и <bpmn2:endEvent>) делай только начало и конец.
-- ВАЖНО: Не используй intermediate events, boundary events и другие круги внутри процесса, если пользователь явно не просил событие. В типовом бизнес-процессе круги допустимы только для начала и завершения процесса.
-- ВАЖНО: Решения и ветвления ДОЛЖНЫ использовать тег <bpmn2:exclusiveGateway>.
-- ВАЖНО: Каждый <bpmn2:exclusiveGateway> должен иметь короткий вопрос в атрибуте name, например "Документ корректен?" или "Согласовано?".
-- ВАЖНО: Подписи "да"/"нет" (атрибут name) и элементы <bpmn2:conditionExpression> могут быть ТОЛЬКО у связей (<bpmn2:sequenceFlow>), исходящих из шлюза <bpmn2:exclusiveGateway>. Обычные задачи не могут содержать условия перехода.
-- ВАЖНО: Если у <bpmn2:exclusiveGateway> два исходящих потока, один должен быть помечен "да", второй "нет".
-- ВАЖНО: Если одна ветка после gateway возвращает процесс на предыдущий шаг для доработки/повторного согласования, показывай основное продолжение процесса прямо под gateway, а возвратную ветку уводи в сторону с понятной стрелкой возврата.
-- ВАЖНО: Если две ветки после gateway потом сходятся в один общий шаг, показывай их как две отдельные боковые ветки, а общий следующий шаг располагай ниже по центру.
-- ВАЖНО: Основной поток строй сверху вниз. После gateway ветки разводи в стороны и затем возвращай продолжение процесса вниз. Не вытягивай весь процесс в длинную горизонтальную линию.
-- ВАЖНО: СТРОГАЯ ПРИВЯЗКА ЛОГИЧЕСКИХ БЛОКОВ (БАЗА):
-  1) Вход/выход процесса = строго <bpmn2:startEvent> и <bpmn2:endEvent> (Круг).
-  2) Действие/шаг процесса = строго <bpmn2:task> (Прямоугольник). Каждый task должен содержать в name краткое название действия.
-  3) Документ (форма, заявление, акт, запись) = строго <bpmn2:dataObjectReference> + <bpmn2:dataObject>. Каждый документ, упомянутый в процессе, должен быть отражён как dataObjectReference с name документа. Для связи с task используй <bpmn2:dataOutputAssociation> или <bpmn2:dataInputAssociation>. Для каждого dataObjectReference и каждой dataOutputAssociation/dataInputAssociation обязательно генерируй BPMNShape (dc:Bounds) и BPMNEdge (di:waypoint) в блоке bpmndi.
-  4) Ссылка на другой бизнес-процесс = строго <bpmn2:callActivity> (отображается как task с двойной рамкой). Атрибут calledElement указывай как код процесса.
-  5) Логический блок ИЛИ = строго <bpmn2:exclusiveGateway> (Ромб). Атрибут name — краткий вопрос.
-  6) База данных (БД, КИАС, хранилище) = строго <bpmn2:dataStoreReference> (Цилиндр). Для связи с task используй <bpmn2:dataOutputAssociation>. Для dataStoreReference обязательно генерируй BPMNShape (dc:Bounds) в блоке bpmndi.
-  7) Зона ответственности/роли = если в описании процесса упоминаются конкретные роли или подразделения, оборачивай процесс в <bpmn2:collaboration> с <bpmn2:participant> и используй <bpmn2:laneSet> с <bpmn2:lane> внутри process. Каждая роль = отдельный lane. Если роли не упомянуты, используй простой process без lanes.
-  8) Направляющие (стрелки потока) = <bpmn2:sequenceFlow> для связи элементов процесса. Для связи с данными = <bpmn2:association> или dataOutputAssociation/dataInputAssociation.
-- Без координат (DI) визуальный редактор не сможет отобразить схему! Прояви математическую точность.
-- Не обрезай XML, верни его полностью.
+### РџР РђР’РР›Рђ Р”Р›РЇ BPMN 2.0 XML:
+- Р’РµСЂРЅРё РІР°Р»РёРґРЅС‹Р№, РєРѕСЂСЂРµРєС‚РЅС‹Р№ Рё РїРѕР»РЅС‹Р№ XML РґРѕРєСѓРјРµРЅС‚.
+- РћР±СЏР·Р°С‚РµР»СЊРЅРѕ РІРєР»СЋС‡Рё Р±Р»РѕРє <bpmndi:BPMNDiagram> Рё <bpmndi:BPMNPlane>.
+- Р”Р»СЏ РєР°Р¶РґРѕРіРѕ СЌР»РµРјРµРЅС‚Р° (task, startEvent, endEvent, gateway) Рё РґР»СЏ РєР°Р¶РґРѕР№ СЃРІСЏР·Рё (sequenceFlow) Р”РћР›Р–РќР« Р±С‹С‚СЊ СЃРіРµРЅРµСЂРёСЂРѕРІР°РЅС‹ СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёРµ СЌР»РµРјРµРЅС‚С‹ DI (BPMNShape СЃ dc:Bounds Рё BPMNEdge СЃ di:waypoint) СЃ РјР°С‚РµРјР°С‚РёС‡РµСЃРєРё РєРѕСЂСЂРµРєС‚РЅС‹РјРё РєРѕРѕСЂРґРёРЅР°С‚Р°РјРё X Рё Y.
+- Р’РђР–РќРћ: РљРѕРѕСЂРґРёРЅР°С‚С‹ СЌР»РµРјРµРЅС‚РѕРІ РІС‹СЃС‚Р°РІР»СЏР№ РїСЂРёР±Р»РёР·РёС‚РµР»СЊРЅРѕ СЃРІРµСЂС…Сѓ РІРЅРёР· вЂ” С‚РѕС‡РЅР°СЏ СЂР°СЃРєР»Р°РґРєР° Р±СѓРґРµС‚ РІС‹РїРѕР»РЅРµРЅР° Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё.
+- Р’РђР–РќРћ: РЈ РєР°Р¶РґРѕРіРѕ СЌР»РµРјРµРЅС‚Р° СЃРїРёСЃРєРё <incoming> Рё <outgoing> РґРѕР»Р¶РЅС‹ С‚РѕС‡РЅРѕ СЃРѕРѕС‚РІРµС‚СЃС‚РІРѕРІР°С‚СЊ СЂРµР°Р»СЊРЅС‹Рј <bpmn2:sequenceFlow sourceRef/targetRef>. РќРµ РґРѕРїСѓСЃРєР°Р№ СЃСЃС‹Р»РѕРє РЅР° С‡СѓР¶РёРµ РёР»Рё РґСѓР±Р»РёСЂСѓСЋС‰РёРµСЃСЏ РїРѕС‚РѕРєРё.
+- Р’РђР–РќРћ: РСЃРїРѕР»СЊР·СѓР№ С‚РµРі <bpmn2:task> (РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРєРё) РґР»СЏ РѕСЃРЅРѕРІРЅС‹С… С€Р°РіРѕРІ РїСЂРѕС†РµСЃСЃР°. РљСЂСѓРіР°РјРё (<bpmn2:startEvent> Рё <bpmn2:endEvent>) РґРµР»Р°Р№ С‚РѕР»СЊРєРѕ РЅР°С‡Р°Р»Рѕ Рё РєРѕРЅРµС†.
+- Р’РђР–РќРћ: РќРµ РёСЃРїРѕР»СЊР·СѓР№ intermediate events, boundary events Рё РґСЂСѓРіРёРµ РєСЂСѓРіРё РІРЅСѓС‚СЂРё РїСЂРѕС†РµСЃСЃР°, РµСЃР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЏРІРЅРѕ РЅРµ РїСЂРѕСЃРёР» СЃРѕР±С‹С‚РёРµ. Р’ С‚РёРїРѕРІРѕРј Р±РёР·РЅРµСЃ-РїСЂРѕС†РµСЃСЃРµ РєСЂСѓРіРё РґРѕРїСѓСЃС‚РёРјС‹ С‚РѕР»СЊРєРѕ РґР»СЏ РЅР°С‡Р°Р»Р° Рё Р·Р°РІРµСЂС€РµРЅРёСЏ РїСЂРѕС†РµСЃСЃР°.
+- Р’РђР–РќРћ: Р РµС€РµРЅРёСЏ Рё РІРµС‚РІР»РµРЅРёСЏ Р”РћР›Р–РќР« РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ С‚РµРі <bpmn2:exclusiveGateway>.
+- Р’РђР–РќРћ: РљР°Р¶РґС‹Р№ <bpmn2:exclusiveGateway> РґРѕР»Р¶РµРЅ РёРјРµС‚СЊ РєРѕСЂРѕС‚РєРёР№ РІРѕРїСЂРѕСЃ РІ Р°С‚СЂРёР±СѓС‚Рµ name, РЅР°РїСЂРёРјРµСЂ "Р”РѕРєСѓРјРµРЅС‚ РєРѕСЂСЂРµРєС‚РµРЅ?" РёР»Рё "РЎРѕРіР»Р°СЃРѕРІР°РЅРѕ?".
+- Р’РђР–РќРћ: РџРѕРґРїРёСЃРё "РґР°"/"РЅРµС‚" (Р°С‚СЂРёР±СѓС‚ name) Рё СЌР»РµРјРµРЅС‚С‹ <bpmn2:conditionExpression> РјРѕРіСѓС‚ Р±С‹С‚СЊ РўРћР›Р¬РљРћ Сѓ СЃРІСЏР·РµР№ (<bpmn2:sequenceFlow>), РёСЃС…РѕРґСЏС‰РёС… РёР· С€Р»СЋР·Р° <bpmn2:exclusiveGateway>. РћР±С‹С‡РЅС‹Рµ Р·Р°РґР°С‡Рё РЅРµ РјРѕРіСѓС‚ СЃРѕРґРµСЂР¶Р°С‚СЊ СѓСЃР»РѕРІРёСЏ РїРµСЂРµС…РѕРґР°.
+- Р’РђР–РќРћ: Р•СЃР»Рё Сѓ <bpmn2:exclusiveGateway> РґРІР° РёСЃС…РѕРґСЏС‰РёС… РїРѕС‚РѕРєР°, РѕРґРёРЅ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РїРѕРјРµС‡РµРЅ "РґР°", РІС‚РѕСЂРѕР№ "РЅРµС‚".
+- Р’РђР–РќРћ: Р•СЃР»Рё РѕРґРЅР° РІРµС‚РєР° РїРѕСЃР»Рµ gateway РІРѕР·РІСЂР°С‰Р°РµС‚ РїСЂРѕС†РµСЃСЃ РЅР° РїСЂРµРґС‹РґСѓС‰РёР№ С€Р°Рі РґР»СЏ РґРѕСЂР°Р±РѕС‚РєРё/РїРѕРІС‚РѕСЂРЅРѕРіРѕ СЃРѕРіР»Р°СЃРѕРІР°РЅРёСЏ, РїРѕРєР°Р·С‹РІР°Р№ РѕСЃРЅРѕРІРЅРѕРµ РїСЂРѕРґРѕР»Р¶РµРЅРёРµ РїСЂРѕС†РµСЃСЃР° РїСЂСЏРјРѕ РїРѕРґ gateway, Р° РІРѕР·РІСЂР°С‚РЅСѓСЋ РІРµС‚РєСѓ СѓРІРѕРґРё РІ СЃС‚РѕСЂРѕРЅСѓ СЃ РїРѕРЅСЏС‚РЅРѕР№ СЃС‚СЂРµР»РєРѕР№ РІРѕР·РІСЂР°С‚Р°.
+- Р’РђР–РќРћ: Р•СЃР»Рё РґРІРµ РІРµС‚РєРё РїРѕСЃР»Рµ gateway РїРѕС‚РѕРј СЃС…РѕРґСЏС‚СЃСЏ РІ РѕРґРёРЅ РѕР±С‰РёР№ С€Р°Рі, РїРѕРєР°Р·С‹РІР°Р№ РёС… РєР°Рє РґРІРµ РѕС‚РґРµР»СЊРЅС‹Рµ Р±РѕРєРѕРІС‹Рµ РІРµС‚РєРё, Р° РѕР±С‰РёР№ СЃР»РµРґСѓСЋС‰РёР№ С€Р°Рі СЂР°СЃРїРѕР»Р°РіР°Р№ РЅРёР¶Рµ РїРѕ С†РµРЅС‚СЂСѓ.
+- Р’РђР–РќРћ: РћСЃРЅРѕРІРЅРѕР№ РїРѕС‚РѕРє СЃС‚СЂРѕР№ СЃРІРµСЂС…Сѓ РІРЅРёР·. РџРѕСЃР»Рµ gateway РІРµС‚РєРё СЂР°Р·РІРѕРґРё РІ СЃС‚РѕСЂРѕРЅС‹ Рё Р·Р°С‚РµРј РІРѕР·РІСЂР°С‰Р°Р№ РїСЂРѕРґРѕР»Р¶РµРЅРёРµ РїСЂРѕС†РµСЃСЃР° РІРЅРёР·. РќРµ РІС‹С‚СЏРіРёРІР°Р№ РІРµСЃСЊ РїСЂРѕС†РµСЃСЃ РІ РґР»РёРЅРЅСѓСЋ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅСѓСЋ Р»РёРЅРёСЋ.
+- Р’РђР–РќРћ: РЎРўР РћР“РђРЇ РџР РР’РЇР—РљРђ Р›РћР“РР§Р•РЎРљРРҐ Р‘Р›РћРљРћР’ (Р‘РђР—Рђ):
+  1) Р’С…РѕРґ/РІС‹С…РѕРґ РїСЂРѕС†РµСЃСЃР° = СЃС‚СЂРѕРіРѕ <bpmn2:startEvent> Рё <bpmn2:endEvent> (РљСЂСѓРі).
+  2) Р”РµР№СЃС‚РІРёРµ/С€Р°Рі РїСЂРѕС†РµСЃСЃР° = СЃС‚СЂРѕРіРѕ <bpmn2:task> (РџСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє). РљР°Р¶РґС‹Р№ task РґРѕР»Р¶РµРЅ СЃРѕРґРµСЂР¶Р°С‚СЊ РІ name РєСЂР°С‚РєРѕРµ РЅР°Р·РІР°РЅРёРµ РґРµР№СЃС‚РІРёСЏ.
+  3) Р”РѕРєСѓРјРµРЅС‚ (С„РѕСЂРјР°, Р·Р°СЏРІР»РµРЅРёРµ, Р°РєС‚, Р·Р°РїРёСЃСЊ) = СЃС‚СЂРѕРіРѕ <bpmn2:dataObjectReference> + <bpmn2:dataObject>. РљР°Р¶РґС‹Р№ РґРѕРєСѓРјРµРЅС‚, СѓРїРѕРјСЏРЅСѓС‚С‹Р№ РІ РїСЂРѕС†РµСЃСЃРµ, РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РѕС‚СЂР°Р¶С‘РЅ РєР°Рє dataObjectReference СЃ name РґРѕРєСѓРјРµРЅС‚Р°. Р”Р»СЏ СЃРІСЏР·Рё СЃ task РёСЃРїРѕР»СЊР·СѓР№ <bpmn2:dataOutputAssociation> РёР»Рё <bpmn2:dataInputAssociation>. Р”Р»СЏ РєР°Р¶РґРѕРіРѕ dataObjectReference Рё РєР°Р¶РґРѕР№ dataOutputAssociation/dataInputAssociation РѕР±СЏР·Р°С‚РµР»СЊРЅРѕ РіРµРЅРµСЂРёСЂСѓР№ BPMNShape (dc:Bounds) Рё BPMNEdge (di:waypoint) РІ Р±Р»РѕРєРµ bpmndi.
+  4) РЎСЃС‹Р»РєР° РЅР° РґСЂСѓРіРѕР№ Р±РёР·РЅРµСЃ-РїСЂРѕС†РµСЃСЃ = СЃС‚СЂРѕРіРѕ <bpmn2:callActivity> (РѕС‚РѕР±СЂР°Р¶Р°РµС‚СЃСЏ РєР°Рє task СЃ РґРІРѕР№РЅРѕР№ СЂР°РјРєРѕР№). РђС‚СЂРёР±СѓС‚ calledElement СѓРєР°Р·С‹РІР°Р№ РєР°Рє РєРѕРґ РїСЂРѕС†РµСЃСЃР°.
+  5) Р›РѕРіРёС‡РµСЃРєРёР№ Р±Р»РѕРє РР›Р = СЃС‚СЂРѕРіРѕ <bpmn2:exclusiveGateway> (Р РѕРјР±). РђС‚СЂРёР±СѓС‚ name вЂ” РєСЂР°С‚РєРёР№ РІРѕРїСЂРѕСЃ.
+  6) Р‘Р°Р·Р° РґР°РЅРЅС‹С… (Р‘Р”, РљРРђРЎ, С…СЂР°РЅРёР»РёС‰Рµ) = СЃС‚СЂРѕРіРѕ <bpmn2:dataStoreReference> (Р¦РёР»РёРЅРґСЂ). Р”Р»СЏ СЃРІСЏР·Рё СЃ task РёСЃРїРѕР»СЊР·СѓР№ <bpmn2:dataOutputAssociation>. Р”Р»СЏ dataStoreReference РѕР±СЏР·Р°С‚РµР»СЊРЅРѕ РіРµРЅРµСЂРёСЂСѓР№ BPMNShape (dc:Bounds) РІ Р±Р»РѕРєРµ bpmndi.
+  7) Р—РѕРЅР° РѕС‚РІРµС‚СЃС‚РІРµРЅРЅРѕСЃС‚Рё/СЂРѕР»Рё = РµСЃР»Рё РІ РѕРїРёСЃР°РЅРёРё РїСЂРѕС†РµСЃСЃР° СѓРїРѕРјРёРЅР°СЋС‚СЃСЏ РєРѕРЅРєСЂРµС‚РЅС‹Рµ СЂРѕР»Рё РёР»Рё РїРѕРґСЂР°Р·РґРµР»РµРЅРёСЏ, РѕР±РѕСЂР°С‡РёРІР°Р№ РїСЂРѕС†РµСЃСЃ РІ <bpmn2:collaboration> СЃ <bpmn2:participant> Рё РёСЃРїРѕР»СЊР·СѓР№ <bpmn2:laneSet> СЃ <bpmn2:lane> РІРЅСѓС‚СЂРё process. РљР°Р¶РґР°СЏ СЂРѕР»СЊ = РѕС‚РґРµР»СЊРЅС‹Р№ lane. Р•СЃР»Рё СЂРѕР»Рё РЅРµ СѓРїРѕРјСЏРЅСѓС‚С‹, РёСЃРїРѕР»СЊР·СѓР№ РїСЂРѕСЃС‚РѕР№ process Р±РµР· lanes.
+  8) РќР°РїСЂР°РІР»СЏСЋС‰РёРµ (СЃС‚СЂРµР»РєРё РїРѕС‚РѕРєР°) = <bpmn2:sequenceFlow> РґР»СЏ СЃРІСЏР·Рё СЌР»РµРјРµРЅС‚РѕРІ РїСЂРѕС†РµСЃСЃР°. Р”Р»СЏ СЃРІСЏР·Рё СЃ РґР°РЅРЅС‹РјРё = <bpmn2:association> РёР»Рё dataOutputAssociation/dataInputAssociation.
+- Р‘РµР· РєРѕРѕСЂРґРёРЅР°С‚ (DI) РІРёР·СѓР°Р»СЊРЅС‹Р№ СЂРµРґР°РєС‚РѕСЂ РЅРµ СЃРјРѕР¶РµС‚ РѕС‚РѕР±СЂР°Р·РёС‚СЊ СЃС…РµРјСѓ! РџСЂРѕСЏРІРё РјР°С‚РµРјР°С‚РёС‡РµСЃРєСѓСЋ С‚РѕС‡РЅРѕСЃС‚СЊ.
+- РќРµ РѕР±СЂРµР·Р°Р№ XML, РІРµСЂРЅРё РµРіРѕ РїРѕР»РЅРѕСЃС‚СЊСЋ.
 
 
-ФОРМАТ ОТВЕТА:
-Твой ответ должен быть JSON-объектом и ТОЛЬКО им. Никаких объяснений. Структура должна быть следующей:
+Р¤РћР РњРђРў РћРўР’Р•РўРђ:
+РўРІРѕР№ РѕС‚РІРµС‚ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ JSON-РѕР±СЉРµРєС‚РѕРј Рё РўРћР›Р¬РљРћ РёРј. РќРёРєР°РєРёС… РѕР±СЉСЏСЃРЅРµРЅРёР№. РЎС‚СЂСѓРєС‚СѓСЂР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ СЃР»РµРґСѓСЋС‰РµР№:
 {
-"standardDescription": "...", // Здесь Markdown-текст
-"mermaidCode": "..." // Здесь размести BPMN XML код (название ключа осталось mermaidCode для совместимости)
+"standardDescription": "...", // Р—РґРµСЃСЊ Markdown-С‚РµРєСЃС‚
+"mermaidCode": "..." // Р—РґРµСЃСЊ СЂР°Р·РјРµСЃС‚Рё BPMN XML РєРѕРґ (РЅР°Р·РІР°РЅРёРµ РєР»СЋС‡Р° РѕСЃС‚Р°Р»РѕСЃСЊ mermaidCode РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё)
 }
 
-ИСХОДНЫЙ ПРОЦЕСС ОТ ПОЛЬЗОВАТЕЛЯ:
+РРЎРҐРћР”РќР«Р™ РџР РћР¦Р•РЎРЎ РћРў РџРћР›Р¬Р—РћР’РђРўР•Р›РЇ:
 "${processDescription}"`;
         return callGeminiAPI(prompt, { chatId }).then(response => {
             // AI responses can sometimes include markdown wrappers. Find the JSON block.
             const jsonMatch = response.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
                 console.error("Invalid response from AI, no JSON object found. Raw response:", response);
-                throw new Error("Не удалось получить корректный JSON-объект от AI.");
+                throw new Error("РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ РєРѕСЂСЂРµРєС‚РЅС‹Р№ JSON-РѕР±СЉРµРєС‚ РѕС‚ AI.");
             }
             try {
                 // Parse the extracted JSON string.
@@ -707,64 +866,64 @@ document.addEventListener('DOMContentLoaded', () => {
                 return parsedResponse;
             } catch (error) {
                 console.error("Failed to parse JSON from AI response. Raw JSON string:", jsonMatch[0], "Error:", error);
-                throw new Error("Ошибка парсинга JSON ответа от AI.");
+                throw new Error("РћС€РёР±РєР° РїР°СЂСЃРёРЅРіР° JSON РѕС‚РІРµС‚Р° РѕС‚ AI.");
             }
         });
     }
 
     async function getFixedBpmnCode(brokenCode, errorMessage) {
-        const prompt = `Ты — эксперт по BPMN 2.0. Тебе дали BPMN XML с ошибкой. Твоя задача — ИСПРАВИТЬ ЕГО.
+        const prompt = `РўС‹ вЂ” СЌРєСЃРїРµСЂС‚ РїРѕ BPMN 2.0. РўРµР±Рµ РґР°Р»Рё BPMN XML СЃ РѕС€РёР±РєРѕР№. РўРІРѕСЏ Р·Р°РґР°С‡Р° вЂ” РРЎРџР РђР’РРўР¬ Р•Р“Рћ.
 
-НЕИСПРАВНЫЙ КОД:
+РќР•РРЎРџР РђР’РќР«Р™ РљРћР”:
 \`\`\`
 ${brokenCode}
 \`\`\`
 
-СООБЩЕНИЕ ОБ ОШИБКЕ:
+РЎРћРћР‘Р©Р•РќРР• РћР‘ РћРЁРР‘РљР•:
 "${errorMessage}"
 
-Проанализируй ошибку и верни ИСПРАВЛЕННЫЙ код. Убедись, что добавлены все DI теги с координатами (BPMNShape, dc:Bounds, BPMNEdge, di:waypoint).
-Сначала убери невалидные условные атрибуты и conditionExpression, а не перестраивай топологию без необходимости.
-Сверь <incoming>/<outgoing> у каждого элемента с реальными sequenceFlow sourceRef/targetRef и исправь несоответствия.
-Подписи "да"/"нет" и элементы <bpmn2:conditionExpression> допустимы только у sequenceFlow, исходящих из <bpmn2:exclusiveGateway>.
-Если они стоят после обычного task, удали их. Добавляй gateway только если в самом процессе явно есть решение или развилка.
-Не используй лишние круги внутри процесса: круги допустимы только для <bpmn2:startEvent> и <bpmn2:endEvent>, если пользователь явно не описал специальное событие.
-Каждый <bpmn2:exclusiveGateway> должен иметь понятный вопрос в name. Если есть две ветки решения, они должны быть помечены "да" и "нет".
-Если одна ветка означает возврат на доработку, оставляй основное продолжение под gateway, а возвратную ветку делай боковой и возвращающейся к предыдущему шагу.
-Если две ветки после gateway сходятся в один общий шаг, располагай их по разным сторонам и соединяй с общим шагом ниже.
-Сохрани вертикальную композицию: основной поток сверху вниз, ветки после gateway в стороны, затем продолжение снова вниз.
-ВАЖНО: СТРОГАЯ ПРИВЯЗКА ЛОГИЧЕСКИХ БЛОКОВ (БАЗА): Вход/выход = <bpmn2:startEvent>/<bpmn2:endEvent>, Шаг = <bpmn2:task>, Документ = <bpmn2:dataObjectReference> + <bpmn2:dataObject> (с BPMNShape в DI-блоке), Ссылка на процесс = строго <bpmn2:callActivity> (двойная рамка), Логическое ИЛИ = <bpmn2:exclusiveGateway>, База данных = <bpmn2:dataStoreReference> (с BPMNShape в DI-блоке). Если есть роли, используй <bpmn2:laneSet>/<bpmn2:lane>.
+РџСЂРѕР°РЅР°Р»РёР·РёСЂСѓР№ РѕС€РёР±РєСѓ Рё РІРµСЂРЅРё РРЎРџР РђР’Р›Р•РќРќР«Р™ РєРѕРґ. РЈР±РµРґРёСЃСЊ, С‡С‚Рѕ РґРѕР±Р°РІР»РµРЅС‹ РІСЃРµ DI С‚РµРіРё СЃ РєРѕРѕСЂРґРёРЅР°С‚Р°РјРё (BPMNShape, dc:Bounds, BPMNEdge, di:waypoint).
+РЎРЅР°С‡Р°Р»Р° СѓР±РµСЂРё РЅРµРІР°Р»РёРґРЅС‹Рµ СѓСЃР»РѕРІРЅС‹Рµ Р°С‚СЂРёР±СѓС‚С‹ Рё conditionExpression, Р° РЅРµ РїРµСЂРµСЃС‚СЂР°РёРІР°Р№ С‚РѕРїРѕР»РѕРіРёСЋ Р±РµР· РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚Рё.
+РЎРІРµСЂСЊ <incoming>/<outgoing> Сѓ РєР°Р¶РґРѕРіРѕ СЌР»РµРјРµРЅС‚Р° СЃ СЂРµР°Р»СЊРЅС‹РјРё sequenceFlow sourceRef/targetRef Рё РёСЃРїСЂР°РІСЊ РЅРµСЃРѕРѕС‚РІРµС‚СЃС‚РІРёСЏ.
+РџРѕРґРїРёСЃРё "РґР°"/"РЅРµС‚" Рё СЌР»РµРјРµРЅС‚С‹ <bpmn2:conditionExpression> РґРѕРїСѓСЃС‚РёРјС‹ С‚РѕР»СЊРєРѕ Сѓ sequenceFlow, РёСЃС…РѕРґСЏС‰РёС… РёР· <bpmn2:exclusiveGateway>.
+Р•СЃР»Рё РѕРЅРё СЃС‚РѕСЏС‚ РїРѕСЃР»Рµ РѕР±С‹С‡РЅРѕРіРѕ task, СѓРґР°Р»Рё РёС…. Р”РѕР±Р°РІР»СЏР№ gateway С‚РѕР»СЊРєРѕ РµСЃР»Рё РІ СЃР°РјРѕРј РїСЂРѕС†РµСЃСЃРµ СЏРІРЅРѕ РµСЃС‚СЊ СЂРµС€РµРЅРёРµ РёР»Рё СЂР°Р·РІРёР»РєР°.
+РќРµ РёСЃРїРѕР»СЊР·СѓР№ Р»РёС€РЅРёРµ РєСЂСѓРіРё РІРЅСѓС‚СЂРё РїСЂРѕС†РµСЃСЃР°: РєСЂСѓРіРё РґРѕРїСѓСЃС‚РёРјС‹ С‚РѕР»СЊРєРѕ РґР»СЏ <bpmn2:startEvent> Рё <bpmn2:endEvent>, РµСЃР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЏРІРЅРѕ РЅРµ РѕРїРёСЃР°Р» СЃРїРµС†РёР°Р»СЊРЅРѕРµ СЃРѕР±С‹С‚РёРµ.
+РљР°Р¶РґС‹Р№ <bpmn2:exclusiveGateway> РґРѕР»Р¶РµРЅ РёРјРµС‚СЊ РїРѕРЅСЏС‚РЅС‹Р№ РІРѕРїСЂРѕСЃ РІ name. Р•СЃР»Рё РµСЃС‚СЊ РґРІРµ РІРµС‚РєРё СЂРµС€РµРЅРёСЏ, РѕРЅРё РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ РїРѕРјРµС‡РµРЅС‹ "РґР°" Рё "РЅРµС‚".
+Р•СЃР»Рё РѕРґРЅР° РІРµС‚РєР° РѕР·РЅР°С‡Р°РµС‚ РІРѕР·РІСЂР°С‚ РЅР° РґРѕСЂР°Р±РѕС‚РєСѓ, РѕСЃС‚Р°РІР»СЏР№ РѕСЃРЅРѕРІРЅРѕРµ РїСЂРѕРґРѕР»Р¶РµРЅРёРµ РїРѕРґ gateway, Р° РІРѕР·РІСЂР°С‚РЅСѓСЋ РІРµС‚РєСѓ РґРµР»Р°Р№ Р±РѕРєРѕРІРѕР№ Рё РІРѕР·РІСЂР°С‰Р°СЋС‰РµР№СЃСЏ Рє РїСЂРµРґС‹РґСѓС‰РµРјСѓ С€Р°РіСѓ.
+Р•СЃР»Рё РґРІРµ РІРµС‚РєРё РїРѕСЃР»Рµ gateway СЃС…РѕРґСЏС‚СЃСЏ РІ РѕРґРёРЅ РѕР±С‰РёР№ С€Р°Рі, СЂР°СЃРїРѕР»Р°РіР°Р№ РёС… РїРѕ СЂР°Р·РЅС‹Рј СЃС‚РѕСЂРѕРЅР°Рј Рё СЃРѕРµРґРёРЅСЏР№ СЃ РѕР±С‰РёРј С€Р°РіРѕРј РЅРёР¶Рµ.
+РЎРѕС…СЂР°РЅРё РІРµСЂС‚РёРєР°Р»СЊРЅСѓСЋ РєРѕРјРїРѕР·РёС†РёСЋ: РѕСЃРЅРѕРІРЅРѕР№ РїРѕС‚РѕРє СЃРІРµСЂС…Сѓ РІРЅРёР·, РІРµС‚РєРё РїРѕСЃР»Рµ gateway РІ СЃС‚РѕСЂРѕРЅС‹, Р·Р°С‚РµРј РїСЂРѕРґРѕР»Р¶РµРЅРёРµ СЃРЅРѕРІР° РІРЅРёР·.
+Р’РђР–РќРћ: РЎРўР РћР“РђРЇ РџР РР’РЇР—РљРђ Р›РћР“РР§Р•РЎРљРРҐ Р‘Р›РћРљРћР’ (Р‘РђР—Рђ): Р’С…РѕРґ/РІС‹С…РѕРґ = <bpmn2:startEvent>/<bpmn2:endEvent>, РЁР°Рі = <bpmn2:task>, Р”РѕРєСѓРјРµРЅС‚ = <bpmn2:dataObjectReference> + <bpmn2:dataObject> (СЃ BPMNShape РІ DI-Р±Р»РѕРєРµ), РЎСЃС‹Р»РєР° РЅР° РїСЂРѕС†РµСЃСЃ = СЃС‚СЂРѕРіРѕ <bpmn2:callActivity> (РґРІРѕР№РЅР°СЏ СЂР°РјРєР°), Р›РѕРіРёС‡РµСЃРєРѕРµ РР›Р = <bpmn2:exclusiveGateway>, Р‘Р°Р·Р° РґР°РЅРЅС‹С… = <bpmn2:dataStoreReference> (СЃ BPMNShape РІ DI-Р±Р»РѕРєРµ). Р•СЃР»Рё РµСЃС‚СЊ СЂРѕР»Рё, РёСЃРїРѕР»СЊР·СѓР№ <bpmn2:laneSet>/<bpmn2:lane>.
 
-Ответ должен содержать ТОЛЬКО ИСПРАВЛЕННЫЙ код BPMN XML, без объяснений и markdown.`;
+РћС‚РІРµС‚ РґРѕР»Р¶РµРЅ СЃРѕРґРµСЂР¶Р°С‚СЊ РўРћР›Р¬РљРћ РРЎРџР РђР’Р›Р•РќРќР«Р™ РєРѕРґ BPMN XML, Р±РµР· РѕР±СЉСЏСЃРЅРµРЅРёР№ Рё markdown.`;
         return callGeminiAPI(prompt, { chatId }).then(code => normalizeGeneratedBpmnXml(code.replace(/```xml/g, '').replace(/```/g, '').trim()));
     }
 
     async function generateDiagramFromText(processDescription) {
-        const prompt = `Ты — элитный бизнес-аналитик. Твоя задача — взять описание процесса от пользователя и превратить его в код для диаграммы в строгом стандарте BPMN 2.0 XML.
-Обязательно включи блок <bpmndi:BPMNDiagram> и сгенерируй координаты (Bounds/waypoint) для всех элементов, чтобы диаграмма отображалась визуально. 
-ВАЖНО: Координаты элементов выставляй приблизительно сверху вниз — точная раскладка будет выполнена автоматически.
-ВАЖНО: Списки <incoming> и <outgoing> у каждого элемента должны точно совпадать с реальными sequenceFlow sourceRef/targetRef.
-ВАЖНО: Используй <bpmn2:task> (прямоугольники) для основных шагов процесса. Кругами (<bpmn2:startEvent> и <bpmn2:endEvent>) делай только начало и конец.
-ВАЖНО: Не используй intermediate events, boundary events и другие круги внутри процесса, если пользователь явно не просил событие. В типовом бизнес-процессе круги допустимы только для начала и завершения процесса.
-ВАЖНО: Решения и ветвления ДОЛЖНЫ использовать тег <bpmn2:exclusiveGateway>. Подписи "да"/"нет" и теги <bpmn2:conditionExpression> можно применять ТОЛЬКО к связям, исходящим из шлюза.
-ВАЖНО: Каждый <bpmn2:exclusiveGateway> должен иметь короткий вопрос в атрибуте name. Если из него выходят две ветки, одна должна быть "да", другая "нет".
-ВАЖНО: Если одна ветка после gateway возвращает процесс на доработку, основное продолжение размещай прямо под gateway, а возвратную ветку уводи в сторону и возвращай к нужному предыдущему шагу.
-ВАЖНО: Если две ветки после gateway потом сходятся в один общий шаг, показывай обе ветки отдельно по сторонам, а точку продолжения процесса располагай ниже по центру.
-ВАЖНО: Основной поток строй сверху вниз. После gateway ветки разводи в стороны и затем возвращай продолжение процесса вниз, а не в длинную горизонтальную линию.
-ВАЖНО: СТРОГАЯ ПРИВЯЗКА ЛОГИЧЕСКИХ БЛОКОВ (БАЗА):
-  1) Вход/выход процесса = строго <bpmn2:startEvent> и <bpmn2:endEvent> (Круг).
-  2) Действие/шаг процесса = строго <bpmn2:task> (Прямоугольник). Каждый task должен содержать в name краткое название действия.
-  3) Документ (форма, заявление, акт, запись) = строго <bpmn2:dataObjectReference> + <bpmn2:dataObject>. Каждый документ, упомянутый в процессе, должен быть отражён как dataObjectReference с name документа. Для связи с task используй <bpmn2:dataOutputAssociation> или <bpmn2:dataInputAssociation>. Для каждого dataObjectReference и каждой dataOutputAssociation/dataInputAssociation обязательно генерируй BPMNShape (dc:Bounds) и BPMNEdge (di:waypoint) в блоке bpmndi.
-  4) Ссылка на другой бизнес-процесс = строго <bpmn2:callActivity> (отображается как task с двойной рамкой). Атрибут calledElement указывай как код процесса.
-  5) Логический блок ИЛИ = строго <bpmn2:exclusiveGateway> (Ромб). Атрибут name — краткий вопрос.
-  6) База данных (БД, КИАС, хранилище) = строго <bpmn2:dataStoreReference> (Цилиндр). Для связи с task используй <bpmn2:dataOutputAssociation>. Для dataStoreReference обязательно генерируй BPMNShape (dc:Bounds) в блоке bpmndi.
-  7) Зона ответственности/роли = если в описании процесса упоминаются конкретные роли или подразделения, оборачивай процесс в <bpmn2:collaboration> с <bpmn2:participant> и используй <bpmn2:laneSet> с <bpmn2:lane> внутри process. Каждая роль = отдельный lane. Если роли не упомянуты, используй простой process без lanes.
-  8) Направляющие (стрелки потока) = <bpmn2:sequenceFlow> для связи элементов процесса. Для связи с данными = <bpmn2:association> или dataOutputAssociation/dataInputAssociation.
+        const prompt = `РўС‹ вЂ” СЌР»РёС‚РЅС‹Р№ Р±РёР·РЅРµСЃ-Р°РЅР°Р»РёС‚РёРє. РўРІРѕСЏ Р·Р°РґР°С‡Р° вЂ” РІР·СЏС‚СЊ РѕРїРёСЃР°РЅРёРµ РїСЂРѕС†РµСЃСЃР° РѕС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ Рё РїСЂРµРІСЂР°С‚РёС‚СЊ РµРіРѕ РІ РєРѕРґ РґР»СЏ РґРёР°РіСЂР°РјРјС‹ РІ СЃС‚СЂРѕРіРѕРј СЃС‚Р°РЅРґР°СЂС‚Рµ BPMN 2.0 XML.
+РћР±СЏР·Р°С‚РµР»СЊРЅРѕ РІРєР»СЋС‡Рё Р±Р»РѕРє <bpmndi:BPMNDiagram> Рё СЃРіРµРЅРµСЂРёСЂСѓР№ РєРѕРѕСЂРґРёРЅР°С‚С‹ (Bounds/waypoint) РґР»СЏ РІСЃРµС… СЌР»РµРјРµРЅС‚РѕРІ, С‡С‚РѕР±С‹ РґРёР°РіСЂР°РјРјР° РѕС‚РѕР±СЂР°Р¶Р°Р»Р°СЃСЊ РІРёР·СѓР°Р»СЊРЅРѕ. 
+Р’РђР–РќРћ: РљРѕРѕСЂРґРёРЅР°С‚С‹ СЌР»РµРјРµРЅС‚РѕРІ РІС‹СЃС‚Р°РІР»СЏР№ РїСЂРёР±Р»РёР·РёС‚РµР»СЊРЅРѕ СЃРІРµСЂС…Сѓ РІРЅРёР· вЂ” С‚РѕС‡РЅР°СЏ СЂР°СЃРєР»Р°РґРєР° Р±СѓРґРµС‚ РІС‹РїРѕР»РЅРµРЅР° Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё.
+Р’РђР–РќРћ: РЎРїРёСЃРєРё <incoming> Рё <outgoing> Сѓ РєР°Р¶РґРѕРіРѕ СЌР»РµРјРµРЅС‚Р° РґРѕР»Р¶РЅС‹ С‚РѕС‡РЅРѕ СЃРѕРІРїР°РґР°С‚СЊ СЃ СЂРµР°Р»СЊРЅС‹РјРё sequenceFlow sourceRef/targetRef.
+Р’РђР–РќРћ: РСЃРїРѕР»СЊР·СѓР№ <bpmn2:task> (РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРєРё) РґР»СЏ РѕСЃРЅРѕРІРЅС‹С… С€Р°РіРѕРІ РїСЂРѕС†РµСЃСЃР°. РљСЂСѓРіР°РјРё (<bpmn2:startEvent> Рё <bpmn2:endEvent>) РґРµР»Р°Р№ С‚РѕР»СЊРєРѕ РЅР°С‡Р°Р»Рѕ Рё РєРѕРЅРµС†.
+Р’РђР–РќРћ: РќРµ РёСЃРїРѕР»СЊР·СѓР№ intermediate events, boundary events Рё РґСЂСѓРіРёРµ РєСЂСѓРіРё РІРЅСѓС‚СЂРё РїСЂРѕС†РµСЃСЃР°, РµСЃР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЏРІРЅРѕ РЅРµ РїСЂРѕСЃРёР» СЃРѕР±С‹С‚РёРµ. Р’ С‚РёРїРѕРІРѕРј Р±РёР·РЅРµСЃ-РїСЂРѕС†РµСЃСЃРµ РєСЂСѓРіРё РґРѕРїСѓСЃС‚РёРјС‹ С‚РѕР»СЊРєРѕ РґР»СЏ РЅР°С‡Р°Р»Р° Рё Р·Р°РІРµСЂС€РµРЅРёСЏ РїСЂРѕС†РµСЃСЃР°.
+Р’РђР–РќРћ: Р РµС€РµРЅРёСЏ Рё РІРµС‚РІР»РµРЅРёСЏ Р”РћР›Р–РќР« РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ С‚РµРі <bpmn2:exclusiveGateway>. РџРѕРґРїРёСЃРё "РґР°"/"РЅРµС‚" Рё С‚РµРіРё <bpmn2:conditionExpression> РјРѕР¶РЅРѕ РїСЂРёРјРµРЅСЏС‚СЊ РўРћР›Р¬РљРћ Рє СЃРІСЏР·СЏРј, РёСЃС…РѕРґСЏС‰РёРј РёР· С€Р»СЋР·Р°.
+Р’РђР–РќРћ: РљР°Р¶РґС‹Р№ <bpmn2:exclusiveGateway> РґРѕР»Р¶РµРЅ РёРјРµС‚СЊ РєРѕСЂРѕС‚РєРёР№ РІРѕРїСЂРѕСЃ РІ Р°С‚СЂРёР±СѓС‚Рµ name. Р•СЃР»Рё РёР· РЅРµРіРѕ РІС‹С…РѕРґСЏС‚ РґРІРµ РІРµС‚РєРё, РѕРґРЅР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ "РґР°", РґСЂСѓРіР°СЏ "РЅРµС‚".
+Р’РђР–РќРћ: Р•СЃР»Рё РѕРґРЅР° РІРµС‚РєР° РїРѕСЃР»Рµ gateway РІРѕР·РІСЂР°С‰Р°РµС‚ РїСЂРѕС†РµСЃСЃ РЅР° РґРѕСЂР°Р±РѕС‚РєСѓ, РѕСЃРЅРѕРІРЅРѕРµ РїСЂРѕРґРѕР»Р¶РµРЅРёРµ СЂР°Р·РјРµС‰Р°Р№ РїСЂСЏРјРѕ РїРѕРґ gateway, Р° РІРѕР·РІСЂР°С‚РЅСѓСЋ РІРµС‚РєСѓ СѓРІРѕРґРё РІ СЃС‚РѕСЂРѕРЅСѓ Рё РІРѕР·РІСЂР°С‰Р°Р№ Рє РЅСѓР¶РЅРѕРјСѓ РїСЂРµРґС‹РґСѓС‰РµРјСѓ С€Р°РіСѓ.
+Р’РђР–РќРћ: Р•СЃР»Рё РґРІРµ РІРµС‚РєРё РїРѕСЃР»Рµ gateway РїРѕС‚РѕРј СЃС…РѕРґСЏС‚СЃСЏ РІ РѕРґРёРЅ РѕР±С‰РёР№ С€Р°Рі, РїРѕРєР°Р·С‹РІР°Р№ РѕР±Рµ РІРµС‚РєРё РѕС‚РґРµР»СЊРЅРѕ РїРѕ СЃС‚РѕСЂРѕРЅР°Рј, Р° С‚РѕС‡РєСѓ РїСЂРѕРґРѕР»Р¶РµРЅРёСЏ РїСЂРѕС†РµСЃСЃР° СЂР°СЃРїРѕР»Р°РіР°Р№ РЅРёР¶Рµ РїРѕ С†РµРЅС‚СЂСѓ.
+Р’РђР–РќРћ: РћСЃРЅРѕРІРЅРѕР№ РїРѕС‚РѕРє СЃС‚СЂРѕР№ СЃРІРµСЂС…Сѓ РІРЅРёР·. РџРѕСЃР»Рµ gateway РІРµС‚РєРё СЂР°Р·РІРѕРґРё РІ СЃС‚РѕСЂРѕРЅС‹ Рё Р·Р°С‚РµРј РІРѕР·РІСЂР°С‰Р°Р№ РїСЂРѕРґРѕР»Р¶РµРЅРёРµ РїСЂРѕС†РµСЃСЃР° РІРЅРёР·, Р° РЅРµ РІ РґР»РёРЅРЅСѓСЋ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅСѓСЋ Р»РёРЅРёСЋ.
+Р’РђР–РќРћ: РЎРўР РћР“РђРЇ РџР РР’РЇР—РљРђ Р›РћР“РР§Р•РЎРљРРҐ Р‘Р›РћРљРћР’ (Р‘РђР—Рђ):
+  1) Р’С…РѕРґ/РІС‹С…РѕРґ РїСЂРѕС†РµСЃСЃР° = СЃС‚СЂРѕРіРѕ <bpmn2:startEvent> Рё <bpmn2:endEvent> (РљСЂСѓРі).
+  2) Р”РµР№СЃС‚РІРёРµ/С€Р°Рі РїСЂРѕС†РµСЃСЃР° = СЃС‚СЂРѕРіРѕ <bpmn2:task> (РџСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє). РљР°Р¶РґС‹Р№ task РґРѕР»Р¶РµРЅ СЃРѕРґРµСЂР¶Р°С‚СЊ РІ name РєСЂР°С‚РєРѕРµ РЅР°Р·РІР°РЅРёРµ РґРµР№СЃС‚РІРёСЏ.
+  3) Р”РѕРєСѓРјРµРЅС‚ (С„РѕСЂРјР°, Р·Р°СЏРІР»РµРЅРёРµ, Р°РєС‚, Р·Р°РїРёСЃСЊ) = СЃС‚СЂРѕРіРѕ <bpmn2:dataObjectReference> + <bpmn2:dataObject>. РљР°Р¶РґС‹Р№ РґРѕРєСѓРјРµРЅС‚, СѓРїРѕРјСЏРЅСѓС‚С‹Р№ РІ РїСЂРѕС†РµСЃСЃРµ, РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РѕС‚СЂР°Р¶С‘РЅ РєР°Рє dataObjectReference СЃ name РґРѕРєСѓРјРµРЅС‚Р°. Р”Р»СЏ СЃРІСЏР·Рё СЃ task РёСЃРїРѕР»СЊР·СѓР№ <bpmn2:dataOutputAssociation> РёР»Рё <bpmn2:dataInputAssociation>. Р”Р»СЏ РєР°Р¶РґРѕРіРѕ dataObjectReference Рё РєР°Р¶РґРѕР№ dataOutputAssociation/dataInputAssociation РѕР±СЏР·Р°С‚РµР»СЊРЅРѕ РіРµРЅРµСЂРёСЂСѓР№ BPMNShape (dc:Bounds) Рё BPMNEdge (di:waypoint) РІ Р±Р»РѕРєРµ bpmndi.
+  4) РЎСЃС‹Р»РєР° РЅР° РґСЂСѓРіРѕР№ Р±РёР·РЅРµСЃ-РїСЂРѕС†РµСЃСЃ = СЃС‚СЂРѕРіРѕ <bpmn2:callActivity> (РѕС‚РѕР±СЂР°Р¶Р°РµС‚СЃСЏ РєР°Рє task СЃ РґРІРѕР№РЅРѕР№ СЂР°РјРєРѕР№). РђС‚СЂРёР±СѓС‚ calledElement СѓРєР°Р·С‹РІР°Р№ РєР°Рє РєРѕРґ РїСЂРѕС†РµСЃСЃР°.
+  5) Р›РѕРіРёС‡РµСЃРєРёР№ Р±Р»РѕРє РР›Р = СЃС‚СЂРѕРіРѕ <bpmn2:exclusiveGateway> (Р РѕРјР±). РђС‚СЂРёР±СѓС‚ name вЂ” РєСЂР°С‚РєРёР№ РІРѕРїСЂРѕСЃ.
+  6) Р‘Р°Р·Р° РґР°РЅРЅС‹С… (Р‘Р”, РљРРђРЎ, С…СЂР°РЅРёР»РёС‰Рµ) = СЃС‚СЂРѕРіРѕ <bpmn2:dataStoreReference> (Р¦РёР»РёРЅРґСЂ). Р”Р»СЏ СЃРІСЏР·Рё СЃ task РёСЃРїРѕР»СЊР·СѓР№ <bpmn2:dataOutputAssociation>. Р”Р»СЏ dataStoreReference РѕР±СЏР·Р°С‚РµР»СЊРЅРѕ РіРµРЅРµСЂРёСЂСѓР№ BPMNShape (dc:Bounds) РІ Р±Р»РѕРєРµ bpmndi.
+  7) Р—РѕРЅР° РѕС‚РІРµС‚СЃС‚РІРµРЅРЅРѕСЃС‚Рё/СЂРѕР»Рё = РµСЃР»Рё РІ РѕРїРёСЃР°РЅРёРё РїСЂРѕС†РµСЃСЃР° СѓРїРѕРјРёРЅР°СЋС‚СЃСЏ РєРѕРЅРєСЂРµС‚РЅС‹Рµ СЂРѕР»Рё РёР»Рё РїРѕРґСЂР°Р·РґРµР»РµРЅРёСЏ, РѕР±РѕСЂР°С‡РёРІР°Р№ РїСЂРѕС†РµСЃСЃ РІ <bpmn2:collaboration> СЃ <bpmn2:participant> Рё РёСЃРїРѕР»СЊР·СѓР№ <bpmn2:laneSet> СЃ <bpmn2:lane> РІРЅСѓС‚СЂРё process. РљР°Р¶РґР°СЏ СЂРѕР»СЊ = РѕС‚РґРµР»СЊРЅС‹Р№ lane. Р•СЃР»Рё СЂРѕР»Рё РЅРµ СѓРїРѕРјСЏРЅСѓС‚С‹, РёСЃРїРѕР»СЊР·СѓР№ РїСЂРѕСЃС‚РѕР№ process Р±РµР· lanes.
+  8) РќР°РїСЂР°РІР»СЏСЋС‰РёРµ (СЃС‚СЂРµР»РєРё РїРѕС‚РѕРєР°) = <bpmn2:sequenceFlow> РґР»СЏ СЃРІСЏР·Рё СЌР»РµРјРµРЅС‚РѕРІ РїСЂРѕС†РµСЃСЃР°. Р”Р»СЏ СЃРІСЏР·Рё СЃ РґР°РЅРЅС‹РјРё = <bpmn2:association> РёР»Рё dataOutputAssociation/dataInputAssociation.
 
-ФОРМАТ ОТВЕТА:
-Твой ответ должен содержать ТОЛЬКО код BPMN 2.0 XML, без объяснений и markdown.
+Р¤РћР РњРђРў РћРўР’Р•РўРђ:
+РўРІРѕР№ РѕС‚РІРµС‚ РґРѕР»Р¶РµРЅ СЃРѕРґРµСЂР¶Р°С‚СЊ РўРћР›Р¬РљРћ РєРѕРґ BPMN 2.0 XML, Р±РµР· РѕР±СЉСЏСЃРЅРµРЅРёР№ Рё markdown.
 
-ИСХОДНЫЙ ПРОЦЕСС ОТ ПОЛЬЗОВАТЕЛЯ:
+РРЎРҐРћР”РќР«Р™ РџР РћР¦Р•РЎРЎ РћРў РџРћР›Р¬Р—РћР’РђРўР•Р›РЇ:
 "${processDescription}"`;
         return callGeminiAPI(prompt, { chatId }).then(code => normalizeGeneratedBpmnXml(code.replace(/```xml/g, '').replace(/```/g, '').trim()));
     }
@@ -786,7 +945,7 @@ ${brokenCode}
         const password = userPasswordInput.value;
         if (!email || !password) return;
 
-        setButtonLoading(userLoginBtn, true, 'Вход...');
+        setButtonLoading(userLoginBtn, true, 'Р’С…РѕРґ...');
         try {
             const response = await fetchWithAuth('/api/auth/login', {
                 method: 'POST',
@@ -811,7 +970,7 @@ ${brokenCode}
                 await loadDepartmentsForSelection();
             }
         } catch (error) {
-            userError.textContent = `Ошибка входа: ${error.message}`;
+            userError.textContent = `РћС€РёР±РєР° РІС…РѕРґР°: ${error.message}`;
         } finally {
             setButtonLoading(userLoginBtn, false);
         }
@@ -822,17 +981,17 @@ ${brokenCode}
             const response = await fetchWithAuth('/api/departments');
             const departments = await response.json();
             if (departments.length === 0) {
-                departmentSelectionContainer.innerHTML = '<p class="placeholder-text">Для вас не назначено ни одного департамента.</p>';
+                departmentSelectionContainer.innerHTML = '<p class="placeholder-text">Р”Р»СЏ РІР°СЃ РЅРµ РЅР°Р·РЅР°С‡РµРЅРѕ РЅРё РѕРґРЅРѕРіРѕ РґРµРїР°СЂС‚Р°РјРµРЅС‚Р°.</p>';
                 return;
             }
             departmentSelectionContainer.innerHTML = departments.map(dept => `
                 <div class="department-card" data-dept-id="${dept.id}" data-dept-name="${dept.name}">
-                    <span class="dept-icon">🏢</span>
+                    <span class="dept-icon">рџЏў</span>
                     <span class="dept-name">${dept.name}</span>
                 </div>
             `).join('');
         } catch (error) {
-            departmentSelectionError.textContent = `Не удалось загрузить департаменты: ${error.message}`;
+            departmentSelectionError.textContent = `РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґРµРїР°СЂС‚Р°РјРµРЅС‚С‹: ${error.message}`;
         }
     }
 
@@ -859,13 +1018,13 @@ ${brokenCode}
             });
 
             if (activeChats.length === 0) {
-                chatSelectionContainer.innerHTML = '<p class="placeholder-text">Для этого департамента нет активных чатов.</p>';
+                chatSelectionContainer.innerHTML = '<p class="placeholder-text">Р”Р»СЏ СЌС‚РѕРіРѕ РґРµРїР°СЂС‚Р°РјРµРЅС‚Р° РЅРµС‚ Р°РєС‚РёРІРЅС‹С… С‡Р°С‚РѕРІ.</p>';
                 return;
             }
 
             chatSelectionContainer.innerHTML = activeChats.map(chat => `
                 <div class="chat-card" data-chat-id="${chat.id}" data-chat-name="${chat.name}">
-                    <span class="chat-icon">💬</span>
+                    <span class="chat-icon">рџ’¬</span>
                     <span class="chat-name">${chat.name}</span>
                     <div class="chat-status">${getStatusIndicator(chat.status || 'draft')}</div>
                 </div>
@@ -878,24 +1037,24 @@ ${brokenCode}
                 });
             });
         } catch (error) {
-            chatError.textContent = `Не удалось загрузить чаты: ${error.message}`;
+            chatError.textContent = `РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ С‡Р°С‚С‹: ${error.message}`;
         }
     }
 
     async function handleChatLogin() {
         const selectedChatCard = document.querySelector('.chat-card.selected');
         if (!selectedChatCard) {
-            chatError.textContent = 'Пожалуйста, выберите чат';
+            chatError.textContent = 'РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РІС‹Р±РµСЂРёС‚Рµ С‡Р°С‚';
             return;
         }
 
         const password = chatPasswordInput.value;
         if (!password) {
-            chatError.textContent = 'Пожалуйста, введите пароль';
+            chatError.textContent = 'РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РІРІРµРґРёС‚Рµ РїР°СЂРѕР»СЊ';
             return;
         }
 
-        setButtonLoading(chatLoginBtn, true, 'Вход...');
+        setButtonLoading(chatLoginBtn, true, 'Р’С…РѕРґ...');
         try {
             const response = await fetchWithAuth('/api/auth/chat', {
                 method: 'POST',
@@ -911,7 +1070,7 @@ ${brokenCode}
             chatError.textContent = '';
             showMainApp(chat.name);
         } catch (error) {
-            chatError.textContent = `Ошибка входа в чат: ${error.message}`;
+            chatError.textContent = `РћС€РёР±РєР° РІС…РѕРґР° РІ С‡Р°С‚: ${error.message}`;
         } finally {
             setButtonLoading(chatLoginBtn, false);
         }
@@ -920,20 +1079,20 @@ ${brokenCode}
     function showMainApp(chatName) {
         authWrapper.style.display = 'none';
         mainContainer.style.display = 'block';
-        if (backToAdminBtn) backToAdminBtn.style.display = 'none'; // Скрываем старую кнопку, если она есть в HTML
+        if (backToAdminBtn) backToAdminBtn.style.display = 'none'; // РЎРєСЂС‹РІР°РµРј СЃС‚Р°СЂСѓСЋ РєРЅРѕРїРєСѓ, РµСЃР»Рё РѕРЅР° РµСЃС‚СЊ РІ HTML
 
-        const deptName = selectedDepartment ? selectedDepartment.name : 'Департамент';
+        const deptName = selectedDepartment ? selectedDepartment.name : 'Р”РµРїР°СЂС‚Р°РјРµРЅС‚';
         chatNameHeader.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px;">
                 <button id="universal-back-btn" class="button-secondary" style="padding: 6px 14px; font-size: 14px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <span style="font-size: 16px;">⬅</span> Назад
+                    <span style="font-size: 16px;">в¬…</span> РќР°Р·Р°Рґ
                 </button>
                 <div style="font-size: 18px;">
-                    <span id="breadcrumb-back" style="cursor:pointer; color: #3b82f6; transition: color 0.2s;" title="Вернуться назад" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#3b82f6'">
-                        🏢 ${escapeHtml(deptName)}
+                    <span id="breadcrumb-back" style="cursor:pointer; color: #3b82f6; transition: color 0.2s;" title="Р’РµСЂРЅСѓС‚СЊСЃСЏ РЅР°Р·Р°Рґ" onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color='#3b82f6'">
+                        рџЏў ${escapeHtml(deptName)}
                     </span> 
                     <span style="color: #94a3b8; margin: 0 8px;">/</span> 
-                    💬 ${escapeHtml(chatName)}
+                    рџ’¬ ${escapeHtml(chatName)}
                 </div>
             </div>
         `;
@@ -1008,6 +1167,7 @@ ${brokenCode}
             chatVersions = await versionsResponse.json();
             const comments = await commentsResponse.json();
             const { status } = await statusResponse.json();
+            currentChatStatus = status;
             const transcriptionData = transcriptionResponse ? await transcriptionResponse.json() : null;
             const initialProcessData = initialProcessResponse ? await initialProcessResponse.json() : null;
 
@@ -1028,7 +1188,7 @@ ${brokenCode}
             if (chatVersions.length > 0) {
                 await displayVersion(chatVersions[0]);
             } else if (transcriptionData && transcriptionData.status === 'finalized') {
-                // Otherwise, if no versions exist but a transcript does, use it as the initial value for Field 2
+                await displayVersion(null);
                 processDescriptionInput.value = transcriptionData.final_text;
                 updateStepCounter();
             } else {
@@ -1045,30 +1205,35 @@ ${brokenCode}
     function renderVersions(versions) {
         versionHistoryContainer.innerHTML = versions.map((v, i) => `
             <div class="version-item" data-version-id="${v.id}" style="transition: all 0.2s; ${i === 0 ? 'border-left: 4px solid #10b981; background-color: #f0fdf4;' : 'border-left: 4px solid transparent;'}">
-                <span style="${i === 0 ? 'font-weight: 600; color: #065f46;' : ''}">Версия от ${new Date(v.created_at).toLocaleString()} ${i === 0 ? '⭐️' : ''}</span>
-                <button class="button-small">Посмотреть</button>
-            </div>`).join('') || '<p>Нет сохраненных версий.</p>';
+                <span style="${i === 0 ? 'font-weight: 600; color: #065f46;' : ''}">Р’РµСЂСЃРёСЏ РѕС‚ ${new Date(v.created_at).toLocaleString()} ${i === 0 ? 'в­ђпёЏ' : ''}</span>
+                <button class="button-small">РџРѕСЃРјРѕС‚СЂРµС‚СЊ</button>
+            </div>`).join('') || '<p>РќРµС‚ СЃРѕС…СЂР°РЅРµРЅРЅС‹С… РІРµСЂСЃРёР№.</p>';
     }
 
     async function displayVersion(version) {
         if (!version) {
             processDescriptionInput.value = '';
             updateStepCounter();
+            destroyBpmnEditor();
+            destroyLockedDiagramPan();
+            currentDiagramXml = '';
+            currentDiagramSvg = '';
+            currentDiagramModel = null;
+            diagramMode = 'view';
             diagramPlaceholder.style.display = 'block';
             diagramContainer.classList.add('hidden');
             diagramContainer.innerHTML = '';
             diagramContainer.style.display = 'none';
-            diagramToolbar.style.display = 'none';
-            renderDiagramBtn.style.display = 'block';
+            updateDiagramToolbarState();
             return;
         }
         processDescriptionInput.value = version.process_text;
 
-        // ВОССТАНОВЛЕНИЕ АВТОСОХРАНЕНИЯ
+        // Р’РћРЎРЎРўРђРќРћР’Р›Р•РќРР• РђР’РўРћРЎРћРҐР РђРќР•РќРРЇ
         const savedDraft = localStorage.getItem(`autosave_chat_${chatId}`);
-        // Если черновик новее и мы смотрим именно последнюю (актуальную) версию
+        // Р•СЃР»Рё С‡РµСЂРЅРѕРІРёРє РЅРѕРІРµРµ Рё РјС‹ СЃРјРѕС‚СЂРёРј РёРјРµРЅРЅРѕ РїРѕСЃР»РµРґРЅСЋСЋ (Р°РєС‚СѓР°Р»СЊРЅСѓСЋ) РІРµСЂСЃРёСЋ
         if (savedDraft && savedDraft !== version.process_text && version.id === chatVersions[0]?.id) {
-            showNotification('Восстановлен несохраненный черновик', 'info');
+            showNotification('Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ РЅРµСЃРѕС…СЂР°РЅРµРЅРЅС‹Р№ С‡РµСЂРЅРѕРІРёРє', 'info');
             processDescriptionInput.value = savedDraft;
         }
 
@@ -1078,19 +1243,24 @@ ${brokenCode}
             diagramContainer.classList.remove('hidden');
             diagramContainer.style.display = 'block';
             diagramContainer.innerHTML = '';
-            await renderDiagram(version.mermaid_code);
+            await renderDiagramView(version.mermaid_code);
         } else {
+            destroyBpmnEditor();
+            destroyLockedDiagramPan();
+            currentDiagramXml = '';
+            currentDiagramSvg = '';
+            currentDiagramModel = null;
+            diagramMode = 'view';
             diagramPlaceholder.style.display = 'block';
             diagramContainer.classList.add('hidden');
             diagramContainer.innerHTML = '';
             diagramContainer.style.display = 'none';
-            diagramToolbar.style.display = 'none';
-            renderDiagramBtn.style.display = 'block';
+            updateDiagramToolbarState();
         }
 
-        // Если включен режим предпросмотра, обновляем его
+        // Р•СЃР»Рё РІРєР»СЋС‡РµРЅ СЂРµР¶РёРј РїСЂРµРґРїСЂРѕСЃРјРѕС‚СЂР°, РѕР±РЅРѕРІР»СЏРµРј РµРіРѕ
         if (typeof isPreviewMode !== 'undefined' && isPreviewMode) {
-            previewContainer.innerHTML = typeof marked !== 'undefined' ? marked.parse(processDescriptionInput.value || '*Пусто*') : processDescriptionInput.value;
+            previewContainer.innerHTML = typeof marked !== 'undefined' ? marked.parse(processDescriptionInput.value || '*РџСѓСЃС‚Рѕ*') : processDescriptionInput.value;
         }
     }
 
@@ -1100,17 +1270,17 @@ ${brokenCode}
                 <span class="comment-author">${c.author_role}</span>
                 <p class="comment-text">${c.text}</p>
                 <span class="comment-date">${new Date(c.created_at).toLocaleString()}</span>
-            </div>`).join('') || '<p>Нет комментариев.</p>';
+            </div>`).join('') || '<p>РќРµС‚ РєРѕРјРјРµРЅС‚Р°СЂРёРµРІ.</p>';
     }
 
     async function handleSaveVersion(button = saveVersionBtn) {
         const process_text = processDescriptionInput.value;
         if (!process_text.trim()) {
-            showNotification("Нельзя сохранить пустую версию.", "error");
+            showNotification("РќРµР»СЊР·СЏ СЃРѕС…СЂР°РЅРёС‚СЊ РїСѓСЃС‚СѓСЋ РІРµСЂСЃРёСЋ.", "error");
             return;
         }
 
-        setButtonLoading(button, true, 'Copilot проверяет...');
+        setButtonLoading(button, true, 'Copilot РїСЂРѕРІРµСЂСЏРµС‚...');
         try {
             const copilotRes = await fetchWithAuth(`/api/chats/${chatId}/validate`, {
                 method: 'POST',
@@ -1119,20 +1289,20 @@ ${brokenCode}
             });
             const validateData = await copilotRes.json();
 
-            if (validateData.analysis && validateData.analysis.trim() !== 'Ошибок не найдено' && validateData.analysis.trim().length > 3) {
-                const proceed = confirm(`⚠️ Внимание от AI Copilot:\n\n${validateData.analysis}\n\nВы уверены, что хотите продолжить сохранение?`);
+            if (validateData.analysis && validateData.analysis.trim() !== 'РћС€РёР±РѕРє РЅРµ РЅР°Р№РґРµРЅРѕ' && validateData.analysis.trim().length > 3) {
+                const proceed = confirm(`вљ пёЏ Р’РЅРёРјР°РЅРёРµ РѕС‚ AI Copilot:\n\n${validateData.analysis}\n\nР’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ РїСЂРѕРґРѕР»Р¶РёС‚СЊ СЃРѕС…СЂР°РЅРµРЅРёРµ?`);
                 if (!proceed) {
                     setButtonLoading(button, false);
                     return;
                 }
             }
 
-            setButtonLoading(button, true, 'Сохранение с ИИ...');
+            setButtonLoading(button, true, 'РЎРѕС…СЂР°РЅРµРЅРёРµ СЃ РР...');
             const result = await generateProcessArtifacts(process_text);
             const { standardDescription, mermaidCode } = result;
 
             if (!standardDescription || !mermaidCode) {
-                throw new Error("Полученный от AI JSON не содержит обязательных полей standardDescription или mermaidCode.");
+                throw new Error("РџРѕР»СѓС‡РµРЅРЅС‹Р№ РѕС‚ AI JSON РЅРµ СЃРѕРґРµСЂР¶РёС‚ РѕР±СЏР·Р°С‚РµР»СЊРЅС‹С… РїРѕР»РµР№ standardDescription РёР»Рё mermaidCode.");
             }
 
             processDescriptionInput.value = standardDescription; // Update the text area
@@ -1143,11 +1313,11 @@ ${brokenCode}
                 body: JSON.stringify({ process_text: standardDescription, mermaid_code: mermaidCode })
             });
             localStorage.removeItem(`autosave_chat_${chatId}`);
-            showNotification("Версия успешно сохранена.", "success");
+            showNotification("Р’РµСЂСЃРёСЏ СѓСЃРїРµС€РЅРѕ СЃРѕС…СЂР°РЅРµРЅР°.", "success");
 
             await loadChatData();
         } catch (error) {
-            showNotification(`Ошибка сохранения: ${error.message}`, "error");
+            showNotification(`РћС€РёР±РєР° СЃРѕС…СЂР°РЅРµРЅРёСЏ: ${error.message}`, "error");
         } finally {
             setButtonLoading(button, false);
         }
@@ -1156,25 +1326,25 @@ ${brokenCode}
     async function handleRenderDiagram(button) {
         const process_text = processDescriptionInput.value;
         if (!process_text.trim()) {
-            showNotification("Описание процесса пустое.", "error");
+            showNotification("РћРїРёСЃР°РЅРёРµ РїСЂРѕС†РµСЃСЃР° РїСѓСЃС‚РѕРµ.", "error");
             return;
         }
-        setButtonLoading(button, true, 'Создание схемы...');
+        setButtonLoading(button, true, 'РЎРѕР·РґР°РЅРёРµ СЃС…РµРјС‹...');
         const timeoutId = setTimeout(() => {
             setButtonLoading(button, false);
-            showNotification('Генерация заняла слишком много времени. Попробуйте ещё раз.', 'error');
+            showNotification('Р“РµРЅРµСЂР°С†РёСЏ Р·Р°РЅСЏР»Р° СЃР»РёС€РєРѕРј РјРЅРѕРіРѕ РІСЂРµРјРµРЅРё. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·.', 'error');
         }, 60000);
         try {
             const mermaidCode = await generateDiagramFromText(process_text);
             if (mermaidCode) {
                 diagramPlaceholder.style.display = 'none';
-                diagramContainer.style.display = 'flex';
-                await renderDiagram(mermaidCode);
+                diagramContainer.style.display = 'block';
+                await renderDiagramView(mermaidCode);
             } else {
-                showNotification('ИИ не вернул код схемы. Попробуйте ещё раз.', 'error');
+                showNotification('РР РЅРµ РІРµСЂРЅСѓР» РєРѕРґ СЃС…РµРјС‹. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·.', 'error');
             }
         } catch (error) {
-            showNotification(`Ошибка создания схемы: ${error.message}`, "error");
+            showNotification(`РћС€РёР±РєР° СЃРѕР·РґР°РЅРёСЏ СЃС…РµРјС‹: ${error.message}`, "error");
         } finally {
             clearTimeout(timeoutId);
             setButtonLoading(button, false);
@@ -1183,7 +1353,7 @@ ${brokenCode}
 
     async function handleUpdateStatus(status, button) {
         if (!button) return;
-        setButtonLoading(button, true, 'Обновление...');
+        setButtonLoading(button, true, 'РћР±РЅРѕРІР»РµРЅРёРµ...');
         try {
             await handleSaveRawVersion();
 
@@ -1192,10 +1362,10 @@ ${brokenCode}
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status })
             });
-            showNotification(`Статус чата обновлен на: ${status}`, 'success');
+            showNotification(`РЎС‚Р°С‚СѓСЃ С‡Р°С‚Р° РѕР±РЅРѕРІР»РµРЅ РЅР°: ${status}`, 'success');
             await loadChatData(); // Reload to reflect new status and UI state
         } catch (error) {
-            showNotification(`Ошибка обновления статуса: ${error.message}`, 'error');
+            showNotification(`РћС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ СЃС‚Р°С‚СѓСЃР°: ${error.message}`, 'error');
         } finally {
             setButtonLoading(button, false);
         }
@@ -1204,7 +1374,7 @@ ${brokenCode}
     async function handleAddComment() {
         const text = commentInput.value;
         if (!text.trim()) return;
-        setButtonLoading(addCommentBtn, true, 'Отправка...');
+        setButtonLoading(addCommentBtn, true, 'РћС‚РїСЂР°РІРєР°...');
         try {
             await fetchWithAuth(`/api/chats/${chatId}/comments`, {
                 method: 'POST',
@@ -1241,7 +1411,6 @@ ${brokenCode}
         [sendReviewBtn, sendRevisionBtn, completeBtn, archiveBtn].forEach(btn => btn.style.display = 'none');
 
         if (isAdmin) {
-            editDiagramBtn.style.display = diagramToolbar.style.display === 'flex' ? 'inline-block' : 'none';
             if (status === 'pending_review') {
                 sendRevisionBtn.style.display = 'inline-block';
                 completeBtn.style.display = 'inline-block';
@@ -1250,19 +1419,20 @@ ${brokenCode}
                 archiveBtn.style.display = 'inline-block';
             }
         } else {
-            editDiagramBtn.style.display = 'none';
             if (status === 'draft' || status === 'needs_revision') {
                 sendReviewBtn.style.display = 'inline-block';
             }
         }
+
+        updateDiagramToolbarState();
     }
 
     const statusMap = {
-        draft: { text: 'Черновик', color: 'var(--secondary-color)' },
-        pending_review: { text: 'На проверке', color: 'var(--color-warning)' },
-        needs_revision: { text: 'Нужны правки', color: 'var(--color-danger)' },
-        completed: { text: 'Завершен', color: 'var(--color-success)' },
-        archived: { text: 'В архиве', color: 'var(--secondary-color)' }
+        draft: { text: 'Р§РµСЂРЅРѕРІРёРє', color: 'var(--secondary-color)' },
+        pending_review: { text: 'РќР° РїСЂРѕРІРµСЂРєРµ', color: 'var(--color-warning)' },
+        needs_revision: { text: 'РќСѓР¶РЅС‹ РїСЂР°РІРєРё', color: 'var(--color-danger)' },
+        completed: { text: 'Р—Р°РІРµСЂС€РµРЅ', color: 'var(--color-success)' },
+        archived: { text: 'Р’ Р°СЂС…РёРІРµ', color: 'var(--secondary-color)' }
     };
 
     function getStatusIndicator(status) {
@@ -1306,7 +1476,7 @@ ${brokenCode}
         const status = isFinalizing ? 'finalized' : 'pending_review';
         const button = isFinalizing ? finalizeTranscriptionBtn : saveTranscriptionProgressBtn;
 
-        setButtonLoading(button, true, 'Сохранение...');
+        setButtonLoading(button, true, 'РЎРѕС…СЂР°РЅРµРЅРёРµ...');
         try {
             const response = await fetchWithAuth(`/api/chats/${chatId}/transcription`, {
                 method: 'POST',
@@ -1314,7 +1484,7 @@ ${brokenCode}
                 body: JSON.stringify({ final_text: text, status: status })
             });
             const data = await response.json();
-            showNotification('Транскрибация успешно сохранена!', 'success');
+            showNotification('РўСЂР°РЅСЃРєСЂРёР±Р°С†РёСЏ СѓСЃРїРµС€РЅРѕ СЃРѕС…СЂР°РЅРµРЅР°!', 'success');
             updateTranscriptionModalUI(data);
             if (isFinalizing) {
                 // Check if initial process already exists
@@ -1338,7 +1508,7 @@ ${brokenCode}
                 closeTranscriptionModal();
             }
         } catch (error) {
-            showNotification(`Ошибка сохранения транскрибации: ${error.message}`, 'error');
+            showNotification(`РћС€РёР±РєР° СЃРѕС…СЂР°РЅРµРЅРёСЏ С‚СЂР°РЅСЃРєСЂРёР±Р°С†РёРё: ${error.message}`, 'error');
         } finally {
             setButtonLoading(button, false);
         }
@@ -1368,7 +1538,7 @@ ${brokenCode}
         } catch (error) {
             console.error("Failed to load admin panel data:", error);
             // Don't overwrite the whole panel if one fetch fails
-            showNotification(`Ошибка загрузки данных админ-панели: ${error.message}`, 'error');
+            showNotification(`РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё РґР°РЅРЅС‹С… Р°РґРјРёРЅ-РїР°РЅРµР»Рё: ${error.message}`, 'error');
         }
     }
 
@@ -1382,11 +1552,11 @@ ${brokenCode}
                 <tr>
                     <td>${user.full_name || user.name}</td>
                     <td>${user.email}</td>
-                    <td>${user.role === 'admin' ? 'Админ' : 'Пользователь'}</td>
+                    <td>${user.role === 'admin' ? 'РђРґРјРёРЅ' : 'РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ'}</td>
                     <td>${user.department_name || '-'}</td>
                     <td>
-                        <button class="button-small change-password-btn" data-user-id="${user.id}">Пароль</button>
-                        <button class="button-small delete-user-btn" data-user-id="${user.id}" ${user.id === sessionUser.id ? 'disabled' : ''}>Удалить</button>
+                        <button class="button-small change-password-btn" data-user-id="${user.id}">РџР°СЂРѕР»СЊ</button>
+                        <button class="button-small delete-user-btn" data-user-id="${user.id}" ${user.id === sessionUser.id ? 'disabled' : ''}>РЈРґР°Р»РёС‚СЊ</button>
                     </td>
                 </tr>
             `).join('');
@@ -1398,7 +1568,7 @@ ${brokenCode}
                 .join('');
         } catch (error) {
             console.error("Failed to load users:", error);
-            showNotification("Не удалось загрузить список пользователей", "error");
+            showNotification("РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ СЃРїРёСЃРѕРє РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№", "error");
         }
     }
 
@@ -1410,18 +1580,18 @@ ${brokenCode}
         const role = newUserRoleSelect.value;
 
         if (!full_name || !email || !password) {
-            showNotification("ФИО, Email и Пароль обязательны", "error");
+            showNotification("Р¤РРћ, Email Рё РџР°СЂРѕР»СЊ РѕР±СЏР·Р°С‚РµР»СЊРЅС‹", "error");
             return;
         }
 
-        setButtonLoading(createUserBtn, true, 'Создание...');
+        setButtonLoading(createUserBtn, true, 'РЎРѕР·РґР°РЅРёРµ...');
         try {
             await fetchWithAuth('/api/admin/users', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ full_name, email, password, department_id, role })
             });
-            showNotification("Пользователь успешно создан", "success");
+            showNotification("РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СѓСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅ", "success");
             // Clear form
             newUserFullnameInput.value = '';
             newUserEmailInput.value = '';
@@ -1429,29 +1599,29 @@ ${brokenCode}
             // Reload user list and department owner select
             await loadAdminUsers();
         } catch (error) {
-            showNotification(`Ошибка: ${error.message}`, "error");
+            showNotification(`РћС€РёР±РєР°: ${error.message}`, "error");
         } finally {
             setButtonLoading(createUserBtn, false);
         }
     }
 
     async function handleDeleteUser(userId) {
-        if (!confirm('Вы уверены, что хотите удалить этого пользователя? Это действие необратимо.')) return;
+        if (!confirm('Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ СЌС‚РѕРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ? Р­С‚Рѕ РґРµР№СЃС‚РІРёРµ РЅРµРѕР±СЂР°С‚РёРјРѕ.')) return;
 
         try {
             await fetchWithAuth(`/api/admin/users/${userId}`, { method: 'DELETE' });
-            showNotification('Пользователь удален', 'success');
+            showNotification('РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СѓРґР°Р»РµРЅ', 'success');
             await loadAdminUsers();
         } catch (error) {
-            showNotification(`Ошибка удаления: ${error.message}`, 'error');
+            showNotification(`РћС€РёР±РєР° СѓРґР°Р»РµРЅРёСЏ: ${error.message}`, 'error');
         }
     }
 
     async function handleChangePassword(userId) {
-        const newPassword = prompt('Введите новый пароль (минимум 8 символов):');
+        const newPassword = prompt('Р’РІРµРґРёС‚Рµ РЅРѕРІС‹Р№ РїР°СЂРѕР»СЊ (РјРёРЅРёРјСѓРј 8 СЃРёРјРІРѕР»РѕРІ):');
         if (!newPassword) return;
         if (newPassword.length < 8) {
-            showNotification('Пароль слишком короткий', 'error');
+            showNotification('РџР°СЂРѕР»СЊ СЃР»РёС€РєРѕРј РєРѕСЂРѕС‚РєРёР№', 'error');
             return;
         }
 
@@ -1461,9 +1631,9 @@ ${brokenCode}
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password: newPassword })
             });
-            showNotification('Пароль изменен', 'success');
+            showNotification('РџР°СЂРѕР»СЊ РёР·РјРµРЅРµРЅ', 'success');
         } catch (error) {
-            showNotification(`Ошибка изменения пароля: ${error.message}`, 'error');
+            showNotification(`РћС€РёР±РєР° РёР·РјРµРЅРµРЅРёСЏ РїР°СЂРѕР»СЏ: ${error.message}`, 'error');
         }
     }
 
@@ -1474,22 +1644,22 @@ ${brokenCode}
             departmentList.innerHTML = departments.map(dept => `
                 <div class="department-card" data-dept-id="${dept.id}" data-dept-name="${dept.name}">
                     <span>${dept.name}</span>
-                    <button class="button-danger delete-department-btn" data-dept-id="${dept.id}" title="Удалить департамент">Удалить</button>
+                    <button class="button-danger delete-department-btn" data-dept-id="${dept.id}" title="РЈРґР°Р»РёС‚СЊ РґРµРїР°СЂС‚Р°РјРµРЅС‚">РЈРґР°Р»РёС‚СЊ</button>
                 </div>`).join('');
 
             // Also update the department select for user creation
-            newUserDeptSelect.innerHTML = '<option value="">Без департамента</option>' +
+            newUserDeptSelect.innerHTML = '<option value="">Р‘РµР· РґРµРїР°СЂС‚Р°РјРµРЅС‚Р°</option>' +
                 departments.map(dept => `<option value="${dept.id}">${dept.name}</option>`).join('');
 
         } catch (error) {
-            departmentList.innerHTML = `<div class="error-text">Не удалось загрузить департаменты: ${error.message}</div>`;
+            departmentList.innerHTML = `<div class="error-text">РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґРµРїР°СЂС‚Р°РјРµРЅС‚С‹: ${error.message}</div>`;
         }
     }
 
     function renderAdminChatList(listElement, chats, listName) {
         const validChats = chats.filter(chat => chat.chats && chat.departments);
         if (validChats.length === 0) {
-            listElement.innerHTML = '<li>Нет чатов для отображения</li>';
+            listElement.innerHTML = '<li>РќРµС‚ С‡Р°С‚РѕРІ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ</li>';
             return;
         }
         listElement.innerHTML = validChats.map(chat => `
@@ -1551,7 +1721,7 @@ ${brokenCode}
     }
 
     async function loadChatListForAdminDepartment(deptId, deptName) {
-        chatListHeader.textContent = `Чаты в "${deptName}"`;
+        chatListHeader.textContent = `Р§Р°С‚С‹ РІ "${deptName}"`;
         selectedDepartmentNameSpan.textContent = deptName;
         createChatForm.style.display = 'block';
         chatList.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
@@ -1561,11 +1731,11 @@ ${brokenCode}
             chatList.innerHTML = chats.length > 0 ? chats.map(chat => `
                 <div class="chat-item" data-chat-id="${chat.id}">
                     <span>${chat.name}</span>
-                    <button class="button-danger delete-chat-btn" data-chat-id="${chat.id}" title="Удалить чат">Удалить</button>
+                    <button class="button-danger delete-chat-btn" data-chat-id="${chat.id}" title="РЈРґР°Р»РёС‚СЊ С‡Р°С‚">РЈРґР°Р»РёС‚СЊ</button>
                 </div>
-            `).join('') : '<div class="placeholder-text">Нет чатов.</div>';
+            `).join('') : '<div class="placeholder-text">РќРµС‚ С‡Р°С‚РѕРІ.</div>';
         } catch (error) {
-            chatList.innerHTML = `<div class="error-text">Не удалось загрузить чаты: ${error.message}</div>`;
+            chatList.innerHTML = `<div class="error-text">РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ С‡Р°С‚С‹: ${error.message}</div>`;
         }
     }
 
@@ -1574,10 +1744,10 @@ ${brokenCode}
         const password = newDepartmentPasswordInput.value;
         const userId = userForNewDepartmentSelect.value;
         if (!name || !password || !userId) {
-            showNotification('Все поля должны быть заполнены!', 'error');
+            showNotification('Р’СЃРµ РїРѕР»СЏ РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ Р·Р°РїРѕР»РЅРµРЅС‹!', 'error');
             return;
         }
-        setButtonLoading(createDepartmentBtn, true, 'Создание...');
+        setButtonLoading(createDepartmentBtn, true, 'РЎРѕР·РґР°РЅРёРµ...');
         try {
             await fetchWithAuth('/api/departments', {
                 method: 'POST',
@@ -1586,10 +1756,10 @@ ${brokenCode}
             });
             newDepartmentNameInput.value = '';
             newDepartmentPasswordInput.value = '';
-            showNotification('Департамент создан!', 'success');
+            showNotification('Р”РµРїР°СЂС‚Р°РјРµРЅС‚ СЃРѕР·РґР°РЅ!', 'success');
             await loadAdminDepartments();
         } catch (error) {
-            showNotification(`Не удалось создать департамент: ${error.message}`, 'error');
+            showNotification(`РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РґРµРїР°СЂС‚Р°РјРµРЅС‚: ${error.message}`, 'error');
         } finally {
             setButtonLoading(createDepartmentBtn, false);
         }
@@ -1598,14 +1768,14 @@ ${brokenCode}
     async function handleCreateChat() {
         const selectedDeptCard = document.querySelector('#department-list .department-card.selected');
         if (!selectedDeptCard) {
-            showNotification('Сначала выберите департамент!', 'error');
+            showNotification('РЎРЅР°С‡Р°Р»Р° РІС‹Р±РµСЂРёС‚Рµ РґРµРїР°СЂС‚Р°РјРµРЅС‚!', 'error');
             return;
         }
         const deptId = selectedDeptCard.dataset.deptId;
         const name = newChatNameInput.value;
         const password = newChatPasswordInput.value;
         if (!name || !password) return;
-        setButtonLoading(createChatBtn, true, 'Создание...');
+        setButtonLoading(createChatBtn, true, 'РЎРѕР·РґР°РЅРёРµ...');
         try {
             await fetchWithAuth('/api/chats', {
                 method: 'POST',
@@ -1614,10 +1784,10 @@ ${brokenCode}
             });
             newChatNameInput.value = '';
             newChatPasswordInput.value = '';
-            showNotification('Чат успешно создан.', 'success');
+            showNotification('Р§Р°С‚ СѓСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅ.', 'success');
             await loadChatListForAdminDepartment(deptId, selectedDeptCard.dataset.deptName);
         } catch (error) {
-            showNotification(`Не удалось создать чат: ${error.message}`, 'error');
+            showNotification(`РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ С‡Р°С‚: ${error.message}`, 'error');
         } finally {
             setButtonLoading(createChatBtn, false);
         }
@@ -1629,18 +1799,18 @@ ${brokenCode}
         const deptCard = button.closest('.department-card');
         const deptName = deptCard.querySelector('span').textContent;
 
-        if (confirm(`Вы уверены, что хотите удалить департамент "${deptName}"? Это действие также удалит все связанные с ним чаты.`)) {
+        if (confirm(`Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ РґРµРїР°СЂС‚Р°РјРµРЅС‚ "${deptName}"? Р­С‚Рѕ РґРµР№СЃС‚РІРёРµ С‚Р°РєР¶Рµ СѓРґР°Р»РёС‚ РІСЃРµ СЃРІСЏР·Р°РЅРЅС‹Рµ СЃ РЅРёРј С‡Р°С‚С‹.`)) {
             try {
                 await fetchWithAuth(`/api/departments/${deptId}`, { method: 'DELETE' });
-                showNotification(`Департамент "${deptName}" успешно удален.`, 'success');
+                showNotification(`Р”РµРїР°СЂС‚Р°РјРµРЅС‚ "${deptName}" СѓСЃРїРµС€РЅРѕ СѓРґР°Р»РµРЅ.`, 'success');
                 await loadAdminDepartments();
                 if (deptCard.classList.contains('selected')) {
-                    chatList.innerHTML = '<div class="placeholder-text">Выберите департамент, чтобы увидеть чаты.</div>';
-                    chatListHeader.textContent = 'Чаты';
+                    chatList.innerHTML = '<div class="placeholder-text">Р’С‹Р±РµСЂРёС‚Рµ РґРµРїР°СЂС‚Р°РјРµРЅС‚, С‡С‚РѕР±С‹ СѓРІРёРґРµС‚СЊ С‡Р°С‚С‹.</div>';
+                    chatListHeader.textContent = 'Р§Р°С‚С‹';
                     createChatForm.style.display = 'none';
                 }
             } catch (error) {
-                showNotification(`Ошибка удаления департамента: ${error.message}`, 'error');
+                showNotification(`РћС€РёР±РєР° СѓРґР°Р»РµРЅРёСЏ РґРµРїР°СЂС‚Р°РјРµРЅС‚Р°: ${error.message}`, 'error');
             }
         }
     }
@@ -1652,19 +1822,19 @@ ${brokenCode}
         const chatName = chatItem.querySelector('span').textContent;
         const selectedDeptCard = document.querySelector('#department-list .department-card.selected');
         if (!selectedDeptCard) {
-            showNotification('Не удалось определить департамент для обновления списка.', 'error');
+            showNotification('РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РґРµРїР°СЂС‚Р°РјРµРЅС‚ РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ СЃРїРёСЃРєР°.', 'error');
             return;
         }
         const deptId = selectedDeptCard.dataset.deptId;
         const deptName = selectedDeptCard.dataset.deptName;
 
-        if (confirm(`Вы уверены, что хотите удалить чат "${chatName}"?`)) {
+        if (confirm(`Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ С‡Р°С‚ "${chatName}"?`)) {
             try {
                 await fetchWithAuth(`/api/chats/${chatId}`, { method: 'DELETE' });
-                showNotification(`Чат "${chatName}" успешно удален.`, 'success');
+                showNotification(`Р§Р°С‚ "${chatName}" СѓСЃРїРµС€РЅРѕ СѓРґР°Р»РµРЅ.`, 'success');
                 await loadChatListForAdminDepartment(deptId, deptName);
             } catch (error) {
-                showNotification(`Ошибка удаления чата: ${error.message}`, 'error');
+                showNotification(`РћС€РёР±РєР° СѓРґР°Р»РµРЅРёСЏ С‡Р°С‚Р°: ${error.message}`, 'error');
             }
         }
     }
@@ -1672,21 +1842,12 @@ ${brokenCode}
     async function handleSaveRawVersion(button = saveRawVersionBtn) {
         const process_text = processDescriptionInput.value;
         if (!process_text.trim()) {
-            showNotification("Нельзя сохранить пустую версию.", "error");
+            showNotification("РќРµР»СЊР·СЏ СЃРѕС…СЂР°РЅРёС‚СЊ РїСѓСЃС‚СѓСЋ РІРµСЂСЃРёСЋ.", "error");
             return;
         }
-        setButtonLoading(button, true, 'Сохранение...');
+        setButtonLoading(button, true, 'РЎРѕС…СЂР°РЅРµРЅРёРµ...');
         try {
-            let mermaid_code = '';
-
-            if (bpmnViewer && typeof bpmnViewer.saveXML === 'function') {
-                try {
-                    const { xml } = await bpmnViewer.saveXML({ format: true });
-                    mermaid_code = xml || '';
-                } catch (error) {
-                    console.warn('Failed to extract current BPMN XML before raw save:', error);
-                }
-            }
+            let mermaid_code = await getCurrentDiagramXml();
 
             if (!mermaid_code) {
                 mermaid_code = (chatVersions && chatVersions.length > 0) ? (chatVersions[0].mermaid_code || '') : '';
@@ -1700,10 +1861,10 @@ ${brokenCode}
             if (typeof localStorage !== 'undefined') {
                 localStorage.removeItem(`autosave_chat_${chatId}`);
             }
-            showNotification("Версия успешно сохранена (без изменений от ИИ).", "success");
+            showNotification("Р’РµСЂСЃРёСЏ СѓСЃРїРµС€РЅРѕ СЃРѕС…СЂР°РЅРµРЅР° (Р±РµР· РёР·РјРµРЅРµРЅРёР№ РѕС‚ РР).", "success");
             await loadChatData();
         } catch (error) {
-            showNotification(`Ошибка сохранения: ${error.message}`, "error");
+            showNotification(`РћС€РёР±РєР° СЃРѕС…СЂР°РЅРµРЅРёСЏ: ${error.message}`, "error");
         } finally {
             setButtonLoading(button, false);
         }
@@ -1715,7 +1876,7 @@ ${brokenCode}
             e.preventDefault();
             chatId = link.dataset.chatId;
             const deptNameMatch = link.querySelector('.chat-dept-name')?.textContent.replace(/[()]/g, '');
-            selectedDepartment = { name: deptNameMatch || 'Админ-панель' };
+            selectedDepartment = { name: deptNameMatch || 'РђРґРјРёРЅ-РїР°РЅРµР»СЊ' };
             showMainApp(link.dataset.chatName);
         }
     }
@@ -1790,7 +1951,7 @@ ${brokenCode}
 
         } catch (err) {
             console.error('Error starting recording:', err);
-            showNotification('Не удалось получить доступ к микрофону.', 'error');
+            showNotification('РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ РґРѕСЃС‚СѓРї Рє РјРёРєСЂРѕС„РѕРЅСѓ.', 'error');
             resetAudioState();
         }
     };
@@ -1821,11 +1982,11 @@ ${brokenCode}
 
     const handleProcessAudio = async () => {
         if (!audioBlob) {
-            showNotification('Нет записанного аудио для обработки.', 'error');
+            showNotification('РќРµС‚ Р·Р°РїРёСЃР°РЅРЅРѕРіРѕ Р°СѓРґРёРѕ РґР»СЏ РѕР±СЂР°Р±РѕС‚РєРё.', 'error');
             return;
         }
 
-        setButtonLoading(processBtn, true, 'Обработка...');
+        setButtonLoading(processBtn, true, 'РћР±СЂР°Р±РѕС‚РєР°...');
         listenBtn.disabled = true;
         rerecordBtn.disabled = true;
 
@@ -1848,24 +2009,24 @@ ${brokenCode}
             const data = await response.json();
 
             if (response.ok) {
-                showNotification('Транскрибация успешно завершена.', 'success');
+                showNotification('РўСЂР°РЅСЃРєСЂРёР±Р°С†РёСЏ СѓСЃРїРµС€РЅРѕ Р·Р°РІРµСЂС€РµРЅР°.', 'success');
                 transcriptionDisplay.textContent = data.transcript;
                 processDescriptionInput.value = data.transcript;
                 updateStepCounter();
                 // Keep audio controls available
                 processBtn.style.display = 'none'; // Hide process button after use
             } else {
-                throw new Error(data.error || 'Неизвестная ошибка сервера');
+                throw new Error(data.error || 'РќРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР° СЃРµСЂРІРµСЂР°');
             }
         } catch (error) {
             console.error('Transcription error:', error);
-            showNotification(`Ошибка транскрибации: ${error.message}`, 'error');
+            showNotification(`РћС€РёР±РєР° С‚СЂР°РЅСЃРєСЂРёР±Р°С†РёРё: ${error.message}`, 'error');
         } finally {
             // Stop animation timer
             clearInterval(transcriptionTimerInterval);
             transcriptionTimer.style.display = 'none';
 
-            setButtonLoading(processBtn, false, 'Обработать');
+            setButtonLoading(processBtn, false, 'РћР±СЂР°Р±РѕС‚Р°С‚СЊ');
             listenBtn.disabled = false;
             // The user should be able to re-record even after a failed attempt
             rerecordBtn.disabled = false;
@@ -1882,7 +2043,7 @@ ${brokenCode}
             const data = await response.json();
             updateTranscriptionModalUI(data);
         } catch (error) {
-            showNotification(`Не удалось сохранить первоначальную транскрибацию: ${error.message}`, 'error');
+            showNotification(`РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РїРµСЂРІРѕРЅР°С‡Р°Р»СЊРЅСѓСЋ С‚СЂР°РЅСЃРєСЂРёР±Р°С†РёСЋ: ${error.message}`, 'error');
         }
     }
 
@@ -1890,7 +2051,7 @@ ${brokenCode}
     function updateStepCounter() {
         if (!processDescriptionInput) return;
         const lines = processDescriptionInput.value.split('\n').filter(line => line.trim() !== '');
-        stepCounter.textContent = `${lines.length} шагов`;
+        stepCounter.textContent = `${lines.length} С€Р°РіРѕРІ`;
         improveBtn.disabled = lines.length === 0;
     }
 
@@ -1968,30 +2129,30 @@ ${brokenCode}
         const source = fenced ? fenced[1] : text;
         const arrayText = extractFirstJsonArray(source);
         if (!arrayText) {
-            throw new Error('Не удалось найти JSON-массив с улучшениями в ответе ИИ.');
+            throw new Error('РќРµ СѓРґР°Р»РѕСЃСЊ РЅР°Р№С‚Рё JSON-РјР°СЃСЃРёРІ СЃ СѓР»СѓС‡С€РµРЅРёСЏРјРё РІ РѕС‚РІРµС‚Рµ РР.');
         }
 
         const parsed = JSON.parse(arrayText);
         const normalized = normalizeSuggestions(parsed);
         if (normalized.length === 0) {
-            throw new Error('ИИ вернул ответ, но в нем нет валидных пунктов улучшений.');
+            throw new Error('РР РІРµСЂРЅСѓР» РѕС‚РІРµС‚, РЅРѕ РІ РЅРµРј РЅРµС‚ РІР°Р»РёРґРЅС‹С… РїСѓРЅРєС‚РѕРІ СѓР»СѓС‡С€РµРЅРёР№.');
         }
         return normalized;
     }
 
     async function getSuggestionsForProcess(processText) {
-        const prompt = `Ты — элитный бизнес-аналитик. Проанализируй следующее описание бизнес-процесса и предложи 3-5 конкретных, действенных улучшений. Для каждого улучшения укажи, какую проблему оно решает.
+        const prompt = `РўС‹ вЂ” СЌР»РёС‚РЅС‹Р№ Р±РёР·РЅРµСЃ-Р°РЅР°Р»РёС‚РёРє. РџСЂРѕР°РЅР°Р»РёР·РёСЂСѓР№ СЃР»РµРґСѓСЋС‰РµРµ РѕРїРёСЃР°РЅРёРµ Р±РёР·РЅРµСЃ-РїСЂРѕС†РµСЃСЃР° Рё РїСЂРµРґР»РѕР¶Рё 3-5 РєРѕРЅРєСЂРµС‚РЅС‹С…, РґРµР№СЃС‚РІРµРЅРЅС‹С… СѓР»СѓС‡С€РµРЅРёР№. Р”Р»СЏ РєР°Р¶РґРѕРіРѕ СѓР»СѓС‡С€РµРЅРёСЏ СѓРєР°Р¶Рё, РєР°РєСѓСЋ РїСЂРѕР±Р»РµРјСѓ РѕРЅРѕ СЂРµС€Р°РµС‚.
 
-Описание процесса:
+РћРїРёСЃР°РЅРёРµ РїСЂРѕС†РµСЃСЃР°:
 "${processText}"
 
-Ответ должен быть в формате JSON-массива, где каждый объект содержит два ключа: "problem" и "suggestion".
+РћС‚РІРµС‚ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РІ С„РѕСЂРјР°С‚Рµ JSON-РјР°СЃСЃРёРІР°, РіРґРµ РєР°Р¶РґС‹Р№ РѕР±СЉРµРєС‚ СЃРѕРґРµСЂР¶РёС‚ РґРІР° РєР»СЋС‡Р°: "problem" Рё "suggestion".
 
-Пример:
+РџСЂРёРјРµСЂ:
 [
   {
-    "problem": "Ручной ввод данных в CRM, что ведет к ошибкам.",
-    "suggestion": "Автоматизировать ввод данных в CRM с помощью интеграции по API."
+    "problem": "Р СѓС‡РЅРѕР№ РІРІРѕРґ РґР°РЅРЅС‹С… РІ CRM, С‡С‚Рѕ РІРµРґРµС‚ Рє РѕС€РёР±РєР°Рј.",
+    "suggestion": "РђРІС‚РѕРјР°С‚РёР·РёСЂРѕРІР°С‚СЊ РІРІРѕРґ РґР°РЅРЅС‹С… РІ CRM СЃ РїРѕРјРѕС‰СЊСЋ РёРЅС‚РµРіСЂР°С†РёРё РїРѕ API."
   }
 ]`;
         let lastError = null;
@@ -2009,17 +2170,17 @@ ${brokenCode}
             }
         }
 
-        throw new Error(`Ошибка получения улучшений: ${lastError?.message || 'неизвестная ошибка'}`);
+        throw new Error(`РћС€РёР±РєР° РїРѕР»СѓС‡РµРЅРёСЏ СѓР»СѓС‡С€РµРЅРёР№: ${lastError?.message || 'РЅРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР°'}`);
     }
 
     async function handleImproveProcess() {
         const processText = processDescriptionInput.value;
         if (!processText.trim()) {
-            showNotification("Описание процесса пустое.", "error");
+            showNotification("РћРїРёСЃР°РЅРёРµ РїСЂРѕС†РµСЃСЃР° РїСѓСЃС‚РѕРµ.", "error");
             return;
         }
 
-        setButtonLoading(improveBtn, true, 'Анализ...');
+        setButtonLoading(improveBtn, true, 'РђРЅР°Р»РёР·...');
         suggestionsContainer.innerHTML = ''; // Clear previous suggestions
         suggestionsControls.style.display = 'none';
 
@@ -2030,7 +2191,7 @@ ${brokenCode}
                 suggestionsControls.style.display = 'flex';
             }
         } catch (error) {
-            showNotification(`Ошибка при получении улучшений: ${error.message}`, 'error');
+            showNotification(`РћС€РёР±РєР° РїСЂРё РїРѕР»СѓС‡РµРЅРёРё СѓР»СѓС‡С€РµРЅРёР№: ${error.message}`, 'error');
         } finally {
             setButtonLoading(improveBtn, false);
         }
@@ -2041,8 +2202,8 @@ ${brokenCode}
             <div class="suggestion-card">
                 <input type="checkbox" id="suggestion-${index}" class="suggestion-checkbox" data-index="${index}">
                 <label for="suggestion-${index}">
-                    <p><strong>Проблема:</strong> ${s.problem}</p>
-                    <p><strong>Решение:</strong> ${s.suggestion}</p>
+                    <p><strong>РџСЂРѕР±Р»РµРјР°:</strong> ${s.problem}</p>
+                    <p><strong>Р РµС€РµРЅРёРµ:</strong> ${s.suggestion}</p>
                 </label>
             </div>
         `).join('');
@@ -2051,7 +2212,7 @@ ${brokenCode}
 
     function updateSelectionCounter() {
         const selectedCount = suggestionsContainer.querySelectorAll('.suggestion-checkbox:checked').length;
-        selectionCounter.textContent = `Выбрано: ${selectedCount}`;
+        selectionCounter.textContent = `Р’С‹Р±СЂР°РЅРѕ: ${selectedCount}`;
         applyImprovementsBtn.disabled = selectedCount === 0;
     }
 
@@ -2067,11 +2228,11 @@ ${brokenCode}
         const selectedCheckboxes = suggestionsContainer.querySelectorAll('.suggestion-checkbox:checked');
         if (selectedCheckboxes.length === 0) return;
 
-        let improvementsText = "\n\n### Предложения по улучшению:\n";
+        let improvementsText = "\n\n### РџСЂРµРґР»РѕР¶РµРЅРёСЏ РїРѕ СѓР»СѓС‡С€РµРЅРёСЋ:\n";
         selectedCheckboxes.forEach(checkbox => {
             const index = checkbox.dataset.index;
             const suggestion = suggestions[index];
-            improvementsText += `* **Проблема:** ${suggestion.problem}\n  * **Решение:** ${suggestion.suggestion}\n`;
+            improvementsText += `* **РџСЂРѕР±Р»РµРјР°:** ${suggestion.problem}\n  * **Р РµС€РµРЅРёРµ:** ${suggestion.suggestion}\n`;
         });
 
         processDescriptionInput.value += improvementsText;
@@ -2079,7 +2240,7 @@ ${brokenCode}
         suggestionsContainer.innerHTML = '';
         suggestionsControls.style.display = 'none';
         selectAllCheckbox.checked = false;
-        showNotification("Улучшения добавлены в описание.", "success");
+        showNotification("РЈР»СѓС‡С€РµРЅРёСЏ РґРѕР±Р°РІР»РµРЅС‹ РІ РѕРїРёСЃР°РЅРёРµ.", "success");
     }
 
     function openEditDepartmentModal(id, name) {
@@ -2099,30 +2260,30 @@ ${brokenCode}
         const password = editDepartmentPasswordInput.value; // Can be empty
 
         if (!id || !name) {
-            showNotification('Имя департамента не может быть пустым.', 'error');
+            showNotification('РРјСЏ РґРµРїР°СЂС‚Р°РјРµРЅС‚Р° РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј.', 'error');
             return;
         }
 
-        setButtonLoading(saveDepartmentBtn, true, 'Сохранение...');
+        setButtonLoading(saveDepartmentBtn, true, 'РЎРѕС…СЂР°РЅРµРЅРёРµ...');
         try {
             await fetchWithAuth(`/api/departments/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, password })
             });
-            showNotification('Департамент успешно обновлен.', 'success');
+            showNotification('Р”РµРїР°СЂС‚Р°РјРµРЅС‚ СѓСЃРїРµС€РЅРѕ РѕР±РЅРѕРІР»РµРЅ.', 'success');
             closeEditDepartmentModal();
             await loadAdminDepartments(); // Refresh the list
         } catch (error) {
-            showNotification(`Ошибка обновления: ${error.message}`, 'error');
+            showNotification(`РћС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ: ${error.message}`, 'error');
         } finally {
             setButtonLoading(saveDepartmentBtn, false);
         }
     }
 
-    // --- ИНЪЕКЦИИ НОВОГО UI/UX ---
+    // --- РРќРЄР•РљР¦РР РќРћР’РћР“Рћ UI/UX ---
 
-    // 1. Кнопка загрузки аудиофайла
+    // 1. РљРЅРѕРїРєР° Р·Р°РіСЂСѓР·РєРё Р°СѓРґРёРѕС„Р°Р№Р»Р°
     const fileUploadInput = document.createElement('input');
     fileUploadInput.type = 'file';
     fileUploadInput.accept = 'audio/*';
@@ -2130,7 +2291,7 @@ ${brokenCode}
 
     const uploadAudioBtn = document.createElement('button');
     uploadAudioBtn.className = 'button-secondary';
-    uploadAudioBtn.innerHTML = '📁 Загрузить файл';
+    uploadAudioBtn.innerHTML = 'рџ“Ѓ Р—Р°РіСЂСѓР·РёС‚СЊ С„Р°Р№Р»';
     uploadAudioBtn.type = 'button';
     uploadAudioBtn.style.marginLeft = '10px';
 
@@ -2149,11 +2310,11 @@ ${brokenCode}
             startRecordBtn.style.display = 'none';
             uploadAudioBtn.style.display = 'none';
             rerecordBtn.style.display = 'inline-block';
-            showNotification(`Аудиофайл ${file.name} готов к транскрибации.`, 'info');
+            showNotification(`РђСѓРґРёРѕС„Р°Р№Р» ${file.name} РіРѕС‚РѕРІ Рє С‚СЂР°РЅСЃРєСЂРёР±Р°С†РёРё.`, 'info');
         }
     });
 
-    // 2. Предпросмотр Markdown
+    // 2. РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ Markdown
     const previewContainer = document.createElement('div');
     previewContainer.className = 'markdown-body scroll-area';
     previewContainer.style.cssText = 'display: none; height: 400px; overflow-y: auto; border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px; background-color: #f8fafc;';
@@ -2162,16 +2323,16 @@ ${brokenCode}
     const togglePreviewBtn = document.createElement('button');
     togglePreviewBtn.className = 'button-secondary';
     togglePreviewBtn.style.marginBottom = '10px';
-    togglePreviewBtn.innerHTML = '👁️ Предпросмотр Markdown';
+    togglePreviewBtn.innerHTML = 'рџ‘ЃпёЏ РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ Markdown';
     processDescriptionInput.parentNode.insertBefore(togglePreviewBtn, processDescriptionInput);
 
     let isPreviewMode = false;
     togglePreviewBtn.addEventListener('click', () => {
         isPreviewMode = !isPreviewMode;
-        togglePreviewBtn.innerHTML = isPreviewMode ? '✏️ Режим редактирования' : '👁️ Предпросмотр Markdown';
+        togglePreviewBtn.innerHTML = isPreviewMode ? 'вњЏпёЏ Р РµР¶РёРј СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёСЏ' : 'рџ‘ЃпёЏ РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ Markdown';
         processDescriptionInput.style.display = isPreviewMode ? 'none' : 'block';
         previewContainer.style.display = isPreviewMode ? 'block' : 'none';
-        if (isPreviewMode) previewContainer.innerHTML = typeof marked !== 'undefined' ? marked.parse(processDescriptionInput.value || '*Пусто*') : processDescriptionInput.value;
+        if (isPreviewMode) previewContainer.innerHTML = typeof marked !== 'undefined' ? marked.parse(processDescriptionInput.value || '*РџСѓСЃС‚Рѕ*') : processDescriptionInput.value;
     });
 
     improveBtn.addEventListener('click', handleImproveProcess);
@@ -2186,7 +2347,7 @@ ${brokenCode}
     saveTranscriptionProgressBtn.addEventListener('click', () => handleSaveTranscription(false));
     finalizeTranscriptionBtn.addEventListener('click', () => handleSaveTranscription(true));
 
-    // 3. Автосохранение
+    // 3. РђРІС‚РѕСЃРѕС…СЂР°РЅРµРЅРёРµ
     let autosaveTimeout;
     processDescriptionInput.addEventListener('input', () => {
         updateStepCounter();
@@ -2240,43 +2401,19 @@ ${brokenCode}
             }
         }
     });
-    downloadPngBtn.addEventListener('click', () => downloadDiagram('png'));
-    downloadSvgBtn.addEventListener('click', () => downloadDiagram('svg'));
-
-    // VISIO EXPORT
-    const downloadVisioBtn = document.createElement('button');
-    downloadVisioBtn.id = 'download-visio-btn';
-    downloadVisioBtn.className = 'button-primary';
-    downloadVisioBtn.innerHTML = '📥 Скачать для MS Visio';
-    downloadVisioBtn.style.marginLeft = '8px';
-    if (downloadSvgBtn) {
-        downloadSvgBtn.parentNode.insertBefore(downloadVisioBtn, downloadSvgBtn.nextSibling);
-    }
-
-    downloadVisioBtn.addEventListener('click', async () => {
-        if (!bpmnViewer) return showNotification("Сначала сгенерируйте схему.", "error");
-        try {
-            const { xml } = await bpmnViewer.saveXML({ format: true });
-            const blob = new Blob([xml], { type: 'application/bpmn+xml;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'business-process.bpmn';
-            link.click();
-            URL.revokeObjectURL(url);
-        } catch (err) { console.error(err); showNotification("Ошибка скачивания.", "error"); }
-    });
+    downloadBpmnBtn.addEventListener('click', downloadCurrentBpmnXml);
+    downloadPngBtn.addEventListener('click', () => downloadCurrentDiagram('png'));
+    downloadSvgBtn.addEventListener('click', () => downloadCurrentDiagram('svg'));
+    downloadVsdxBtn.addEventListener('click', downloadCurrentVsdx);
 
     renderDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
     regenerateDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
-    zoomInBtn.addEventListener('click', () => zoomDiagram(1.1));
-    zoomOutBtn.addEventListener('click', () => zoomDiagram(0.9));
+    zoomInBtn.addEventListener('click', () => zoomActiveDiagram(1.1));
+    zoomOutBtn.addEventListener('click', () => zoomActiveDiagram(0.9));
 
-    editDiagramBtn.addEventListener('click', openMermaidEditor);
-    closeMermaidEditorBtn.addEventListener('click', closeMermaidEditor);
-    cancelMermaidEditBtn.addEventListener('click', closeMermaidEditor);
-    saveMermaidChangesBtn.addEventListener('click', handleSaveMermaidChanges);
-
+    editDiagramBtn.addEventListener('click', openInlineDiagramEditor);
+    cancelMermaidEditBtn.addEventListener('click', cancelInlineDiagramEdit);
+    saveMermaidChangesBtn.addEventListener('click', saveInlineDiagramEdit);
 
     const globalAuditBtn = document.getElementById('global-audit-btn');
     const globalAuditModal = document.getElementById('global-audit-modal');
@@ -2301,10 +2438,10 @@ ${brokenCode}
     if (runGlobalAuditBtn) {
         runGlobalAuditBtn.addEventListener('click', async () => {
             const prompt = auditPrompt.value.trim();
-            if (!prompt) return showNotification('Введите запрос для анализа', 'error');
+            if (!prompt) return showNotification('Р’РІРµРґРёС‚Рµ Р·Р°РїСЂРѕСЃ РґР»СЏ Р°РЅР°Р»РёР·Р°', 'error');
 
             runGlobalAuditBtn.disabled = true;
-            runGlobalAuditBtn.innerHTML = '<span class="spinner"></span> Обработка...';
+            runGlobalAuditBtn.innerHTML = '<span class="spinner"></span> РћР±СЂР°Р±РѕС‚РєР°...';
             auditResultArea.style.display = 'none';
 
             try {
@@ -2320,14 +2457,14 @@ ${brokenCode}
                     auditResultArea.style.display = 'block';
                 } else {
                     const error = await response.json();
-                    showNotification(error.error || 'Ошибка аудита', 'error');
+                    showNotification(error.error || 'РћС€РёР±РєР° Р°СѓРґРёС‚Р°', 'error');
                 }
             } catch (err) {
                 console.error(err);
-                showNotification('Сетевая ошибка при аудите', 'error');
+                showNotification('РЎРµС‚РµРІР°СЏ РѕС€РёР±РєР° РїСЂРё Р°СѓРґРёС‚Рµ', 'error');
             } finally {
                 runGlobalAuditBtn.disabled = false;
-                runGlobalAuditBtn.innerHTML = '🚀 Запустить Анализ';
+                runGlobalAuditBtn.innerHTML = 'рџљЂ Р—Р°РїСѓСЃС‚РёС‚СЊ РђРЅР°Р»РёР·';
             }
         });
     }
@@ -2337,7 +2474,7 @@ ${brokenCode}
     const cyZoomOut = document.getElementById('cy-zoom-out');
     const cyFit = document.getElementById('cy-fit');
     let cy; // Cytoscape instance
-    const adminMapRootLabel = 'Бизнес-процессы\nСентрас Иншуранс';
+    const adminMapRootLabel = 'Р‘РёР·РЅРµСЃ-РїСЂРѕС†РµСЃСЃС‹\nРЎРµРЅС‚СЂР°СЃ РРЅС€СѓСЂР°РЅСЃ';
 
     async function loadProcessMap() {
         if (!document.getElementById('cy')) return;
@@ -2357,7 +2494,7 @@ ${brokenCode}
 
             const elements = [];
 
-            // КОРНЕВОЙ УЗЕЛ
+            // РљРћР РќР•Р’РћР™ РЈР—Р•Р›
             elements.push({
                 data: { id: 'root_centras', name: adminMapRootLabel, type: 'root' },
                 classes: 'root-node'
@@ -2369,7 +2506,7 @@ ${brokenCode}
                     position: (dept.x !== null && dept.y !== null) ? { x: parseFloat(dept.x), y: parseFloat(dept.y) } : undefined,
                     classes: 'department'
                 });
-                // Связь от корня к департаменту
+                // РЎРІСЏР·СЊ РѕС‚ РєРѕСЂРЅСЏ Рє РґРµРїР°СЂС‚Р°РјРµРЅС‚Сѓ
                 elements.push({
                     data: { id: `edge_root_dept_${dept.id}`, source: 'root_centras', target: `dept_${dept.id}` },
                     classes: 'root-edge'
@@ -2382,9 +2519,9 @@ ${brokenCode}
                         id: `proc_${proc.id}`,
                         name: proc.name,
                         rawName: proc.name,
-                        description: proc.description || 'Описание отсутствует',
-                        goal: proc.goal || 'Цель не указана',
-                        owner: proc.owner || 'Не назначен',
+                        description: proc.description || 'РћРїРёСЃР°РЅРёРµ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚',
+                        goal: proc.goal || 'Р¦РµР»СЊ РЅРµ СѓРєР°Р·Р°РЅР°',
+                        owner: proc.owner || 'РќРµ РЅР°Р·РЅР°С‡РµРЅ',
                         status: proc.status,
                         type: 'process'
                     },
@@ -2398,7 +2535,7 @@ ${brokenCode}
                             id: `edge_dept_proc_${proc.id}`,
                             source: `dept_${proc.department_id}`,
                             target: `proc_${proc.id}`,
-                            label: 'Процесс'
+                            label: 'РџСЂРѕС†РµСЃСЃ'
                         },
                         classes: 'dept-edge'
                     });
@@ -2424,7 +2561,7 @@ ${brokenCode}
                             id: `edge_dept_chat_${chat.id}`,
                             source: `dept_${chat.department_id}`,
                             target: `chat_${chat.id}`,
-                            label: 'Чат'
+                            label: 'Р§Р°С‚'
                         },
                         classes: 'dept-edge chat-edge'
                     });
@@ -2601,7 +2738,7 @@ ${brokenCode}
                     }
                 });
 
-                // --- ВСПЛЫВАЮЩЕЕ ОКНО (TOOLTIP) ДЛЯ ДЕПАРТАМЕНТОВ ---
+                // --- Р’РЎРџР›Р«Р’РђР®Р©Р•Р• РћРљРќРћ (TOOLTIP) Р”Р›РЇ Р”Р•РџРђР РўРђРњР•РќРўРћР’ ---
                 let tooltip = document.getElementById('cy-tooltip');
                 if (!tooltip) {
                     tooltip = document.createElement('div');
@@ -2623,7 +2760,7 @@ ${brokenCode}
                         else if (st === 'completed') stats['approved']++; // or track separately if needed
                     });
 
-                    tooltip.innerHTML = `<strong>${node.data('rawName')}</strong>\n\n<b>Всего процессов:</b> ${processes}\n<b>Всего чатов:</b> ${chats}\n\nУтвержденных: ${stats.approved}\nЧерновиков: ${stats.draft}\nНа проверке: ${stats.pending_review}\nНужны правки: ${stats.needs_revision}\nЗавершенных: ${stats.completed || 0}`;
+                    tooltip.innerHTML = `<strong>${node.data('rawName')}</strong>\n\n<b>Р’СЃРµРіРѕ РїСЂРѕС†РµСЃСЃРѕРІ:</b> ${processes}\n<b>Р’СЃРµРіРѕ С‡Р°С‚РѕРІ:</b> ${chats}\n\nРЈС‚РІРµСЂР¶РґРµРЅРЅС‹С…: ${stats.approved}\nР§РµСЂРЅРѕРІРёРєРѕРІ: ${stats.draft}\nРќР° РїСЂРѕРІРµСЂРєРµ: ${stats.pending_review}\nРќСѓР¶РЅС‹ РїСЂР°РІРєРё: ${stats.needs_revision}\nР—Р°РІРµСЂС€РµРЅРЅС‹С…: ${stats.completed || 0}`;
                     tooltip.style.display = 'block';
                 });
                 cy.on('mousemove', 'node.department', function (e) {
@@ -2637,13 +2774,13 @@ ${brokenCode}
                 const toggleChatsMapBtn = document.createElement('button');
                 toggleChatsMapBtn.id = 'cy-toggle-chats';
                 toggleChatsMapBtn.className = 'button-secondary';
-                toggleChatsMapBtn.innerText = '👁️ Скрыть чаты';
+                toggleChatsMapBtn.innerText = 'рџ‘ЃпёЏ РЎРєСЂС‹С‚СЊ С‡Р°С‚С‹';
                 document.querySelector('.map-controls').appendChild(toggleChatsMapBtn);
 
                 let chatsVisible = true;
                 toggleChatsMapBtn.onclick = () => {
                     chatsVisible = !chatsVisible;
-                    toggleChatsMapBtn.innerText = chatsVisible ? '👁️ Скрыть чаты' : '👁️ Показать чаты';
+                    toggleChatsMapBtn.innerText = chatsVisible ? 'рџ‘ЃпёЏ РЎРєСЂС‹С‚СЊ С‡Р°С‚С‹' : 'рџ‘ЃпёЏ РџРѕРєР°Р·Р°С‚СЊ С‡Р°С‚С‹';
                     if (cy) {
                         cy.elements('.chat').style('display', chatsVisible ? 'element' : 'none');
                         cy.elements('.chat-edge').style('display', chatsVisible ? 'element' : 'none');
@@ -2676,14 +2813,14 @@ ${brokenCode}
                     exportPngBtn = document.createElement('button');
                     exportPngBtn.id = 'cy-export-png';
                     exportPngBtn.className = 'button-secondary';
-                    exportPngBtn.innerHTML = '🖼️ Экспорт PNG';
+                    exportPngBtn.innerHTML = 'рџ–јпёЏ Р­РєСЃРїРѕСЂС‚ PNG';
                     document.querySelector('.map-controls').appendChild(exportPngBtn);
 
                     exportPngBtn.onclick = () => {
                         const png64 = cy.png({ bg: '#f8fafc', full: true, scale: 2 });
                         const a = document.createElement('a');
                         a.href = png64;
-                        a.download = 'Карта_Процессов.png';
+                        a.download = 'РљР°СЂС‚Р°_РџСЂРѕС†РµСЃСЃРѕРІ.png';
                         a.click();
                     };
                 }
@@ -2693,12 +2830,12 @@ ${brokenCode}
                     shareBoardBtn = document.createElement('button');
                     shareBoardBtn.id = 'cy-share-board';
                     shareBoardBtn.className = 'button-primary';
-                    shareBoardBtn.innerHTML = '🔗 Поделиться дашбордом';
+                    shareBoardBtn.innerHTML = 'рџ”— РџРѕРґРµР»РёС‚СЊСЃСЏ РґР°С€Р±РѕСЂРґРѕРј';
                     document.querySelector('.map-controls').appendChild(shareBoardBtn);
 
                     shareBoardBtn.onclick = () => {
                         const shareUrl = window.location.origin + '/dash';
-                        navigator.clipboard.writeText(shareUrl).then(() => showNotification('Ссылка на дашборд скопирована!', 'success'));
+                        navigator.clipboard.writeText(shareUrl).then(() => showNotification('РЎСЃС‹Р»РєР° РЅР° РґР°С€Р±РѕСЂРґ СЃРєРѕРїРёСЂРѕРІР°РЅР°!', 'success'));
                         window.open(shareUrl, '_blank');
                     };
                 }
@@ -2708,7 +2845,7 @@ ${brokenCode}
                     let isAllCollapsed = false;
                     toggleCollapseBtn.onclick = () => {
                         isAllCollapsed = !isAllCollapsed;
-                        toggleCollapseBtn.innerText = isAllCollapsed ? 'Развернуть все' : 'Свернуть все';
+                        toggleCollapseBtn.innerText = isAllCollapsed ? 'Р Р°Р·РІРµСЂРЅСѓС‚СЊ РІСЃРµ' : 'РЎРІРµСЂРЅСѓС‚СЊ РІСЃРµ';
                         if (cy) {
                             cy.nodes('.department').forEach(deptNode => {
                                 const outEdges = deptNode.outgoers('edge.dept-edge');
@@ -2722,7 +2859,7 @@ ${brokenCode}
                     };
                 }
 
-                // --- ИИ ОЦЕНКА СВЯЗЕЙ ---
+                // --- РР РћР¦Р•РќРљРђ РЎР’РЇР—Р•Р™ ---
                 let aiLinkBtn = document.getElementById('cy-ai-link-btn');
                 let toggleAiLinksBtn = document.getElementById('cy-toggle-ai-links');
 
@@ -2730,35 +2867,35 @@ ${brokenCode}
                     aiLinkBtn = document.createElement('button');
                     aiLinkBtn.id = 'cy-ai-link-btn';
                     aiLinkBtn.className = 'button-primary';
-                    aiLinkBtn.innerHTML = '🪄 Связь процессов (ИИ)';
+                    aiLinkBtn.innerHTML = 'рџЄ„ РЎРІСЏР·СЊ РїСЂРѕС†РµСЃСЃРѕРІ (РР)';
                     document.querySelector('.map-controls').appendChild(aiLinkBtn);
 
                     toggleAiLinksBtn = document.createElement('button');
                     toggleAiLinksBtn.id = 'cy-toggle-ai-links';
                     toggleAiLinksBtn.className = 'button-secondary';
                     toggleAiLinksBtn.style.display = 'none';
-                    toggleAiLinksBtn.innerHTML = '👁️ Скрыть связи ИИ';
+                    toggleAiLinksBtn.innerHTML = 'рџ‘ЃпёЏ РЎРєСЂС‹С‚СЊ СЃРІСЏР·Рё РР';
                     document.querySelector('.map-controls').appendChild(toggleAiLinksBtn);
 
                     aiLinkBtn.onclick = async () => {
                         const nodes = cy.nodes('.process');
-                        if (nodes.length < 2) return showNotification('Недостаточно процессов для анализа', 'error');
+                        if (nodes.length < 2) return showNotification('РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РїСЂРѕС†РµСЃСЃРѕРІ РґР»СЏ Р°РЅР°Р»РёР·Р°', 'error');
 
-                        setButtonLoading(aiLinkBtn, true, 'Анализ...');
+                        setButtonLoading(aiLinkBtn, true, 'РђРЅР°Р»РёР·...');
                         const processesData = nodes.map(n => ({ 
                             id: n.id(), 
                             name: n.data('rawName'), 
                             desc: n.data('description') 
                         }));
 
-                        const prompt = `Ты — бизнес-архитектор. Проанализируй этот список процессов и найди логические связи (кто кому передает данные, кто за кем следует). 
-Верни СТРОГО JSON-массив объектов: [{"source": "id_источника", "target": "id_цели", "reason": "краткое описание связи"}]. Не пиши markdown, только голый JSON.
-Если связей нет, верни пустой массив [].
-Процессы: ${JSON.stringify(processesData)}`;
+                        const prompt = `РўС‹ вЂ” Р±РёР·РЅРµСЃ-Р°СЂС…РёС‚РµРєС‚РѕСЂ. РџСЂРѕР°РЅР°Р»РёР·РёСЂСѓР№ СЌС‚РѕС‚ СЃРїРёСЃРѕРє РїСЂРѕС†РµСЃСЃРѕРІ Рё РЅР°Р№РґРё Р»РѕРіРёС‡РµСЃРєРёРµ СЃРІСЏР·Рё (РєС‚Рѕ РєРѕРјСѓ РїРµСЂРµРґР°РµС‚ РґР°РЅРЅС‹Рµ, РєС‚Рѕ Р·Р° РєРµРј СЃР»РµРґСѓРµС‚). 
+Р’РµСЂРЅРё РЎРўР РћР“Рћ JSON-РјР°СЃСЃРёРІ РѕР±СЉРµРєС‚РѕРІ: [{"source": "id_РёСЃС‚РѕС‡РЅРёРєР°", "target": "id_С†РµР»Рё", "reason": "РєСЂР°С‚РєРѕРµ РѕРїРёСЃР°РЅРёРµ СЃРІСЏР·Рё"}]. РќРµ РїРёС€Рё markdown, С‚РѕР»СЊРєРѕ РіРѕР»С‹Р№ JSON.
+Р•СЃР»Рё СЃРІСЏР·РµР№ РЅРµС‚, РІРµСЂРЅРё РїСѓСЃС‚РѕР№ РјР°СЃСЃРёРІ [].
+РџСЂРѕС†РµСЃСЃС‹: ${JSON.stringify(processesData)}`;
 
                         try {
                             const res = await callGeminiAPI(prompt);
-                            // Более надежное извлечение JSON (поддерживает и пустые массивы, и markdown-обертки)
+                            // Р‘РѕР»РµРµ РЅР°РґРµР¶РЅРѕРµ РёР·РІР»РµС‡РµРЅРёРµ JSON (РїРѕРґРґРµСЂР¶РёРІР°РµС‚ Рё РїСѓСЃС‚С‹Рµ РјР°СЃСЃРёРІС‹, Рё markdown-РѕР±РµСЂС‚РєРё)
                             const jsonMatch = res.match(/\[\s*([\s\S]*)\s*\]/);
                             if (!jsonMatch) throw new Error("Could not find JSON array in AI response");
                             
@@ -2766,7 +2903,7 @@ ${brokenCode}
                             if (!Array.isArray(links)) throw new Error("AI response is not an array");
 
                             if (links.length === 0) {
-                                showNotification('ИИ не нашел новых логических связей', 'info');
+                                showNotification('РР РЅРµ РЅР°С€РµР» РЅРѕРІС‹С… Р»РѕРіРёС‡РµСЃРєРёС… СЃРІСЏР·РµР№', 'info');
                                 return;
                             }
 
@@ -2786,7 +2923,7 @@ ${brokenCode}
                                 const targetNode = cy.getElementById(link.target);
 
                                 if (sourceNode.length && targetNode.length) {
-                                    // Добавляем на карту, если еще нет
+                                    // Р”РѕР±Р°РІР»СЏРµРј РЅР° РєР°СЂС‚Сѓ, РµСЃР»Рё РµС‰Рµ РЅРµС‚
                                     if (cy.getElementById(edgeId).length === 0) {
                                         cy.add({
                                             data: { 
@@ -2799,7 +2936,7 @@ ${brokenCode}
                                         });
                                         addedCount++;
 
-                                        // СОХРАНЕНИЕ В БД ДЛЯ ПЕРСИСТЕНТНОСТИ
+                                        // РЎРћРҐР РђРќР•РќРР• Р’ Р‘Р” Р”Р›РЇ РџР•Р РЎРРЎРўР•РќРўРќРћРЎРўР
                                         const sourceId = link.source.replace('proc_', '');
                                         const targetId = link.target.replace('proc_', '');
                                         
@@ -2823,29 +2960,29 @@ ${brokenCode}
                             }
 
                             if (addedCount > 0) {
-                                showNotification(`ИИ нашел и сохранил ${addedCount} новых связей!`, 'success');
+                                showNotification(`РР РЅР°С€РµР» Рё СЃРѕС…СЂР°РЅРёР» ${addedCount} РЅРѕРІС‹С… СЃРІСЏР·РµР№!`, 'success');
                                 toggleAiLinksBtn.style.display = 'inline-block';
                             } else {
-                                showNotification('Новых связей не найдено (все уже есть на карте)', 'info');
+                                showNotification('РќРѕРІС‹С… СЃРІСЏР·РµР№ РЅРµ РЅР°Р№РґРµРЅРѕ (РІСЃРµ СѓР¶Рµ РµСЃС‚СЊ РЅР° РєР°СЂС‚Рµ)', 'info');
                             }
 
                         } catch (e) {
                             console.error('AI Link Error:', e);
-                            showNotification('Ошибка анализа: ' + e.message, 'error');
+                            showNotification('РћС€РёР±РєР° Р°РЅР°Р»РёР·Р°: ' + e.message, 'error');
                         } finally {
-                            setButtonLoading(aiLinkBtn, false, '🪄 Связь процессов (ИИ)');
+                            setButtonLoading(aiLinkBtn, false, 'рџЄ„ РЎРІСЏР·СЊ РїСЂРѕС†РµСЃСЃРѕРІ (РР)');
                         }
                     };
 
                     let aiLinksVisible = true;
                     toggleAiLinksBtn.onclick = () => {
                         aiLinksVisible = !aiLinksVisible;
-                        toggleAiLinksBtn.innerHTML = aiLinksVisible ? '👁️ Скрыть связи ИИ' : '👁️ Показать связи ИИ';
+                        toggleAiLinksBtn.innerHTML = aiLinksVisible ? 'рџ‘ЃпёЏ РЎРєСЂС‹С‚СЊ СЃРІСЏР·Рё РР' : 'рџ‘ЃпёЏ РџРѕРєР°Р·Р°С‚СЊ СЃРІСЏР·Рё РР';
                         cy.edges().filter(e => !e.hasClass('root-edge') && !e.hasClass('dept-edge') && !e.hasClass('chat-edge')).style('display', aiLinksVisible ? 'element' : 'none');
                     };
                 }
 
-                // Сворачивание / Разворачивание по клику на департамент
+                // РЎРІРѕСЂР°С‡РёРІР°РЅРёРµ / Р Р°Р·РІРѕСЂР°С‡РёРІР°РЅРёРµ РїРѕ РєР»РёРєСѓ РЅР° РґРµРїР°СЂС‚Р°РјРµРЅС‚
                 cy.on('tap', 'node.department', function (evt) {
                     const deptNode = evt.target;
                     const isCollapsed = deptNode.data('collapsed');
@@ -2865,7 +3002,7 @@ ${brokenCode}
                     }
                 });
 
-                // UX: Изменение курсора при наведении на элементы
+                // UX: РР·РјРµРЅРµРЅРёРµ РєСѓСЂСЃРѕСЂР° РїСЂРё РЅР°РІРµРґРµРЅРёРё РЅР° СЌР»РµРјРµРЅС‚С‹
                 cy.on('mouseover', 'node', () => document.body.style.cursor = 'pointer');
                 cy.on('mouseout', 'node', () => document.body.style.cursor = 'default');
 
@@ -2888,14 +3025,14 @@ ${brokenCode}
                                 })
                             });
                             if (res.ok) {
-                                showNotification('Связь создана', 'success');
+                                showNotification('РЎРІСЏР·СЊ СЃРѕР·РґР°РЅР°', 'success');
                             } else {
                                 addedEles.remove();
-                                showNotification('Ошибка создания связи', 'error');
+                                showNotification('РћС€РёР±РєР° СЃРѕР·РґР°РЅРёСЏ СЃРІСЏР·Рё', 'error');
                             }
                         } catch (err) {
                             addedEles.remove();
-                            showNotification('Ошибка: ' + err.message, 'error');
+                            showNotification('РћС€РёР±РєР°: ' + err.message, 'error');
                         }
                     }
                 });
@@ -2918,11 +3055,11 @@ ${brokenCode}
                 document.getElementById('cy-add-node').onclick = async function () {
                     const depts = cy.nodes('.department');
                     if (depts.length === 0) {
-                        showNotification('Сначала создайте департамент (Через админ-панель или по пустому месту)', 'error');
+                        showNotification('РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°Р№С‚Рµ РґРµРїР°СЂС‚Р°РјРµРЅС‚ (Р§РµСЂРµР· Р°РґРјРёРЅ-РїР°РЅРµР»СЊ РёР»Рё РїРѕ РїСѓСЃС‚РѕРјСѓ РјРµСЃС‚Сѓ)', 'error');
                         return;
                     }
                     const deptId = depts[0].id().replace('dept_', ''); // Default to first dept
-                    const name = prompt('Введите название нового процесса:');
+                    const name = prompt('Р’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ РЅРѕРІРѕРіРѕ РїСЂРѕС†РµСЃСЃР°:');
                     if (name) {
                         try {
                             await fetchWithAuth('/api/admin/processes', {
@@ -2930,10 +3067,10 @@ ${brokenCode}
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ name, department_id: deptId, status: 'draft' })
                             });
-                            showNotification('Черновик процесса успешно создан', 'success');
+                            showNotification('Р§РµСЂРЅРѕРІРёРє РїСЂРѕС†РµСЃСЃР° СѓСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅ', 'success');
                             loadProcessMap();
                         } catch (e) {
-                            showNotification('Ошибка создания процесса', 'error');
+                            showNotification('РћС€РёР±РєР° СЃРѕР·РґР°РЅРёСЏ РїСЂРѕС†РµСЃСЃР°', 'error');
                         }
                     }
                 };
@@ -2943,7 +3080,7 @@ ${brokenCode}
                     aiLayoutBtn.onclick = async function () {
                         const btn = this;
                         const originalText = btn.innerText;
-                        btn.innerText = 'ИИ рассчитывает...';
+                        btn.innerText = 'РР СЂР°СЃСЃС‡РёС‚С‹РІР°РµС‚...';
                         btn.disabled = true;
 
                         try {
@@ -2959,7 +3096,7 @@ ${brokenCode}
                                         }
                                     });
                                 });
-                                showNotification('ИИ макет применен', 'success');
+                                showNotification('РР РјР°РєРµС‚ РїСЂРёРјРµРЅРµРЅ', 'success');
                                 setTimeout(() => {
                                     data.layout.forEach(item => {
                                         let eleType = item.type === 'process' ? 'proc_' : 'dept_';
@@ -2970,10 +3107,10 @@ ${brokenCode}
                                     });
                                 }, 1100);
                             } else {
-                                showNotification('Ошибка данных макета', 'error');
+                                showNotification('РћС€РёР±РєР° РґР°РЅРЅС‹С… РјР°РєРµС‚Р°', 'error');
                             }
                         } catch (e) {
-                            showNotification('Ошибка: ' + e.message, 'error');
+                            showNotification('РћС€РёР±РєР°: ' + e.message, 'error');
                         } finally {
                             btn.innerText = originalText;
                             btn.disabled = false;
@@ -2984,7 +3121,7 @@ ${brokenCode}
                 const saveMapBtn = document.getElementById('save-map-btn');
                 if (saveMapBtn) {
                     saveMapBtn.onclick = async () => {
-                        setButtonLoading(saveMapBtn, true, 'Сохранение...');
+                        setButtonLoading(saveMapBtn, true, 'РЎРѕС…СЂР°РЅРµРЅРёРµ...');
                         try {
                             const departments = [];
                             const processes = [];
@@ -3008,12 +3145,12 @@ ${brokenCode}
                             });
 
                             if (res.ok) {
-                                showNotification('Координаты всей карты успешно сохранены', 'success');
+                                showNotification('РљРѕРѕСЂРґРёРЅР°С‚С‹ РІСЃРµР№ РєР°СЂС‚С‹ СѓСЃРїРµС€РЅРѕ СЃРѕС…СЂР°РЅРµРЅС‹', 'success');
                             } else {
-                                showNotification('Ошибка при сохранении карты', 'error');
+                                showNotification('РћС€РёР±РєР° РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё РєР°СЂС‚С‹', 'error');
                             }
                         } catch (e) {
-                            showNotification('Ошибка связи: ' + e.message, 'error');
+                            showNotification('РћС€РёР±РєР° СЃРІСЏР·Рё: ' + e.message, 'error');
                         } finally {
                             setButtonLoading(saveMapBtn, false);
                         }
@@ -3023,16 +3160,16 @@ ${brokenCode}
                 const autoLayoutBtn = document.getElementById('auto-layout-btn');
                 if (autoLayoutBtn) {
                     autoLayoutBtn.onclick = async () => {
-                        if (confirm('Выровнять все департаменты по горизонтали, а их процессы СТРОГО вертикально вниз? (Текущие координаты будут перезаписаны)')) {
-                            // КАСТОМНЫЙ АЛГОРИТМ ИДЕАЛЬНОЙ ИЕРАРХИИ
+                        if (confirm('Р’С‹СЂРѕРІРЅСЏС‚СЊ РІСЃРµ РґРµРїР°СЂС‚Р°РјРµРЅС‚С‹ РїРѕ РіРѕСЂРёР·РѕРЅС‚Р°Р»Рё, Р° РёС… РїСЂРѕС†РµСЃСЃС‹ РЎРўР РћР“Рћ РІРµСЂС‚РёРєР°Р»СЊРЅРѕ РІРЅРёР·? (РўРµРєСѓС‰РёРµ РєРѕРѕСЂРґРёРЅР°С‚С‹ Р±СѓРґСѓС‚ РїРµСЂРµР·Р°РїРёСЃР°РЅС‹)')) {
+                            // РљРђРЎРўРћРњРќР«Р™ РђР›Р“РћР РРўРњ РР”Р•РђР›Р¬РќРћР™ РР•Р РђР РҐРР
                             const depts = cy.nodes('.department').sort((a, b) => (a.data('rawName') || '').localeCompare(b.data('rawName') || ''));
                             const root = cy.getElementById('root_centras');
 
-                            const spacingX = 300; // Отступ между колонками департаментов
-                            const startY = 130;   // Y координата департаментов
-                            const spacingY = 150;  // Шаг по вертикали, чтобы между узлами читались связи
+                            const spacingX = 300; // РћС‚СЃС‚СѓРї РјРµР¶РґСѓ РєРѕР»РѕРЅРєР°РјРё РґРµРїР°СЂС‚Р°РјРµРЅС‚РѕРІ
+                            const startY = 130;   // Y РєРѕРѕСЂРґРёРЅР°С‚Р° РґРµРїР°СЂС‚Р°РјРµРЅС‚РѕРІ
+                            const spacingY = 150;  // РЁР°Рі РїРѕ РІРµСЂС‚РёРєР°Р»Рё, С‡С‚РѕР±С‹ РјРµР¶РґСѓ СѓР·Р»Р°РјРё С‡РёС‚Р°Р»РёСЃСЊ СЃРІСЏР·Рё
 
-                            let currentX = -((depts.length - 1) * spacingX) / 2; // Центрируем весь блок по X=0
+                            let currentX = -((depts.length - 1) * spacingX) / 2; // Р¦РµРЅС‚СЂРёСЂСѓРµРј РІРµСЃСЊ Р±Р»РѕРє РїРѕ X=0
 
                             if (root.length) root.position({ x: 0, y: -100 });
 
@@ -3043,7 +3180,7 @@ ${brokenCode}
                                     const children = dept.outgoers('node.process, node.chat');
                                     let currentY = startY + spacingY;
 
-                                    // Сначала Процессы, затем Чаты
+                                    // РЎРЅР°С‡Р°Р»Р° РџСЂРѕС†РµСЃСЃС‹, Р·Р°С‚РµРј Р§Р°С‚С‹
                                     children.filter('.process').forEach(child => {
                                         child.position({ x: currentX, y: currentY });
                                         currentY += spacingY;
@@ -3057,7 +3194,7 @@ ${brokenCode}
                                     currentX += spacingX;
                                 });
 
-                                // Обработка процессов без департаментов (сироты)
+                                // РћР±СЂР°Р±РѕС‚РєР° РїСЂРѕС†РµСЃСЃРѕРІ Р±РµР· РґРµРїР°СЂС‚Р°РјРµРЅС‚РѕРІ (СЃРёСЂРѕС‚С‹)
                                 const floating = cy.nodes('.process, .chat').filter(n => n.incomers('.department').length === 0);
                                 let floatY = startY;
                                 floating.forEach(node => {
@@ -3068,7 +3205,7 @@ ${brokenCode}
 
                             cy.fit(cy.nodes(), 50);
 
-                            // Сохраняем новые координаты в БД единым запросом
+                            // РЎРѕС…СЂР°РЅСЏРµРј РЅРѕРІС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РІ Р‘Р” РµРґРёРЅС‹Рј Р·Р°РїСЂРѕСЃРѕРј
                             const departments = [];
                             const processes = [];
                             const chats = [];
@@ -3091,9 +3228,9 @@ ${brokenCode}
                             });
 
                             if (res.ok) {
-                                showNotification('Авто-выравнивание и сохранение завершено', 'success');
+                                showNotification('РђРІС‚Рѕ-РІС‹СЂР°РІРЅРёРІР°РЅРёРµ Рё СЃРѕС…СЂР°РЅРµРЅРёРµ Р·Р°РІРµСЂС€РµРЅРѕ', 'success');
                             } else {
-                                showNotification('Ошибка при сохранении автоматического макета', 'error');
+                                showNotification('РћС€РёР±РєР° РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРѕРіРѕ РјР°РєРµС‚Р°', 'error');
                             }
                         }
                     };
@@ -3143,7 +3280,7 @@ ${brokenCode}
                     const isChat = nodeData.type === 'chat';
                     const isApproved = nodeData.status === 'approved';
                     const statusClass = isApproved ? 'status-approved' : 'status-draft';
-                    const statusText = isApproved ? 'Одобрен' : (statusMap[nodeData.status]?.text || 'Черновик');
+                    const statusText = isApproved ? 'РћРґРѕР±СЂРµРЅ' : (statusMap[nodeData.status]?.text || 'Р§РµСЂРЅРѕРІРёРє');
 
                     let descText = nodeData.description;
                     if (isChat) {
@@ -3156,40 +3293,40 @@ ${brokenCode}
                         } catch (e) { console.error('Error fetching chat versions'); }
                     }
 
-                    let descHtml = marked.parse(descText || 'Описание отсутствует');
+                    let descHtml = marked.parse(descText || 'РћРїРёСЃР°РЅРёРµ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚');
 
                     let html = `
                         <div style="margin-bottom: 15px;">
-                            <strong>Название:</strong><br>
+                            <strong>РќР°Р·РІР°РЅРёРµ:</strong><br>
                             <input type="text" id="panel-proc-name" value="${nodeData.rawName || nodeData.name}" style="width: 100%; padding: 5px;" disabled>
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <strong>Тип:</strong> ${isChat ? 'Чат' : 'Процесс'}
+                            <strong>РўРёРї:</strong> ${isChat ? 'Р§Р°С‚' : 'РџСЂРѕС†РµСЃСЃ'}
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <strong>Статус:</strong> <span class="status-badge ${statusClass}">${statusText}</span>
+                            <strong>РЎС‚Р°С‚СѓСЃ:</strong> <span class="status-badge ${statusClass}">${statusText}</span>
                         </div>
                         ${!isChat ? `
                         <div style="margin-bottom: 15px;">
-                            <strong>Владелец:</strong><br>
-                            <span>${nodeData.owner || 'Не назначен'}</span>
+                            <strong>Р’Р»Р°РґРµР»РµС†:</strong><br>
+                            <span>${nodeData.owner || 'РќРµ РЅР°Р·РЅР°С‡РµРЅ'}</span>
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <strong>Цель:</strong><br>
-                            <p>${nodeData.goal || 'Цель не указана'}</p>
+                            <strong>Р¦РµР»СЊ:</strong><br>
+                            <p>${nodeData.goal || 'Р¦РµР»СЊ РЅРµ СѓРєР°Р·Р°РЅР°'}</p>
                         </div>
                         ` : ''}
                         <div style="margin-bottom: 15px;">
-                            <strong>Описание:</strong><br>
+                            <strong>РћРїРёСЃР°РЅРёРµ:</strong><br>
                             <div class="markdown-body scroll-area" style="max-height: 200px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 4px;">
                                 ${descHtml}
                             </div>
                         </div>
                         <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
-                            ${isChat ? `<button id="panel-go-chat" class="button-primary">Перейти в чат</button>` : ''}
+                            ${isChat ? `<button id="panel-go-chat" class="button-primary">РџРµСЂРµР№С‚Рё РІ С‡Р°С‚</button>` : ''}
                             ${!isChat
-                            ? `<button id="panel-delete" class="button-danger">Удалить процесс</button>`
-                            : `<button id="panel-delete-chat" class="button-danger">Удалить чат</button>`}
+                            ? `<button id="panel-delete" class="button-danger">РЈРґР°Р»РёС‚СЊ РїСЂРѕС†РµСЃСЃ</button>`
+                            : `<button id="panel-delete-chat" class="button-danger">РЈРґР°Р»РёС‚СЊ С‡Р°С‚</button>`}
                         </div>
                     `;
                     content.innerHTML = html;
@@ -3199,38 +3336,38 @@ ${brokenCode}
                         document.getElementById('panel-go-chat').onclick = () => {
                             panel.style.display = 'none';
                             chatId = nodeData.id.replace('chat_', '');
-                            selectedDepartment = { name: 'Карта Процессов' };
+                            selectedDepartment = { name: 'РљР°СЂС‚Р° РџСЂРѕС†РµСЃСЃРѕРІ' };
                             showMainApp(nodeData.rawName || nodeData.name);
                         };
                     }
 
                     if (!isChat) {
                         document.getElementById('panel-delete').onclick = async () => {
-                            if (confirm(`Удалить процесс "${nodeData.rawName || nodeData.name}"?`)) {
+                            if (confirm(`РЈРґР°Р»РёС‚СЊ РїСЂРѕС†РµСЃСЃ "${nodeData.rawName || nodeData.name}"?`)) {
                                 try {
                                     const res = await fetchWithAuth(`/api/admin/processes/${nodeData.id.replace('proc_', '')}`, { method: 'DELETE' });
                                     if (res.ok) {
-                                        showNotification('Процесс удален', 'success');
+                                        showNotification('РџСЂРѕС†РµСЃСЃ СѓРґР°Р»РµРЅ', 'success');
                                         panel.style.display = 'none';
                                         loadProcessMap();
                                     }
                                 } catch (e) {
-                                    showNotification('Ошибка', 'error');
+                                    showNotification('РћС€РёР±РєР°', 'error');
                                 }
                             }
                         };
                     } else {
                         document.getElementById('panel-delete-chat').onclick = async () => {
-                            if (confirm(`Удалить чат "${nodeData.rawName || nodeData.name}"?`)) {
+                            if (confirm(`РЈРґР°Р»РёС‚СЊ С‡Р°С‚ "${nodeData.rawName || nodeData.name}"?`)) {
                                 try {
                                     const res = await fetchWithAuth(`/api/chats/${nodeData.id.replace('chat_', '')}`, { method: 'DELETE' });
                                     if (res.ok) {
-                                        showNotification('Чат удален', 'success');
+                                        showNotification('Р§Р°С‚ СѓРґР°Р»РµРЅ', 'success');
                                         panel.style.display = 'none';
                                         loadProcessMap();
                                     }
                                 } catch (e) {
-                                    showNotification('Ошибка', 'error');
+                                    showNotification('РћС€РёР±РєР°', 'error');
                                 }
                             }
                         };
@@ -3248,11 +3385,11 @@ ${brokenCode}
                         contextMenu.style.display = 'block';
                         contextMenu.style.left = event.renderedPosition.x + 'px';
                         contextMenu.style.top = event.renderedPosition.y + 'px';
-                        contextMenu.innerHTML = `<button id="ctx-add-dept" class="context-menu-action">➕ Добавить департамент</button>`;
+                        contextMenu.innerHTML = `<button id="ctx-add-dept" class="context-menu-action">вћ• Р”РѕР±Р°РІРёС‚СЊ РґРµРїР°СЂС‚Р°РјРµРЅС‚</button>`;
 
                         document.getElementById('ctx-add-dept').onclick = async () => {
                             contextMenu.style.display = 'none';
-                            const name = prompt('Название департамента:');
+                            const name = prompt('РќР°Р·РІР°РЅРёРµ РґРµРїР°СЂС‚Р°РјРµРЅС‚Р°:');
                             if (name) {
                                 try {
                                     await fetchWithAuth('/api/departments', {
@@ -3260,10 +3397,10 @@ ${brokenCode}
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ name, password: '123', user_id: sessionUser.id })
                                     });
-                                    showNotification('Департамент создан', 'success');
+                                    showNotification('Р”РµРїР°СЂС‚Р°РјРµРЅС‚ СЃРѕР·РґР°РЅ', 'success');
                                     loadProcessMap();
                                 } catch (e) {
-                                    showNotification('Ошибка', 'error');
+                                    showNotification('РћС€РёР±РєР°', 'error');
                                 }
                             }
                         };
@@ -3273,10 +3410,10 @@ ${brokenCode}
                         const deptName = event.target.data('name');
 
                         // Improved interaction: use prompt for name but allow multiple actions
-                        const action = prompt(`Департамент: ${deptName}\n1 - Добавить процесс\n2 - Удалить департамент\n\nВведите номер действия (1 или 2):`);
+                        const action = prompt(`Р”РµРїР°СЂС‚Р°РјРµРЅС‚: ${deptName}\n1 - Р”РѕР±Р°РІРёС‚СЊ РїСЂРѕС†РµСЃСЃ\n2 - РЈРґР°Р»РёС‚СЊ РґРµРїР°СЂС‚Р°РјРµРЅС‚\n\nР’РІРµРґРёС‚Рµ РЅРѕРјРµСЂ РґРµР№СЃС‚РІРёСЏ (1 РёР»Рё 2):`);
 
                         if (action === '1') {
-                            const name = prompt('Введите название нового процесса:');
+                            const name = prompt('Р’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ РЅРѕРІРѕРіРѕ РїСЂРѕС†РµСЃСЃР°:');
                             if (name) {
                                 try {
                                     fetchWithAuth('/api/admin/processes', {
@@ -3284,22 +3421,22 @@ ${brokenCode}
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ name, department_id: deptId, status: 'draft' })
                                     }).then(() => {
-                                        showNotification('Черновик процесса успешно создан', 'success');
+                                        showNotification('Р§РµСЂРЅРѕРІРёРє РїСЂРѕС†РµСЃСЃР° СѓСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅ', 'success');
                                         loadProcessMap();
                                     });
                                 } catch (e) {
-                                    showNotification('Ошибка создания процесса', 'error');
+                                    showNotification('РћС€РёР±РєР° СЃРѕР·РґР°РЅРёСЏ РїСЂРѕС†РµСЃСЃР°', 'error');
                                 }
                             }
                         } else if (action === '2') {
-                            if (confirm(`Вы уверены, что хотите удалить департамент "${deptName}" и ВСЕ его процессы?`)) {
+                            if (confirm(`Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ РґРµРїР°СЂС‚Р°РјРµРЅС‚ "${deptName}" Рё Р’РЎР• РµРіРѕ РїСЂРѕС†РµСЃСЃС‹?`)) {
                                 try {
                                     fetchWithAuth(`/api/admin/departments/${deptId}`, { method: 'DELETE' }).then(() => {
-                                        showNotification('Департамент удален', 'success');
+                                        showNotification('Р”РµРїР°СЂС‚Р°РјРµРЅС‚ СѓРґР°Р»РµРЅ', 'success');
                                         loadProcessMap();
                                     });
                                 } catch (e) {
-                                    showNotification('Ошибка при удалении департамента', 'error');
+                                    showNotification('РћС€РёР±РєР° РїСЂРё СѓРґР°Р»РµРЅРёРё РґРµРїР°СЂС‚Р°РјРµРЅС‚Р°', 'error');
                                 }
                             }
                         }
@@ -3337,8 +3474,8 @@ ${brokenCode}
                 }).run();
             }
         } catch (error) {
-            console.error('Ошибка загрузки карты:', error);
-            showNotification('Ошибка при загрузке карты процессов', 'error');
+            console.error('РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё РєР°СЂС‚С‹:', error);
+            showNotification('РћС€РёР±РєР° РїСЂРё Р·Р°РіСЂСѓР·РєРµ РєР°СЂС‚С‹ РїСЂРѕС†РµСЃСЃРѕРІ', 'error');
         }
     }
 
@@ -3355,9 +3492,9 @@ ${brokenCode}
         toggleChatLinks.addEventListener('change', () => {
             if (cy) {
                 if (toggleChatLinks.checked) {
-                    cy.edges('[relation_type = "Связано с чатом"]').style('display', 'element');
+                    cy.edges('[relation_type = "РЎРІСЏР·Р°РЅРѕ СЃ С‡Р°С‚РѕРј"]').style('display', 'element');
                 } else {
-                    cy.edges('[relation_type = "Связано с чатом"]').style('display', 'none');
+                    cy.edges('[relation_type = "РЎРІСЏР·Р°РЅРѕ СЃ С‡Р°С‚РѕРј"]').style('display', 'none');
                 }
             }
         });
@@ -3401,7 +3538,7 @@ ${brokenCode}
         massUploadBtn.addEventListener('click', async () => {
             const files = massUploadInput.files;
             if (!files || files.length === 0) {
-                return showNotification('Пожалуйста, выберите хотя бы один файл (.docx, .txt)', 'error');
+                return showNotification('РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РІС‹Р±РµСЂРёС‚Рµ С…РѕС‚СЏ Р±С‹ РѕРґРёРЅ С„Р°Р№Р» (.docx, .txt)', 'error');
             }
 
             const formData = new FormData();
@@ -3409,8 +3546,8 @@ ${brokenCode}
                 formData.append('documents', files[i]);
             }
 
-            setButtonLoading(massUploadBtn, true, 'Анализ...');
-            massUploadStatus.innerText = 'Этап 1: Извлечение текста и ИИ-анализ... Ожидайте.';
+            setButtonLoading(massUploadBtn, true, 'РђРЅР°Р»РёР·...');
+            massUploadStatus.innerText = 'Р­С‚Р°Рї 1: РР·РІР»РµС‡РµРЅРёРµ С‚РµРєСЃС‚Р° Рё РР-Р°РЅР°Р»РёР·... РћР¶РёРґР°Р№С‚Рµ.';
             massUploadStatus.style.color = '#2a6fdb';
 
             try {
@@ -3421,12 +3558,12 @@ ${brokenCode}
                 });
 
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Ошибка при загрузке');
+                if (!res.ok) throw new Error(data.error || 'РћС€РёР±РєР° РїСЂРё Р·Р°РіСЂСѓР·РєРµ');
 
                 const count = data.parsed?.processes?.length || 0;
-                massUploadStatus.innerText = `✅ Успешно! Добавлено процессов: ${count}`;
+                massUploadStatus.innerText = `вњ… РЈСЃРїРµС€РЅРѕ! Р”РѕР±Р°РІР»РµРЅРѕ РїСЂРѕС†РµСЃСЃРѕРІ: ${count}`;
                 massUploadStatus.style.color = '#10b981';
-                showNotification(`Документы обработаны. Добавлено ${count} процессов.`, 'success');
+                showNotification(`Р”РѕРєСѓРјРµРЅС‚С‹ РѕР±СЂР°Р±РѕС‚Р°РЅС‹. Р”РѕР±Р°РІР»РµРЅРѕ ${count} РїСЂРѕС†РµСЃСЃРѕРІ.`, 'success');
 
                 setTimeout(() => {
                     loadProcessMap();
@@ -3434,10 +3571,10 @@ ${brokenCode}
                 }, 1500);
             } catch (error) {
                 console.error('Upload Error:', error);
-                massUploadStatus.innerText = `❌ Ошибка: ${error.message}`;
+                massUploadStatus.innerText = `вќЊ РћС€РёР±РєР°: ${error.message}`;
                 massUploadStatus.style.color = '#dc3545';
             } finally {
-                setButtonLoading(massUploadBtn, false, 'Анализировать и добавить');
+                setButtonLoading(massUploadBtn, false, 'РђРЅР°Р»РёР·РёСЂРѕРІР°С‚СЊ Рё РґРѕР±Р°РІРёС‚СЊ');
             }
         });
     }
