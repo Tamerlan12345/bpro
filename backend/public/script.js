@@ -1,4 +1,4 @@
-﻿document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
 
     const API_URL = '/api/generate';
 
@@ -384,10 +384,24 @@
     function setLockedDiagramScale(scale) {
         const stage = diagramContainer.querySelector('.doc-diagram-stage');
         if (!stage) return;
-        currentDiagramScale = Number(Math.max(0.5, Math.min(scale, 2.4)).toFixed(2));
+        currentDiagramScale = Number(Math.max(0.1, Math.min(scale, 4.0)).toFixed(2));
         stage.style.transform = `scale(${currentDiagramScale})`;
-        stage.style.width = `${Math.round((currentDiagramModel?.viewBox?.width || stage.offsetWidth) * currentDiagramScale)}px`;
-        stage.style.height = `${Math.round((currentDiagramModel?.viewBox?.height || stage.offsetHeight) * currentDiagramScale)}px`;
+        const baseW = currentDiagramModel?.viewBox?.width || stage.offsetWidth;
+        const baseH = currentDiagramModel?.viewBox?.height || stage.offsetHeight;
+        stage.style.width = `${Math.round(baseW * currentDiagramScale)}px`;
+        stage.style.height = `${Math.round(baseH * currentDiagramScale)}px`;
+    }
+
+    function computeFitScale() {
+        if (!currentDiagramModel?.viewBox) return 1;
+        const containerW = diagramContainer.clientWidth - 24;
+        const containerH = diagramContainer.clientHeight - 24;
+        const diagramW = currentDiagramModel.viewBox.width;
+        const diagramH = currentDiagramModel.viewBox.height;
+        if (!diagramW || !diagramH) return 1;
+        const scaleX = containerW / diagramW;
+        const scaleY = containerH / diagramH;
+        return Math.min(scaleX, scaleY, 1);
     }
 
     function setupLockedDiagramPan() {
@@ -478,8 +492,11 @@
         currentDiagramXml = xml;
         diagramContainer.innerHTML = `<div class="doc-diagram-shell"><div class="doc-diagram-stage">${currentDiagramSvg}</div></div>`;
         showSection(diagramContainer);
-        currentDiagramScale = 1;
-        setLockedDiagramScale(1);
+        // Auto-fit: compute scale so the whole diagram is visible without scrolling
+        const fitScale = computeFitScale();
+        currentDiagramScale = fitScale;
+        setLockedDiagramScale(fitScale);
+        diagramContainer.style.overflow = fitScale >= 1 ? 'auto' : 'hidden';
         setupLockedDiagramPan();
         updateDiagramToolbarState();
     }
@@ -604,7 +621,7 @@
         downloadBlob(xml, 'application/bpmn+xml;charset=utf-8', 'process-diagram.bpmn');
     }
 
-    async function downloadCurrentVsdx() {
+    async function downloadCurrentVsd() {
         const xml = await getCurrentDiagramXml();
         if (!xml) {
             showNotification('Сначала сгенерируйте схему.', 'error');
@@ -617,7 +634,7 @@
             body: JSON.stringify({ bpmn_xml: xml })
         });
         const blob = await response.blob();
-        downloadBlob(blob, 'application/vnd.ms-visio.drawing', 'process-diagram.vsdx');
+        downloadBlob(blob, 'application/vnd.ms-visio.drawing', 'process-diagram.vsd');
     }
 
     async function downloadCurrentDiagram(format) {
@@ -813,11 +830,14 @@
         xml = xml.replace(/<(?:bpmn\d*:)?dataOutputAssociation[^>]*>\s*<\/(?:bpmn\d*:)?dataOutputAssociation>/gi, '');
 
         // 4. Normalize malformed DI waypoints before the XML reaches bpmn-js.
+        // 4a: self-closing properly formed  <di:waypoint x="…" y="…"/>  → keep via normalizeWaypointTag
+        xml = xml.replace(/<(?:di:)?waypoint\b([^<>]*?)\/>/gi, (_, attrs) => normalizeWaypointTag(attrs) || '');
+        // 4b: open+explicit-close pair  <di:waypoint …>…</di:waypoint>
         xml = xml.replace(/<(?:di:)?waypoint\b([^<>]*?)>\s*<\/(?:di:)?waypoint>/gi, (_, attrs) => normalizeWaypointTag(attrs) || '');
-        xml = xml.replace(
-            /<(?:di:)?waypoint\b([^<>]*?)>(?=\s*<(?:di:waypoint\b|bpmndi:BPMNLabel\b|\/bpmndi:BPMNEdge>))/gi,
-            (_, attrs) => normalizeWaypointTag(attrs) || ''
-        );
+        // 4c: open tag (no self-close) followed immediately by another element (the primary unclosed-tag bug)
+        //     Matches <di:waypoint …> where > is NOT preceded by / and is followed by whitespace+<
+        xml = xml.replace(/<(di:waypoint|waypoint)\b([^<>]*?)>(?=\s*<)/gi, (_, _tag, attrs) => normalizeWaypointTag(attrs) || '');
+        // 4d: orphaned closing tags left behind by earlier passes
         xml = xml.replace(/<\/(?:di:)?waypoint>/gi, '');
 
         xml = xml.replace(/<bpmndi:BPMNEdge\b[^>]*>[\s\S]*?<\/bpmndi:BPMNEdge>/gi, block => {
@@ -2484,12 +2504,75 @@ ${brokenCode}
     downloadBpmnBtn.addEventListener('click', downloadCurrentBpmnXml);
     downloadPngBtn.addEventListener('click', () => downloadCurrentDiagram('png'));
     downloadSvgBtn.addEventListener('click', () => downloadCurrentDiagram('svg'));
-    downloadVsdxBtn.addEventListener('click', downloadCurrentVsdx);
+    downloadVsdxBtn.addEventListener('click', downloadCurrentVsd);
 
     renderDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
     regenerateDiagramBtn.addEventListener('click', (e) => handleRenderDiagram(e.target));
-    zoomInBtn.addEventListener('click', () => zoomActiveDiagram(1.1));
-    zoomOutBtn.addEventListener('click', () => zoomActiveDiagram(0.9));
+    zoomInBtn.addEventListener('click', () => {
+        zoomActiveDiagram(1.25);
+        if (diagramContainer) diagramContainer.style.overflow = 'auto';
+    });
+    zoomOutBtn.addEventListener('click', () => {
+        zoomActiveDiagram(0.8);
+    });
+
+    // Fit diagram back to container
+    const fitDiagramBtn = document.getElementById('fit-diagram-btn');
+    if (fitDiagramBtn) {
+        fitDiagramBtn.addEventListener('click', () => {
+            if (diagramMode === 'edit' && bpmnViewer) {
+                safelyFitBpmnViewport(bpmnViewer, diagramContainer);
+                return;
+            }
+            if (!currentDiagramModel) return;
+            const fitScale = computeFitScale();
+            currentDiagramScale = fitScale;
+            setLockedDiagramScale(fitScale);
+            diagramContainer.style.overflow = fitScale >= 1 ? 'auto' : 'hidden';
+        });
+    }
+
+    // Fullscreen: open diagram container in browser fullscreen
+    const fullscreenDiagramBtn = document.getElementById('fullscreen-diagram-btn');
+    if (fullscreenDiagramBtn) {
+        fullscreenDiagramBtn.addEventListener('click', () => {
+            const el = diagramContainer;
+            if (!el) return;
+            if (el.requestFullscreen) {
+                el.requestFullscreen().catch(() => {});
+            } else if (el.webkitRequestFullscreen) {
+                el.webkitRequestFullscreen();
+            }
+        });
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+        const isFs = Boolean(document.fullscreenElement);
+        if (diagramContainer) {
+            if (isFs) {
+                diagramContainer.style.maxHeight = '100vh';
+                diagramContainer.style.height = '100vh';
+                diagramContainer.style.overflow = 'auto';
+                // Refit to fullscreen dimensions after transition
+                setTimeout(() => {
+                    if (currentDiagramModel && diagramMode === 'view') {
+                        const fitScale = computeFitScale();
+                        setLockedDiagramScale(fitScale);
+                    } else if (bpmnViewer) {
+                        safelyFitBpmnViewport(bpmnViewer, diagramContainer);
+                    }
+                }, 100);
+            } else {
+                diagramContainer.style.maxHeight = '';
+                diagramContainer.style.height = '';
+                if (currentDiagramModel && diagramMode === 'view') {
+                    const fitScale = computeFitScale();
+                    setLockedDiagramScale(fitScale);
+                    diagramContainer.style.overflow = fitScale >= 1 ? 'auto' : 'hidden';
+                }
+            }
+        }
+    });
 
     editDiagramBtn.addEventListener('click', openInlineDiagramEditor);
     cancelMermaidEditBtn.addEventListener('click', cancelInlineDiagramEdit);

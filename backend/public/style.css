@@ -903,6 +903,46 @@ button.button-secondary:active:not(:disabled) {
     background-color: var(--border-color);
 }
 
+#fit-diagram-btn,
+#fullscreen-diagram-btn {
+    min-width: 40px;
+    padding: 0;
+    font-size: 1.2em;
+}
+
+#fullscreen-diagram-btn {
+    background: linear-gradient(135deg, #4f46e5, #6d28d9);
+    color: var(--white-color);
+    border: none;
+}
+
+#fullscreen-diagram-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #4338ca, #5b21b6);
+    color: var(--white-color);
+}
+
+/* Fullscreen diagram container */
+#diagram-container:fullscreen,
+#diagram-container:-webkit-full-screen {
+    background-color: #f8fafc;
+    max-height: 100vh !important;
+    height: 100vh !important;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: auto;
+}
+
+#diagram-container:fullscreen .doc-diagram-shell,
+#diagram-container:-webkit-full-screen .doc-diagram-shell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
 /* --- Responsive Design --- */
 @media (max-width: 1024px) {
     .main-content {
