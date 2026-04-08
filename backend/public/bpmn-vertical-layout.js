@@ -424,23 +424,28 @@
         };
     }
 
-    const NEGATIVE_FLOW_LABELS = new Set(['нет', 'РЅРµС‚', 'no']);
-    const POSITIVE_FLOW_LABELS = new Set(['да', 'РґР°', 'yes']);
+    const NEGATIVE_FLOW_LABELS = new Set([
+        'нет', 'РЅРµС‚', 'no', 'отклонить', 'отказать', 'не согласовано', 'не утверждено', 'false', 'отклонено'
+    ]);
+    const POSITIVE_FLOW_LABELS = new Set([
+        'да', 'РґР°', 'yes', 'согласовать', 'утвердить', 'согласовано', 'утверждено', 'true', 'принять'
+    ]);
 
     function isNegativeFlowLabel(value) {
-        return NEGATIVE_FLOW_LABELS.has(String(value || '').trim().toLowerCase());
+        const normalized = String(value || '').trim().toLowerCase();
+        return Array.from(NEGATIVE_FLOW_LABELS).some(pattern => normalized.includes(pattern));
     }
 
     function isPositiveFlowLabel(value) {
-        return POSITIVE_FLOW_LABELS.has(String(value || '').trim().toLowerCase());
+        const normalized = String(value || '').trim().toLowerCase();
+        return Array.from(POSITIVE_FLOW_LABELS).some(pattern => normalized.includes(pattern));
     }
 
     function getFlowDirectionSlot(flowName) {
-        const normalizedName = String(flowName || '').trim().toLowerCase();
-        if (isNegativeFlowLabel(normalizedName)) {
+        if (isNegativeFlowLabel(flowName)) {
             return -1;
         }
-        if (isPositiveFlowLabel(normalizedName)) {
+        if (isPositiveFlowLabel(flowName)) {
             return 1;
         }
         return 0;
@@ -722,44 +727,46 @@
             const forwardFlows = gatewayFlows.filter((flow) => !loopFlows.some((loopFlow) => loopFlow.id === flow.id));
             const slotByTarget = new Map();
 
-            if (loopFlows.length === 0 && forwardFlows.length === 2) {
-                const f1 = forwardFlows[0];
-                const f2 = forwardFlows[1];
-                const slot1 = getFlowDirectionSlot(f1.name);
-                const slot2 = getFlowDirectionSlot(f2.name);
+            if (loopFlows.length === 0 && forwardFlows.length >= 2) {
+                // For forward flows, ensure distinct slots.
+                const rankedForwardFlows = forwardFlows
+                    .map((flow) => ({
+                        flow,
+                        hintedSlot: getFlowDirectionSlot(flow.name),
+                        ...collectBranchDepthMetrics(flow.targetRef, graph.outgoing)
+                    }))
+                    .sort((left, right) => {
+                        // Place primary (longer path) in slot 0 if possible
+                        return right.maxDepth - left.maxDepth
+                            || right.reachableCount - left.reachableCount
+                            || left.hintedSlot - right.hintedSlot
+                            || left.flow.targetRef.localeCompare(right.flow.targetRef);
+                    });
 
-                if (slot1 > 0 && slot2 <= 0) {
-                    slotByTarget.set(f1.targetRef, 0);
-                    slotByTarget.set(f2.targetRef, slot2 < 0 ? -1 : 1);
-                } else if (slot2 > 0 && slot1 <= 0) {
-                    slotByTarget.set(f2.targetRef, 0);
-                    slotByTarget.set(f1.targetRef, slot1 < 0 ? -1 : 1);
-                } else {
-                    const rankedForwardFlows = forwardFlows
-                        .map((flow) => ({
-                            flow,
-                            ...collectBranchDepthMetrics(flow.targetRef, graph.outgoing)
-                        }))
-                        .sort((left, right) => {
-                            return right.maxDepth - left.maxDepth
-                                || right.reachableCount - left.reachableCount
-                                || left.flow.targetRef.localeCompare(right.flow.targetRef);
-                        });
-                    const [primaryForwardFlow, alternateForwardFlow] = rankedForwardFlows;
-                    const hasDistinctPrimaryFlow = primaryForwardFlow && alternateForwardFlow
-                        && (primaryForwardFlow.maxDepth > alternateForwardFlow.maxDepth
-                            || primaryForwardFlow.reachableCount > alternateForwardFlow.reachableCount);
-
-                    if (hasDistinctPrimaryFlow) {
-                        const hintedSlot = getFlowDirectionSlot(alternateForwardFlow.flow.name);
-                        slotByTarget.set(primaryForwardFlow.flow.targetRef, 0);
-                        slotByTarget.set(alternateForwardFlow.flow.targetRef, hintedSlot < 0 ? -1 : (hintedSlot > 0 ? 1 : 1));
-                    } else {
-                        createFallbackSlotOrder(gatewayFlows).forEach((slot, targetId) => {
-                            slotByTarget.set(targetId, slot);
-                        });
+                const usedSlots = new Set();
+                rankedForwardFlows.forEach((item, index) => {
+                    let finalSlot = item.hintedSlot;
+                    
+                    // If this is the primary flow and it's free, take slot 0
+                    if (index === 0 && !usedSlots.has(0)) {
+                        finalSlot = 0;
+                    } 
+                    // Otherwise, if its hinted slot is taken, find next available
+                    else if (usedSlots.has(finalSlot) || finalSlot === 0) {
+                        let offset = 1;
+                        while (usedSlots.has(offset) || (offset === 0)) {
+                            if (!usedSlots.has(-offset)) {
+                                offset = -offset;
+                                break;
+                            }
+                            offset++;
+                        }
+                        finalSlot = offset;
                     }
-                }
+                    
+                    slotByTarget.set(item.flow.targetRef, finalSlot);
+                    usedSlots.add(finalSlot);
+                });
             } else if (forwardFlows.length === 1 && loopFlows.length >= 1) {
                 slotByTarget.set(forwardFlows[0].targetRef, 0);
                 const orderedLoopFlows = loopFlows.slice().sort((left, right) => {
@@ -1008,15 +1015,25 @@
             anchor = { x: (waypoints[1].x + waypoints[2].x) / 2, y: waypoints[1].y };
         } else if (waypoints.length === 3) {
             // Gateway side branch anchor on horizontal segment
-            anchor = { x: (waypoints[0].x + waypoints[1].x) / 2, y: waypoints[0].y };
+            // Shift x to be closer to the gateway to make it clearly readable as a branch label
+            const horizontalLength = Math.abs(waypoints[0].x - waypoints[1].x);
+            const shift = Math.min(40, horizontalLength / 2);
+            const dirX = waypoints[1].x > waypoints[0].x ? 1 : -1;
+            
+            anchor = { 
+                x: waypoints[0].x + (shift * dirX), 
+                y: waypoints[0].y 
+            };
         } else {
             // Straight line anchor in the middle
             anchor = { x: (waypoints[0].x + waypoints[waypoints.length - 1].x) / 2, y: (waypoints[0].y + waypoints[waypoints.length - 1].y) / 2 };
         }
 
+        const isLateralBranch = waypoints.length === 3;
+
         return {
             x: anchor.x - 24,
-            y: anchor.y - 28,
+            y: anchor.y - (isLateralBranch ? 32 : 28), // Lift lateral labels more to avoid line intersection
             width: 48,
             height: 18
         };
