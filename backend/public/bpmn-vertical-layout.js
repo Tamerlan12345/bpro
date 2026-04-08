@@ -424,11 +424,13 @@
         };
     }
 
+    // Labels that indicate the NEGATIVE / side-branch path ("нет", "no", etc.)
     const NEGATIVE_FLOW_LABELS = new Set([
-        'нет', 'РЅРµС‚', 'no', 'отклонить', 'отказать', 'не согласовано', 'не утверждено', 'false', 'отклонено'
+        'нет', 'no', 'отклонить', 'отказать', 'не согласовано', 'не утверждено', 'false', 'отклонено'
     ]);
+    // Labels that indicate the POSITIVE / main-path continuation ("да", "yes", etc.)
     const POSITIVE_FLOW_LABELS = new Set([
-        'да', 'РґР°', 'yes', 'согласовать', 'утвердить', 'согласовано', 'утверждено', 'true', 'принять'
+        'да', 'yes', 'согласовать', 'утвердить', 'согласовано', 'утверждено', 'true', 'принять'
     ]);
 
     function isNegativeFlowLabel(value) {
@@ -441,14 +443,17 @@
         return Array.from(POSITIVE_FLOW_LABELS).some(pattern => normalized.includes(pattern));
     }
 
+    // slot 0  = straight down (main / "да" path)
+    // slot -1 = left side branch ("нет" / negative path)
+    // slot +1 = right side branch (unlabelled second branch)
     function getFlowDirectionSlot(flowName) {
-        if (isNegativeFlowLabel(flowName)) {
-            return -1;
-        }
         if (isPositiveFlowLabel(flowName)) {
-            return 1;
+            return 0;   // "да" → continues main path downward
         }
-        return 0;
+        if (isNegativeFlowLabel(flowName)) {
+            return -1;  // "нет" → left side branch
+        }
+        return 0;       // unlabelled default: treat as main path
     }
 
     function detectBackFlowIds(shapes, flows) {
@@ -730,44 +735,55 @@
             const slotByTarget = new Map();
 
             if (loopFlows.length === 0 && forwardFlows.length >= 2) {
-                // For forward flows, ensure distinct slots.
-                const rankedForwardFlows = forwardFlows
-                    .map((flow) => ({
-                        flow,
-                        hintedSlot: getFlowDirectionSlot(flow.name),
-                        ...collectBranchDepthMetrics(flow.targetRef, graph.outgoing)
-                    }))
-                    .sort((left, right) => {
-                        // Place primary (longer path) in slot 0 if possible
-                        return right.maxDepth - left.maxDepth
-                            || right.reachableCount - left.reachableCount
-                            || left.hintedSlot - right.hintedSlot
-                            || left.flow.targetRef.localeCompare(right.flow.targetRef);
-                    });
+                // Assign slots to forward flows:
+                // 1. A flow explicitly labelled "да"/"yes" always gets slot 0 (straight down).
+                // 2. A flow explicitly labelled "нет"/"no" gets slot -1 (left branch).
+                // 3. Any remaining unlabelled flows get the next available side slot.
+                const enriched = forwardFlows.map((flow) => ({
+                    flow,
+                    hintedSlot: getFlowDirectionSlot(flow.name),
+                    isPositive: isPositiveFlowLabel(flow.name),
+                    isNegative: isNegativeFlowLabel(flow.name),
+                    ...collectBranchDepthMetrics(flow.targetRef, graph.outgoing)
+                }));
+
+                // Separate: positively labelled (да/yes), negatively labelled (нет/no), unlabelled
+                const positiveFlows = enriched.filter(i => i.isPositive);
+                const negativeFlows = enriched.filter(i => i.isNegative);
+                const neutralFlows  = enriched.filter(i => !i.isPositive && !i.isNegative);
+
+                // Sort neutral by depth desc so the longest path is preferred as main path
+                neutralFlows.sort((a, b) =>
+                    b.maxDepth - a.maxDepth || b.reachableCount - a.reachableCount
+                );
 
                 const usedSlots = new Set();
-                rankedForwardFlows.forEach((item, index) => {
-                    let finalSlot = item.hintedSlot;
-                    
-                    // If this is the primary flow and it's free, take slot 0
-                    if (index === 0 && !usedSlots.has(0)) {
-                        finalSlot = 0;
-                    } 
-                    // Otherwise, if its hinted slot is taken, find next available
-                    else if (usedSlots.has(finalSlot) || finalSlot === 0) {
-                        let offset = 1;
-                        while (usedSlots.has(offset) || (offset === 0)) {
-                            if (!usedSlots.has(-offset)) {
-                                offset = -offset;
-                                break;
-                            }
-                            offset++;
-                        }
-                        finalSlot = offset;
+
+                // Slot 0 priority: first explicit "да" flow; else longest neutral flow
+                const mainFlowItems = positiveFlows.length ? positiveFlows : neutralFlows.splice(0, 1);
+                mainFlowItems.forEach(item => {
+                    slotByTarget.set(item.flow.targetRef, 0);
+                    usedSlots.add(0);
+                });
+
+                // Assign side slots: negatives get -1 first, then remaining neutrals get ±N
+                const sideItems = [...negativeFlows, ...neutralFlows];
+                let leftOffset = -1;
+                let rightOffset = 1;
+                sideItems.forEach((item) => {
+                    if (item.isNegative) {
+                        // Always put "нет" on the left
+                        while (usedSlots.has(leftOffset)) leftOffset--;
+                        slotByTarget.set(item.flow.targetRef, leftOffset);
+                        usedSlots.add(leftOffset);
+                        leftOffset--;
+                    } else {
+                        // Remaining neutrals alternate left/right starting from right
+                        while (usedSlots.has(rightOffset)) rightOffset++;
+                        slotByTarget.set(item.flow.targetRef, rightOffset);
+                        usedSlots.add(rightOffset);
+                        rightOffset++;
                     }
-                    
-                    slotByTarget.set(item.flow.targetRef, finalSlot);
-                    usedSlots.add(finalSlot);
                 });
             } else if (forwardFlows.length === 1 && loopFlows.length >= 1) {
                 slotByTarget.set(forwardFlows[0].targetRef, 0);

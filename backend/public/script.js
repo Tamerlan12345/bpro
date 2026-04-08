@@ -534,10 +534,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentDiagramSvg = '';
                     currentDiagramModel = null;
                     diagramContainer.innerHTML = `<div class="error-text">Failed to fix and render the diagram: ${fixError.message}</div>`;
+                    regenerateDiagramBtn.disabled = false;
                     updateDiagramToolbarState();
                 }
             } else {
                 diagramContainer.innerHTML = `<div class="error-text">Rendering still failed after repair: ${error.message}</div>`;
+                regenerateDiagramBtn.disabled = false;
                 updateDiagramToolbarState();
             }
         }
@@ -1468,6 +1470,28 @@ ${brokenCode}
                 diagramPlaceholder.style.display = 'none';
                 diagramContainer.style.display = 'block';
                 await renderDiagramView(mermaidCode);
+                // Сохраняем новую схему в версию, чтобы она не потерялась после reload
+                if (currentDiagramXml && chatId) {
+                    try {
+                        await fetchWithAuth(`/api/chats/${chatId}/versions`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ process_text, mermaid_code: currentDiagramXml })
+                        });
+                        // Обновляем список версий в фоне без перерисовки всего UI
+                        fetchWithAuth(`/api/chats/${chatId}/versions`)
+                            .then(r => r.json())
+                            .then(versions => {
+                                chatVersions = versions;
+                                renderVersions(versions);
+                            })
+                            .catch(() => {});
+                        showNotification('Схема сгенерирована и сохранена.', 'success');
+                    } catch (saveError) {
+                        console.warn('Auto-save of regenerated diagram failed:', saveError);
+                        showNotification('Схема создана, но не сохранена автоматически.', 'info');
+                    }
+                }
             } else {
                 showNotification('ИИ не вернул код схемы. Попробуйте еще раз.', 'error');
             }
