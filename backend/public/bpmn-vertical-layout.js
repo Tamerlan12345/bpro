@@ -256,19 +256,23 @@
     }
 
     function replaceShapeBounds(xml, bpmnElement, nextBounds) {
+        // Use a more robust pattern that handles missing closing tags
         const shapePattern = new RegExp(
-            `(<bpmndi:BPMNShape\\b[^>]*bpmnElement="${bpmnElement}"[^>]*>[\\s\\S]*?<dc:Bounds\\b)([^>]*?)(?:\\/?>)([\\s\\S]*?<\\/bpmndi:BPMNShape>)`,
+            `(<bpmndi:BPMNShape\\b[^>]*bpmnElement="${bpmnElement}"[^>]*>[\\s\\S]*?<dc:Bounds\\b)([^>]*?)(?:\\/?>)([\\s\\S]*?)(<\\/bpmndi:BPMNShape>|(?=<bpmndi:BPMNShape\\b|<bpmndi:BPMNEdge\\b|<\\/bpmndi:BPMNPlane>))`,
             'i'
         );
 
-        return xml.replace(shapePattern, function (_match, prefix, _attrs, suffix) {
+        return xml.replace(shapePattern, function (_match, prefix, _attrs, innerSuffix, closeTag) {
             const attrs = [
                 `x="${nextBounds.x.toFixed(1)}"`,
                 `y="${nextBounds.y.toFixed(1)}"`,
                 `width="${nextBounds.width.toFixed(1)}"`,
                 `height="${nextBounds.height.toFixed(1)}"`
             ].join(' ');
-            return `${prefix} ${attrs} />${suffix}`;
+            
+            // Ensure we close the BPMNShape correctly
+            const finalCloseTag = closeTag.toLowerCase().includes('</bpmndi:bpmnshape>') ? closeTag : '</bpmndi:BPMNShape>';
+            return `${prefix} ${attrs} />${innerSuffix}${finalCloseTag}`;
         });
     }
 
@@ -298,15 +302,18 @@
     }
 
     function replaceEdgeWaypoints(xml, flowId, waypoints) {
+        // Use a more robust pattern that handles missing closing tags by looking ahead
         const edgePattern = new RegExp(
-            `(<bpmndi:BPMNEdge\\b[^>]*bpmnElement="${flowId}"[^>]*>)([\\s\\S]*?)(<\\/bpmndi:BPMNEdge>)`,
+            `(<bpmndi:BPMNEdge\\b[^>]*bpmnElement="${flowId}"[^>]*>)([\\s\\S]*?)(<\\/bpmndi:BPMNEdge>|(?=<bpmndi:BPMNEdge\\b|<bpmndi:BPMNShape\\b|<\\/bpmndi:BPMNPlane>))`,
             'i'
         );
 
         return xml.replace(edgePattern, function (_match, openTag, innerContent, closeTag) {
+            // If closeTag doesn't look like a real closing tag, we must provide one
+            const finalCloseTag = closeTag.toLowerCase().includes('</bpmndi:bpmnedge>') ? closeTag : '</bpmndi:BPMNEdge>';
             const labelMarkup = extractWellFormedEdgeLabel(innerContent);
             const nextInner = buildEdgeInnerContent(waypoints, labelMarkup);
-            return `${openTag}\n${nextInner}\n      ${closeTag}`;
+            return `${openTag}\n${nextInner}\n      ${finalCloseTag}`;
         });
     }
 
@@ -1099,22 +1106,26 @@
                 const nextInnerContent = innerContent.replace(
                     /<(?:bpmn2?:)?conditionExpression\b[^>]*>[\s\S]*?<\/(?:bpmn2?:)?conditionExpression>/gi,
                     ''
-                );
-                const removedConditionExpression = nextInnerContent !== innerContent;
+                ).trim();
+                const removedConditionExpression = nextInnerContent !== innerContent.trim();
 
                 if (didSanitize || removedConditionExpression) {
                     sanitizedFlowIds.add(flow.id);
                 }
 
+                // Ensure we return a properly closed block
                 return `${nextOpenTag}${nextInnerContent}${closingTag}`;
             });
 
-            sanitizedXml = sanitizedXml.replace(selfClosingPattern, function (_match, openTag, _tagName, suffix) {
+            sanitizedXml = sanitizedXml.replace(selfClosingPattern, function (_match, openTag, _tagName, _suffix) {
                 const { nextOpenTag, didSanitize } = cleanOpenTag(openTag);
                 if (didSanitize) {
                     sanitizedFlowIds.add(flow.id);
+                    // Conversion to full tag is handled by sanitizedFlowIds processing later if needed,
+                    // but for direct cleanup, we keep it self-closing if it was.
+                    return `${nextOpenTag} />`;
                 }
-                return `${nextOpenTag}${suffix}`;
+                return _match;
             });
         });
 
