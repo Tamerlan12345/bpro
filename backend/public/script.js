@@ -959,14 +959,13 @@ document.addEventListener('DOMContentLoaded', () => {
 - ВАЖНО: Если две ветки после gateway потом сходятся в один общий шаг, показывай их как две отдельные боковые ветки, а общий следующий шаг располагай ниже по центру.
 - ВАЖНО: Основной поток строй сверху вниз. После gateway ветки разводи в стороны и затем возвращай продолжение процесса вниз. Не вытягивай весь процесс в длинную горизонтальную линию.
 - ВАЖНО: СТРОГАЯ ПРИВЯЗКА ЛОГИЧЕСКИХ БЛОКОВ (БАЗА):
-  1) Вход/выход процесса = строго <bpmn2:startEvent> и <bpmn2:endEvent> (Круг).
-  2) Действие/шаг процесса = строго <bpmn2:task> (Прямоугольник). Каждый task должен содержать в name краткое название действия.
-  3) Документ (форма, заявление, акт, запись) = строго <bpmn2:dataObjectReference> + <bpmn2:dataObject>. Каждый документ, упомянутый в процессе, должен быть отражён как dataObjectReference с name документа. Для связи с task используй <bpmn2:dataOutputAssociation> или <bpmn2:dataInputAssociation>. Для каждого dataObjectReference и каждой dataOutputAssociation/dataInputAssociation обязательно генерируй BPMNShape (dc:Bounds) и BPMNEdge (di:waypoint) в блоке bpmndi.
-  4) Ссылка на другой бизнес-процесс = строго <bpmn2:callActivity> (отображается как task с двойной рамкой). Атрибут calledElement указывай как код процесса.
-  5) Логический блок ИЛИ = строго <bpmn2:exclusiveGateway> (ромб). Атрибут name — краткий вопрос.
-  6) База данных (БД, КИАС, хранилище) = строго <bpmn2:dataStoreReference> (цилиндр). Для связи с task используй <bpmn2:dataOutputAssociation>. Для dataStoreReference обязательно генерируй BPMNShape (dc:Bounds) в блоке bpmndi.
-  7) Зона ответственности/роли = если в описании процесса упоминаются конкретные роли или подразделения, оборачивай процесс в <bpmn2:collaboration> с <bpmn2:participant> и используй <bpmn2:laneSet> с <bpmn2:lane> внутри process. Каждая роль = отдельный lane. Если роли не упомянуты, используй простой process без lanes.
-  8) Направляющие (стрелки потока) = <bpmn2:sequenceFlow> для связи элементов процесса. Для связи с данными = <bpmn2:association> или dataOutputAssociation/dataInputAssociation.
+  1) Вход/выход процесса = строго <bpmn2:startEvent> и <bpmn2:endEvent> (Круг). Использование других кругов/событий запрещено!
+  2) Действие/шаг/документ процесса = строго <bpmn2:task> (Прямоугольник). Каждый task должен содержать в name краткое название действия. Документы НЕ нужно выносить в отдельные блоки dataObjectReference.
+  3) Ссылка на другой бизнес-процесс = строго <bpmn2:callActivity> (двойная рамка). Атрибут calledElement указывай как код процесса.
+  4) Логический блок = строго <bpmn2:exclusiveGateway> (ромб). Атрибут name — краткий вопрос. Ветвь "Да" должна продолжать процесс строго ВНИЗ.
+  5) База данных (БД, КИАС, хранилище) = строго <bpmn2:dataStoreReference> (цилиндр). Для связи с task используй <bpmn2:dataOutputAssociation>. Обязательно генерируй BPMNShape (dc:Bounds).
+  6) Зона ответственности/роли = если в описании процесса упоминаются конкретные роли, оборачивай процесс в <bpmn2:collaboration> с <bpmn2:participant> и используй <bpmn2:laneSet> с <bpmn2:lane>.
+  7) Направляющие (стрелки потока) = <bpmn2:sequenceFlow> для связи элементов процесса.
 - Без координат (DI) визуальный редактор не сможет отобразить схему! Прояви математическую точность.
 - Не обрезай XML, верни его полностью.
 
@@ -1022,7 +1021,7 @@ ${brokenCode}
 Если одна ветка означает возврат на доработку, оставляй основное продолжение под gateway, а возвратную ветку делай боковой и возвращающейся к предыдущему шагу.
 Если две ветки после gateway сходятся в один общий шаг, располагай их по разным сторонам и соединяй с общим шагом ниже.
 Сохрани вертикальную композицию: основной поток сверху вниз, ветки после gateway в стороны, затем продолжение снова вниз.
-ВАЖНО: СТРОГАЯ ПРИВЯЗКА ЛОГИЧЕСКИХ БЛОКОВ (БАЗА): Вход/выход = <bpmn2:startEvent>/<bpmn2:endEvent>, шаг = <bpmn2:task>, документ = <bpmn2:dataObjectReference> + <bpmn2:dataObject> (с BPMNShape в DI-блоке), ссылка на процесс = строго <bpmn2:callActivity> (двойная рамка), логическое ИЛИ = <bpmn2:exclusiveGateway>, база данных = <bpmn2:dataStoreReference> (с BPMNShape в DI-блоке). Если есть роли, используй <bpmn2:laneSet>/<bpmn2:lane>.
+ВАЖНО: СТРОГАЯ ПРИВЯЗКА ЛОГИЧЕСКИХ БЛОКОВ (БАЗА): Вход/выход = <bpmn2:startEvent>/<bpmn2:endEvent>, шаг = <bpmn2:task>, ссылка на процесс = строго <bpmn2:callActivity> (двойная рамка), логическое ИЛИ = <bpmn2:exclusiveGateway> (ветвь "Да" ВНИЗ), база данных = <bpmn2:dataStoreReference> (с BPMNShape в DI-блоке). НЕ ИСПОЛЬЗУЙ dataObjectReference вообще. Если есть роли, используй <bpmn2:laneSet>/<bpmn2:lane>.
 
 Ответ должен содержать ТОЛЬКО ИСПРАВЛЕННЫЙ код BPMN XML, без объяснений и markdown.`;
         return callGeminiAPI(prompt, { chatId }).then(code => normalizeGeneratedBpmnXml(code.replace(/```xml/g, '').replace(/```/g, '').trim()));
@@ -1041,14 +1040,13 @@ ${brokenCode}
 ВАЖНО: Если две ветки после gateway потом сходятся в один общий шаг, показывай обе ветки отдельно по сторонам, а точку продолжения процесса располагай ниже по центру.
 ВАЖНО: Основной поток строй сверху вниз. После gateway ветки разводи в стороны и затем возвращай продолжение процесса вниз, а не в длинную горизонтальную линию.
 ВАЖНО: СТРОГАЯ ПРИВЯЗКА ЛОГИЧЕСКИХ БЛОКОВ (БАЗА):
-  1) Вход/выход процесса = строго <bpmn2:startEvent> и <bpmn2:endEvent> (Круг).
-  2) Действие/шаг процесса = строго <bpmn2:task> (Прямоугольник). Каждый task должен содержать в name краткое название действия.
-  3) Документ (форма, заявление, акт, запись) = строго <bpmn2:dataObjectReference> + <bpmn2:dataObject>. Каждый документ, упомянутый в процессе, должен быть отражён как dataObjectReference с name документа. Для связи с task используй <bpmn2:dataOutputAssociation> или <bpmn2:dataInputAssociation>. Для каждого dataObjectReference и каждой dataOutputAssociation/dataInputAssociation обязательно генерируй BPMNShape (dc:Bounds) и BPMNEdge (di:waypoint) в блоке bpmndi.
-  4) Ссылка на другой бизнес-процесс = строго <bpmn2:callActivity> (отображается как task с двойной рамкой). Атрибут calledElement указывай как код процесса.
-  5) Логический блок ИЛИ = строго <bpmn2:exclusiveGateway> (ромб). Атрибут name — краткий вопрос.
-  6) База данных (БД, КИАС, хранилище) = строго <bpmn2:dataStoreReference> (цилиндр). Для связи с task используй <bpmn2:dataOutputAssociation>. Для dataStoreReference обязательно генерируй BPMNShape (dc:Bounds) в блоке bpmndi.
-  7) Зона ответственности/роли = если в описании процесса упоминаются конкретные роли или подразделения, оборачивай процесс в <bpmn2:collaboration> с <bpmn2:participant> и используй <bpmn2:laneSet> с <bpmn2:lane> внутри process. Каждая роль = отдельный lane. Если роли не упомянуты, используй простой process без lanes.
-  8) Направляющие (стрелки потока) = <bpmn2:sequenceFlow> для связи элементов процесса. Для связи с данными = <bpmn2:association> или dataOutputAssociation/dataInputAssociation.
+  1) Вход/выход процесса = строго <bpmn2:startEvent> и <bpmn2:endEvent> (Круг). Использование других событий запрещено.
+  2) Действие/шаг/документ процесса = строго <bpmn2:task> (Прямоугольник). Каждый task должен содержать в name краткое название действия. НЕ используй dataObjectReference.
+  3) Ссылка на другой бизнес-процесс = строго <bpmn2:callActivity> (двойная рамка). Атрибут calledElement указывай как код процесса.
+  4) Логический блок ИЛИ = строго <bpmn2:exclusiveGateway> (ромб). Атрибут name — краткий вопрос.
+  5) База данных (БД, КИАС, хранилище) = строго <bpmn2:dataStoreReference> (цилиндр). Для связи с task используй <bpmn2:dataOutputAssociation>. Обязательно генерируй BPMNShape (dc:Bounds).
+  6) Зона ответственности/роли = если в описании процесса упоминаются конкретные роли или подразделения, оборачивай процесс в <bpmn2:collaboration> с <bpmn2:participant> и используй <bpmn2:laneSet> с <bpmn2:lane> внутри process.
+  7) Направляющие (стрелки потока) = <bpmn2:sequenceFlow> для связи элементов.
 
 ФОРМАТ ОТВЕТА:
 Твой ответ должен содержать ТОЛЬКО код BPMN 2.0 XML, без объяснений и markdown.

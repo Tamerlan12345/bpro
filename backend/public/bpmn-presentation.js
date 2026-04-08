@@ -402,13 +402,15 @@
 
         if (node.kind === 'event') {
             const radius = Math.min(width, height) / 2;
-            const inner = String(node.type || '').toLowerCase() === 'endevent'
-                ? `<circle class="doc-node event-inner" cx="${centerX}" cy="${centerY}" r="${Math.max(radius - 6, radius * 0.7)}"></circle>`
+            const isEndEvent = String(node.type || '').toLowerCase() === 'endevent';
+            const inner = isEndEvent
+                ? `<circle class="doc-node event-inner end-event-inner" cx="${centerX}" cy="${centerY}" r="${Math.max(radius - 4, radius * 0.8)}"></circle>`
                 : '';
+            const outerClass = isEndEvent ? 'event-outer end-event' : 'event-outer start-event';
             const textY = centerY + radius + 24;
             return `
                 <g class="doc-node-group event" ${nodeAttributes}>
-                    <circle class="doc-node event-outer" cx="${centerX}" cy="${centerY}" r="${radius}"></circle>
+                    <circle class="doc-node ${outerClass}" cx="${centerX}" cy="${centerY}" r="${radius}"></circle>
                     ${inner}
                     ${renderTextBlock(wrapSvgText(node.name, 140, 14), centerX, textY, 'doc-label event-label', 16)}
                 </g>
@@ -431,20 +433,10 @@
         }
 
         if (node.kind === 'reference') {
-            const notch = clamp(width * 0.12, 14, 28);
-            const path = [
-                `M ${x + notch} ${y}`,
-                `L ${x + width - notch} ${y}`,
-                `L ${x + width} ${centerY}`,
-                `L ${x + width - notch} ${y + height}`,
-                `L ${x + notch} ${y + height}`,
-                `L ${x} ${centerY}`,
-                'Z'
-            ].join(' ');
-
             return `
                 <g class="doc-node-group reference" ${nodeAttributes}>
-                    <path class="doc-node reference-shape" d="${path}"></path>
+                    <rect class="doc-node reference-shape outer" x="${x}" y="${y}" width="${width}" height="${height}" rx="12" ry="12"></rect>
+                    <rect class="doc-node reference-shape inner" x="${x + 4}" y="${y + 4}" width="${width - 8}" height="${height - 8}" rx="8" ry="8"></rect>
                     ${renderTextBlock(wrapSvgText(node.name || node.calledElement || 'Связанный процесс', width * 0.72, 14), centerX, centerY - 8, 'doc-label node-label', 16)}
                 </g>
             `;
@@ -564,12 +556,15 @@
                     <style>
                         .doc-root { font-family: "Manrope", "Segoe UI", sans-serif; }
                         .doc-node { stroke: #5f6b7a; stroke-width: 1.35; }
-                        .task-shape { fill: #ffffff; }
-                        .reference-shape { fill: #fcfdff; }
-                        .gateway-shape { fill: #ffffff; }
+                        .task-shape { fill: #eefbee; stroke: #2e7d32; stroke-width: 2; }
+                        .reference-shape.outer { fill: #ffffff; stroke: #1976d2; stroke-width: 2; }
+                        .reference-shape.inner { fill: #e3f2fd; stroke: #1976d2; stroke-width: 1.5; }
+                        .gateway-shape { fill: #f3e5f5; stroke: #8e24aa; stroke-width: 2; }
                         .document-shape, .document-footer { fill: #fbfbfd; }
-                        .database-cap, .database-body, .database-bottom { fill: #ffffff; }
-                        .event-outer, .event-inner { fill: #ffffff; }
+                        .database-cap, .database-body, .database-bottom { fill: #ffffff; stroke: #0288d1; stroke-width: 1.5; }
+                        .start-event { fill: #fffde7; stroke: #fbc02d; stroke-width: 3; }
+                        .end-event { fill: #ffebee; stroke: #d32f2f; stroke-width: 2; }
+                        .end-event-inner { fill: #ffebee; stroke: #d32f2f; stroke-width: 4; }
                         .composite-divider { stroke: #aeb7c2; stroke-width: 1; stroke-dasharray: 5 4; }
                         .doc-label { fill: #2f3a46; font-size: 13px; font-weight: 600; }
                         .document-label { font-size: 11px; font-weight: 500; fill: #556170; }

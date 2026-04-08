@@ -1,4 +1,4 @@
-﻿(function (globalScope) {
+(function (globalScope) {
     function escapeRegExp(value) {
         return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
@@ -716,29 +716,42 @@
             const slotByTarget = new Map();
 
             if (loopFlows.length === 0 && forwardFlows.length === 2) {
-                const rankedForwardFlows = forwardFlows
-                    .map((flow) => ({
-                        flow,
-                        ...collectBranchDepthMetrics(flow.targetRef, graph.outgoing)
-                    }))
-                    .sort((left, right) => {
-                        return right.maxDepth - left.maxDepth
-                            || right.reachableCount - left.reachableCount
-                            || left.flow.targetRef.localeCompare(right.flow.targetRef);
-                    });
-                const [primaryForwardFlow, alternateForwardFlow] = rankedForwardFlows;
-                const hasDistinctPrimaryFlow = primaryForwardFlow && alternateForwardFlow
-                    && (primaryForwardFlow.maxDepth > alternateForwardFlow.maxDepth
-                        || primaryForwardFlow.reachableCount > alternateForwardFlow.reachableCount);
+                const f1 = forwardFlows[0];
+                const f2 = forwardFlows[1];
+                const slot1 = getFlowDirectionSlot(f1.name);
+                const slot2 = getFlowDirectionSlot(f2.name);
 
-                if (hasDistinctPrimaryFlow) {
-                    const hintedSlot = getFlowDirectionSlot(alternateForwardFlow.flow.name);
-                    slotByTarget.set(primaryForwardFlow.flow.targetRef, 0);
-                    slotByTarget.set(alternateForwardFlow.flow.targetRef, hintedSlot < 0 ? -1 : (hintedSlot > 0 ? 1 : -1));
+                if (slot1 > 0 && slot2 <= 0) {
+                    slotByTarget.set(f1.targetRef, 0);
+                    slotByTarget.set(f2.targetRef, slot2 < 0 ? -1 : 1);
+                } else if (slot2 > 0 && slot1 <= 0) {
+                    slotByTarget.set(f2.targetRef, 0);
+                    slotByTarget.set(f1.targetRef, slot1 < 0 ? -1 : 1);
                 } else {
-                    createFallbackSlotOrder(gatewayFlows).forEach((slot, targetId) => {
-                        slotByTarget.set(targetId, slot);
-                    });
+                    const rankedForwardFlows = forwardFlows
+                        .map((flow) => ({
+                            flow,
+                            ...collectBranchDepthMetrics(flow.targetRef, graph.outgoing)
+                        }))
+                        .sort((left, right) => {
+                            return right.maxDepth - left.maxDepth
+                                || right.reachableCount - left.reachableCount
+                                || left.flow.targetRef.localeCompare(right.flow.targetRef);
+                        });
+                    const [primaryForwardFlow, alternateForwardFlow] = rankedForwardFlows;
+                    const hasDistinctPrimaryFlow = primaryForwardFlow && alternateForwardFlow
+                        && (primaryForwardFlow.maxDepth > alternateForwardFlow.maxDepth
+                            || primaryForwardFlow.reachableCount > alternateForwardFlow.reachableCount);
+
+                    if (hasDistinctPrimaryFlow) {
+                        const hintedSlot = getFlowDirectionSlot(alternateForwardFlow.flow.name);
+                        slotByTarget.set(primaryForwardFlow.flow.targetRef, 0);
+                        slotByTarget.set(alternateForwardFlow.flow.targetRef, hintedSlot < 0 ? -1 : (hintedSlot > 0 ? 1 : 1));
+                    } else {
+                        createFallbackSlotOrder(gatewayFlows).forEach((slot, targetId) => {
+                            slotByTarget.set(targetId, slot);
+                        });
+                    }
                 }
             } else if (forwardFlows.length === 1 && loopFlows.length >= 1) {
                 slotByTarget.set(forwardFlows[0].targetRef, 0);
