@@ -1154,10 +1154,8 @@
             );
 
             sanitizedXml = sanitizedXml.replace(edgePattern, function (_match, openTag, innerContent, closeTag) {
+                // Remove only the Label, keep Waypoints
                 const nextInnerContent = innerContent.replace(/<bpmndi:BPMNLabel\b[\s\S]*?<\/bpmndi:BPMNLabel>/gi, '').trim();
-                if (!nextInnerContent) {
-                    return `${openTag}${closeTag}`;
-                }
                 return `${openTag}\n${nextInnerContent}\n      ${closeTag}`;
             });
         });
