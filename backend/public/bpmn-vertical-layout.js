@@ -925,43 +925,66 @@
     function buildBranchWaypoints(source, target) {
         const sourceCenterX = source.x + (source.width / 2);
         const sourceBottomY = source.y + source.height;
+        const sourceCenterY = source.y + (source.height / 2);
+        
         const targetCenterX = target.x + (target.width / 2);
         const targetTopY = target.y;
+        
         const targetIsAboveSource = targetTopY <= source.y;
+        const isSideBranch = Math.abs(sourceCenterX - targetCenterX) > 5;
+
+        // Detect if source is likely a gateway (72x72 approx) to use side exits
+        const isSourceGateway = source.width > 60 && source.width < 90 && source.height > 60 && source.height < 90;
 
         if (targetIsAboveSource) {
-            const routeLeft = targetCenterX <= sourceCenterX;
+            // Backflow routing
+            const routeLeft = sourceCenterX < targetCenterX;
             const sideX = routeLeft
-                ? Math.min(source.x, target.x) - 180
-                : Math.max(source.x + source.width, target.x + target.width) + 180;
+                ? Math.min(source.x, target.x) - 100
+                : Math.max(source.x + source.width, target.x + target.width) + 100;
             const upperY = Math.max(24, targetTopY - 72);
 
             return [
                 { x: sourceCenterX, y: sourceBottomY },
-                { x: sideX, y: sourceBottomY },
+                { x: sourceCenterX, y: sourceBottomY + 40 },
+                { x: sideX, y: sourceBottomY + 40 },
                 { x: sideX, y: upperY },
                 { x: targetCenterX, y: upperY },
                 { x: targetCenterX, y: targetTopY }
             ];
         }
 
-        if (Math.abs(sourceCenterX - targetCenterX) < 1) {
+        if (!isSideBranch) {
+            // Straight down
             return [
                 { x: sourceCenterX, y: sourceBottomY },
                 { x: targetCenterX, y: targetTopY }
             ];
         }
 
-        const bendY = Math.max(
-            sourceBottomY + 40,
-            targetTopY - Math.max(32, Math.min(96, (targetTopY - sourceBottomY) / 3))
-        );
-        return [
-            { x: sourceCenterX, y: sourceBottomY },
-            { x: sourceCenterX, y: bendY },
-            { x: targetCenterX, y: bendY },
-            { x: targetCenterX, y: targetTopY }
-        ];
+        if (isSourceGateway) {
+            // Side branch routing for gateways: Exit from the side, then horizontal, then down
+            const exitLeft = targetCenterX < sourceCenterX;
+            const exitX = exitLeft ? source.x : source.x + source.width;
+            
+            return [
+                { x: exitX, y: sourceCenterY },
+                { x: targetCenterX, y: sourceCenterY },
+                { x: targetCenterX, y: targetTopY }
+            ];
+        } else {
+            // Side branch routing for tasks: exit from bottom
+            const bendY = Math.max(
+                sourceBottomY + 40,
+                targetTopY - Math.max(32, Math.min(96, (targetTopY - sourceBottomY) / 3))
+            );
+            return [
+                { x: sourceCenterX, y: sourceBottomY },
+                { x: sourceCenterX, y: bendY },
+                { x: targetCenterX, y: bendY },
+                { x: targetCenterX, y: targetTopY }
+            ];
+        }
     }
 
     function buildEdgeLabelBounds(waypoints) {
@@ -969,15 +992,20 @@
             return null;
         }
 
-        const anchor = waypoints.length >= 4
-            ? {
-                x: (waypoints[1].x + waypoints[2].x) / 2,
-                y: waypoints[1].y
-            }
-            : {
-                x: (waypoints[0].x + waypoints[waypoints.length - 1].x) / 2,
-                y: (waypoints[0].y + waypoints[waypoints.length - 1].y) / 2
-            };
+        let anchor;
+        if (waypoints.length === 6) {
+            // Backflow anchor on the long vertical segment
+            anchor = { x: waypoints[2].x, y: (waypoints[2].y + waypoints[3].y) / 2 };
+        } else if (waypoints.length >= 4) {
+            // Task side branch anchor on horizontal segment
+            anchor = { x: (waypoints[1].x + waypoints[2].x) / 2, y: waypoints[1].y };
+        } else if (waypoints.length === 3) {
+            // Gateway side branch anchor on horizontal segment
+            anchor = { x: (waypoints[0].x + waypoints[1].x) / 2, y: waypoints[0].y };
+        } else {
+            // Straight line anchor in the middle
+            anchor = { x: (waypoints[0].x + waypoints[waypoints.length - 1].x) / 2, y: (waypoints[0].y + waypoints[waypoints.length - 1].y) / 2 };
+        }
 
         return {
             x: anchor.x - 24,
