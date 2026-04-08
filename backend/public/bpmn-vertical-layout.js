@@ -688,7 +688,9 @@
 
     function buildGatewayBranchHints(flows, elementTypes, graph) {
         const hints = new Map();
-        const exclusiveGatewayIds = collectExclusiveGatewayIds(elementTypes);
+        const branchingNodeIds = Array.from(graph.outgoingFlows.keys()).filter((nodeId) => {
+            return (graph.outgoingFlows.get(nodeId) || []).length > 1;
+        });
         const ancestorCache = new Map();
 
         const createFallbackSlotOrder = (gatewayFlows) => {
@@ -716,7 +718,7 @@
             return slotByTarget;
         };
 
-        exclusiveGatewayIds.forEach((gatewayId) => {
+        branchingNodeIds.forEach((gatewayId) => {
             const gatewayFlows = (graph.outgoingFlows.get(gatewayId) || []).slice();
             if (gatewayFlows.length < 2) {
                 return;
@@ -936,7 +938,7 @@
         return nextShapeMap;
     }
 
-    function buildBranchWaypoints(source, target) {
+    function buildBranchWaypoints(source, target, isBranchingNode = false) {
         const sourceCenterX = source.x + (source.width / 2);
         const sourceBottomY = source.y + source.height;
         const sourceCenterY = source.y + (source.height / 2);
@@ -976,8 +978,8 @@
             ];
         }
 
-        if (isSourceGateway) {
-            // Side branch routing for gateways: Exit from the side, then horizontal, then down
+        if (isSourceGateway || isBranchingNode) {
+            // Side branch routing for gateways or branching tasks: Exit from the side, then horizontal, then down
             const exitLeft = targetCenterX < sourceCenterX;
             const exitX = exitLeft ? source.x : source.x + source.width;
             
@@ -1212,7 +1214,8 @@
                 const target = nextShapeMap.get(flow.targetRef);
                 if (!source || !target) return;
 
-                const waypoints = buildBranchWaypoints(source, target);
+                const isBranchingNode = (graph.outgoingFlows.get(flow.sourceRef) || []).length > 1;
+                const waypoints = buildBranchWaypoints(source, target, isBranchingNode);
                 nextXml = replaceEdgeWaypoints(nextXml, flow.id, waypoints);
 
                 const labelBounds = buildEdgeLabelBounds(waypoints);
