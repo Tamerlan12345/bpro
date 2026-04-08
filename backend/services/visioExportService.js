@@ -93,18 +93,45 @@ function buildNodeShapeXml(id, node, pageSpace) {
 </Shape>`.trim();
 }
 
-function buildConnectorShapeXml(id, startPoint, endPoint, label, options = {}) {
-    const beginX = round(startPoint.x);
-    const beginY = round(startPoint.y);
-    const endX = round(endPoint.x);
-    const endY = round(endPoint.y);
-    const widthIn = Math.max(Math.abs(endX - beginX), MIN_CONNECTOR_SIZE_IN);
-    const heightIn = Math.max(Math.abs(endY - beginY), MIN_CONNECTOR_SIZE_IN);
-    const pinX = round((beginX + endX) / 2);
-    const pinY = round((beginY + endY) / 2);
+function buildConnectorShapeXml(id, points, label, options = {}) {
+    if (!points || points.length < 2) return '';
+
+    const first = points[0];
+    const last = points[points.length - 1];
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    points.forEach(p => {
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+    });
+
+    const widthIn = Math.max(maxX - minX, MIN_CONNECTOR_SIZE_IN);
+    const heightIn = Math.max(maxY - minY, MIN_CONNECTOR_SIZE_IN);
+    const pinX = round(minX + widthIn / 2);
+    const pinY = round(minY + heightIn / 2);
     const locPinX = round(widthIn / 2);
     const locPinY = round(heightIn / 2);
+
+    const beginX = round(first.x);
+    const beginY = round(first.y);
+    const endX = round(last.x);
+    const endY = round(last.y);
+
     const connectorText = label ? `<Text>${escapeVisioText(label)}</Text>` : '';
+
+    // Build geometry section for polyline
+    const geomRows = [];
+    points.forEach((p, idx) => {
+        const localX = round(p.x - minX);
+        const localY = round(p.y - minY);
+        if (idx === 0) {
+            geomRows.push(`<Row T='MoveTo' IX='1'><Cell N='X' V='${localX}'/><Cell N='Y' V='${localY}'/></Row>`);
+        } else {
+            geomRows.push(`<Row T='LineTo' IX='${idx + 1}'><Cell N='X' V='${localX}'/><Cell N='Y' V='${localY}'/></Row>`);
+        }
+    });
 
     return `
 <Shape ID='${id}' NameU='${MASTER_BY_KIND.connector.nameU}' Name='${escapeXml(label || `Flow ${id}`)}' Type='Shape' Master='${MASTER_BY_KIND.connector.id}'>
@@ -123,32 +150,16 @@ function buildConnectorShapeXml(id, startPoint, endPoint, label, options = {}) {
   <Cell N='BeginArrow' V='${options.beginArrow || 0}'/>
   <Cell N='EndArrow' V='${options.endArrow || 0}'/>
   <Cell N='LineWeight' V='${options.lineWeight || 0.010417}'/>
+  <Section N='Geometry' IX='0'>
+    <Cell N='NoFill' V='1'/>
+    ${geomRows.join('')}
+  </Section>
   ${connectorText}
 </Shape>`.trim();
 }
 
-function buildEdgeSegments(edge, pageSpace, includeArrow) {
-    const segments = [];
-    const points = edge.points || [];
-    if (points.length < 2) {
-        return segments;
-    }
-
-    for (let index = 0; index < points.length - 1; index += 1) {
-        const start = points[index];
-        const end = points[index + 1];
-        if (!start || !end) continue;
-        if (start.x === end.x && start.y === end.y) continue;
-
-        segments.push({
-            start: toVisioPoint(start, pageSpace),
-            end: toVisioPoint(end, pageSpace),
-            label: index === Math.floor((points.length - 2) / 2) ? edge.name : '',
-            endArrow: includeArrow && index === points.length - 2 ? 5 : 0
-        });
-    }
-
-    return segments;
+function buildEdgeWaypoints(edge, pageSpace) {
+    return (edge.points || []).map(p => toVisioPoint(p, pageSpace));
 }
 
 function buildLaneDecorations(model, pageSpace, startingId) {
@@ -165,8 +176,10 @@ function buildLaneDecorations(model, pageSpace, startingId) {
         if (index < model.lanes.length - 1) {
             shapes.push(buildConnectorShapeXml(
                 nextId++,
-                toVisioPoint({ x: leftX, y: lane.y + lane.height }, pageSpace),
-                toVisioPoint({ x: rightX, y: lane.y + lane.height }, pageSpace),
+                [
+                    toVisioPoint({ x: leftX, y: lane.y + lane.height }, pageSpace),
+                    toVisioPoint({ x: rightX, y: lane.y + lane.height }, pageSpace)
+                ],
                 lane.name,
                 { linePattern: 23, lineWeight: 0.006944 }
             ));
@@ -175,8 +188,10 @@ function buildLaneDecorations(model, pageSpace, startingId) {
 
     shapes.push(buildConnectorShapeXml(
         nextId++,
-        toVisioPoint({ x: rightX, y: model.bounds.minY - 18 }, pageSpace),
-        toVisioPoint({ x: rightX, y: model.bounds.maxY + 36 }, pageSpace),
+        [
+            toVisioPoint({ x: rightX, y: model.bounds.minY - 18 }, pageSpace),
+            toVisioPoint({ x: rightX, y: model.bounds.maxY + 36 }, pageSpace)
+        ],
         'Зона ответственности',
         { linePattern: 23, lineWeight: 0.006944, endArrow: 5 }
     ));
@@ -194,12 +209,13 @@ function buildPage1Xml(model) {
     });
 
     model.edges.forEach((edge) => {
-        buildEdgeSegments(edge, pageSpace, true).forEach((segment) => {
-            shapes.push(buildConnectorShapeXml(nextId++, segment.start, segment.end, segment.label, {
-                endArrow: segment.endArrow,
+        const waypoints = buildEdgeWaypoints(edge, pageSpace);
+        if (waypoints.length >= 2) {
+            shapes.push(buildConnectorShapeXml(nextId++, waypoints, edge.name, {
+                endArrow: 5,
                 linePattern: 1
             }));
-        });
+        }
     });
 
     const laneDecorations = buildLaneDecorations(model, pageSpace, nextId);
