@@ -954,7 +954,7 @@
         return nextShapeMap;
     }
 
-    function buildBranchWaypoints(source, target, isBranchingNode = false) {
+    function buildBranchWaypoints(source, target, flowMeta = {}) {
         const sourceCenterX = source.x + (source.width / 2);
         const sourceBottomY = source.y + source.height;
         const sourceCenterY = source.y + (source.height / 2);
@@ -963,18 +963,21 @@
         const targetTopY = target.y;
         
         const targetIsAboveSource = targetTopY <= source.y;
-        const isSideBranch = Math.abs(sourceCenterX - targetCenterX) > 5;
+        const isSideBranch = Math.abs(sourceCenterX - targetCenterX) > 10;
+        const isBranchingNode = flowMeta.isBranching || false;
+        const flowIndex = flowMeta.index || 0;
 
         // Detect if source is likely a gateway (72x72 approx) to use side exits
-        const isSourceGateway = source.width > 60 && source.width < 90 && source.height > 60 && source.height < 90;
+        const isSourceGateway = source.width > 30 && source.width < 100 && source.width === source.height;
 
         if (targetIsAboveSource) {
-            // Backflow routing
+            // Backflow routing - use a wider arc based on flowIndex to avoid overlaps
             const routeLeft = sourceCenterX < targetCenterX;
+            const outerOffset = 80 + (flowIndex * 15);
             const sideX = routeLeft
-                ? Math.min(source.x, target.x) - 100
-                : Math.max(source.x + source.width, target.x + target.width) + 100;
-            const upperY = Math.max(24, targetTopY - 72);
+                ? Math.min(source.x, target.x) - outerOffset
+                : Math.max(source.x + source.width, target.x + target.width) + outerOffset;
+            const upperY = Math.max(24, targetTopY - 72 - (flowIndex * 8));
 
             return [
                 { x: sourceCenterX, y: sourceBottomY },
@@ -987,7 +990,7 @@
         }
 
         if (!isSideBranch) {
-            // Straight down
+            // Straight down - enter from top center
             return [
                 { x: sourceCenterX, y: sourceBottomY },
                 { x: targetCenterX, y: targetTopY }
@@ -999,15 +1002,19 @@
             const exitLeft = targetCenterX < sourceCenterX;
             const exitX = exitLeft ? source.x : source.x + source.width;
             
+            // Stagger horizontal line Y-coordinate to avoid overlap with other branches in the same row
+            const staggerY = sourceCenterY + (flowIndex * 14);
+            
             return [
-                { x: exitX, y: sourceCenterY },
-                { x: targetCenterX, y: sourceCenterY },
+                { x: exitX, y: staggerY },
+                { x: targetCenterX, y: staggerY },
                 { x: targetCenterX, y: targetTopY }
             ];
         } else {
-            // Side branch routing for tasks: exit from bottom
+            // Side branch routing for tasks: exit from bottom, then bend
+            // Use flowIndex to stagger the horizontal bend
             const bendY = Math.max(
-                sourceBottomY + 40,
+                sourceBottomY + 25 + (flowIndex * 12),
                 targetTopY - Math.max(32, Math.min(96, (targetTopY - sourceBottomY) / 3))
             );
             return [
@@ -1025,17 +1032,21 @@
         }
 
         let anchor;
+        let isLateralBranch = false;
+
         if (waypoints.length === 6) {
             // Backflow anchor on the long vertical segment
             anchor = { x: waypoints[2].x, y: (waypoints[2].y + waypoints[3].y) / 2 };
         } else if (waypoints.length >= 4) {
             // Task side branch anchor on horizontal segment
             anchor = { x: (waypoints[1].x + waypoints[2].x) / 2, y: waypoints[1].y };
+            isLateralBranch = true;
         } else if (waypoints.length === 3) {
             // Gateway side branch anchor on horizontal segment
-            // Shift x to be closer to the gateway to make it clearly readable as a branch label
+            isLateralBranch = true;
             const horizontalLength = Math.abs(waypoints[0].x - waypoints[1].x);
-            const shift = Math.min(40, horizontalLength / 2);
+            // Put it slightly away from the diamond to avoid overlap
+            const shift = Math.min(60, Math.max(35, horizontalLength * 0.4));
             const dirX = waypoints[1].x > waypoints[0].x ? 1 : -1;
             
             anchor = { 
@@ -1044,14 +1055,15 @@
             };
         } else {
             // Straight line anchor in the middle
-            anchor = { x: (waypoints[0].x + waypoints[waypoints.length - 1].x) / 2, y: (waypoints[0].y + waypoints[waypoints.length - 1].y) / 2 };
+            anchor = { 
+                x: (waypoints[0].x + waypoints[waypoints.length - 1].x) / 2, 
+                y: (waypoints[0].y + waypoints[waypoints.length - 1].y) / 2 
+            };
         }
-
-        const isLateralBranch = waypoints.length === 3;
 
         return {
             x: anchor.x - 24,
-            y: anchor.y - (isLateralBranch ? 32 : 28), // Lift lateral labels more to avoid line intersection
+            y: anchor.y - (isLateralBranch ? 22 : 28), // Lift lateral labels just enough to clear the line
             width: 48,
             height: 18
         };
@@ -1225,13 +1237,24 @@
                 nextXml = replaceShapeBounds(nextXml, shape.bpmnElement, nextShape);
             });
 
+            const gatewayCounters = new Map();
+
             flows.forEach((flow) => {
                 const source = nextShapeMap.get(flow.sourceRef);
                 const target = nextShapeMap.get(flow.targetRef);
                 if (!source || !target) return;
 
-                const isBranchingNode = (graph.outgoingFlows.get(flow.sourceRef) || []).length > 1;
-                const waypoints = buildBranchWaypoints(source, target, isBranchingNode);
+                const outgoing = graph.outgoingFlows.get(flow.sourceRef) || [];
+                const isBranching = outgoing.length > 1;
+                
+                // Track index for staggering
+                const currentCount = gatewayCounters.get(flow.sourceRef) || 0;
+                gatewayCounters.set(flow.sourceRef, currentCount + 1);
+
+                const waypoints = buildBranchWaypoints(source, target, {
+                    isBranching: isBranching,
+                    index: currentCount
+                });
                 nextXml = replaceEdgeWaypoints(nextXml, flow.id, waypoints);
 
                 const labelBounds = buildEdgeLabelBounds(waypoints);

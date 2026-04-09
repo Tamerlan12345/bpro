@@ -356,10 +356,10 @@
         }
 
         const padding = {
-            top: 96,
-            right: lanes.length ? 210 : 120,
-            bottom: 120,
-            left: 96
+            top: 120,    // Increased for top labels
+            right: lanes.length ? 240 : 160, // Increased for lane labels
+            bottom: 140, // Increased for bottom document labels
+            left: 120
         };
 
         return {
@@ -545,7 +545,7 @@
         }).join('');
 
         return `
-            <svg xmlns="http://www.w3.org/2000/svg" width="${model.viewBox.width}" height="${model.viewBox.height}" viewBox="${model.viewBox.x} ${model.viewBox.y} ${model.viewBox.width} ${model.viewBox.height}" role="img" aria-label="Документ-стиль визуализации BPMN">
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="${model.viewBox.x} ${model.viewBox.y} ${model.viewBox.width} ${model.viewBox.height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Документ-стиль визуализации BPMN">
                 <defs>
                     <marker id="doc-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
                         <path d="M 0 0 L 12 6 L 0 12 z" fill="#6a7482"></path>
