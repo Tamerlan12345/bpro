@@ -469,14 +469,14 @@
     }
 
     // slot 0  = straight down (main / "да" path)
-    // slot -1 = left side branch ("нет" / negative path)
-    // slot +1 = right side branch (unlabelled second branch)
+    // slot +1 = right side branch ("нет" / negative path)
+    // slot -1 = left side branch (unlabelled second branch or explicit returns)
     function getFlowDirectionSlot(flowName) {
         if (isPositiveFlowLabel(flowName)) {
             return 0;   // "да" → continues main path downward
         }
         if (isNegativeFlowLabel(flowName)) {
-            return -1;  // "нет" → left side branch
+            return 1;  // "нет" → right side branch
         }
         return 0;       // unlabelled default: treat as main path
     }
@@ -797,17 +797,17 @@
                 let rightOffset = 1;
                 sideItems.forEach((item) => {
                     if (item.isNegative) {
-                        // Always put "нет" on the left
-                        while (usedSlots.has(leftOffset)) leftOffset--;
-                        slotByTarget.set(item.flow.targetRef, leftOffset);
-                        usedSlots.add(leftOffset);
-                        leftOffset--;
-                    } else {
-                        // Remaining neutrals alternate left/right starting from right
+                        // Always put "нет" on the right
                         while (usedSlots.has(rightOffset)) rightOffset++;
                         slotByTarget.set(item.flow.targetRef, rightOffset);
                         usedSlots.add(rightOffset);
                         rightOffset++;
+                    } else {
+                        // Remaining neutrals alternate left/right starting from left
+                        while (usedSlots.has(leftOffset)) leftOffset--;
+                        slotByTarget.set(item.flow.targetRef, leftOffset);
+                        usedSlots.add(leftOffset);
+                        leftOffset--;
                     }
                 });
             } else if (forwardFlows.length === 1 && loopFlows.length >= 1) {
