@@ -183,12 +183,35 @@
         return laneRefs;
     }
 
-    function wrapSvgText(text, maxWidth, fontSize) {
+    function splitToken(token, maxChars) {
+        const value = String(token || '');
+        if (!value) return [];
+        if (value.length <= maxChars) return [value];
+
+        const chunks = [];
+        let cursor = value;
+        const sliceLength = Math.max(1, maxChars - 1);
+
+        while (cursor.length > maxChars) {
+            chunks.push(`${cursor.slice(0, sliceLength)}-`);
+            cursor = cursor.slice(sliceLength);
+        }
+
+        if (cursor) {
+            chunks.push(cursor);
+        }
+
+        return chunks;
+    }
+
+    function wrapSvgText(text, maxWidth, fontSize, maxLines) {
         const value = String(text || '').trim();
         if (!value) return [];
 
         const approxChars = Math.max(8, Math.floor(maxWidth / Math.max(fontSize * 0.56, 1)));
-        const words = value.split(/\s+/);
+        const words = value
+            .split(/\s+/)
+            .flatMap((word) => splitToken(word, approxChars));
         const lines = [];
         let current = '';
 
@@ -206,7 +229,14 @@
             lines.push(current);
         }
 
-        return lines.slice(0, 5);
+        const limit = Math.max(1, maxLines || 5);
+        if (lines.length <= limit) {
+            return lines;
+        }
+
+        const visible = lines.slice(0, limit);
+        visible[limit - 1] = `${visible[limit - 1].replace(/[-\s]+$/g, '')}...`;
+        return visible;
     }
 
     function getNodeKind(type) {
@@ -248,6 +278,152 @@
                 };
             })
             .sort((left, right) => left.y - right.y);
+    }
+
+    function createMetrics() {
+        return {
+            minX: Infinity,
+            minY: Infinity,
+            maxX: -Infinity,
+            maxY: -Infinity
+        };
+    }
+
+    function includePoint(metrics, x, y) {
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            return;
+        }
+        metrics.minX = Math.min(metrics.minX, x);
+        metrics.minY = Math.min(metrics.minY, y);
+        metrics.maxX = Math.max(metrics.maxX, x);
+        metrics.maxY = Math.max(metrics.maxY, y);
+    }
+
+    function includeRect(metrics, x, y, width, height) {
+        if (![x, y, width, height].every(Number.isFinite)) {
+            return;
+        }
+        includePoint(metrics, x, y);
+        includePoint(metrics, x + width, y + height);
+    }
+
+    function getEventLabelPadding(node) {
+        if (node.kind !== 'event') {
+            return null;
+        }
+
+        return {
+            x: node.x - 12,
+            y: node.y - 12,
+            width: node.width + 24,
+            height: node.height + 52
+        };
+    }
+
+    function estimateEdgeLabelBounds(edge) {
+        if (!edge.name || !Array.isArray(edge.points) || edge.points.length < 2) {
+            return null;
+        }
+
+        let bestSegment = null;
+        for (let index = 0; index < edge.points.length - 1; index += 1) {
+            const start = edge.points[index];
+            const end = edge.points[index + 1];
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const length = Math.abs(dx) + Math.abs(dy);
+
+            if (!bestSegment || length > bestSegment.length) {
+                bestSegment = { start, end, dx, dy, length };
+            }
+        }
+
+        if (!bestSegment) {
+            return null;
+        }
+
+        const width = Math.max(42, Math.min(120, 18 + (String(edge.name).length * 7)));
+        const height = 20;
+        const anchorX = bestSegment.start.x + (bestSegment.dx / 2);
+        const anchorY = bestSegment.start.y + (bestSegment.dy / 2);
+
+        if (Math.abs(bestSegment.dx) >= Math.abs(bestSegment.dy)) {
+            return {
+                x: anchorX - (width / 2),
+                y: anchorY - 24,
+                width,
+                height
+            };
+        }
+
+        return {
+            x: anchorX + 12,
+            y: anchorY - (height / 2),
+            width,
+            height
+        };
+    }
+
+    function buildPresentationMetrics(nodes, edges, lanes, participantShapes) {
+        const metrics = createMetrics();
+
+        nodes.forEach((node) => {
+            includeRect(metrics, node.x, node.y, node.width, node.height);
+
+            const eventLabelPadding = getEventLabelPadding(node);
+            if (eventLabelPadding) {
+                includeRect(metrics, eventLabelPadding.x, eventLabelPadding.y, eventLabelPadding.width, eventLabelPadding.height);
+            }
+        });
+
+        lanes.forEach((lane) => {
+            includeRect(metrics, lane.x, lane.y, lane.width, lane.height);
+            includeRect(metrics, lane.x, lane.y, lane.width + 160, lane.height);
+        });
+
+        participantShapes.forEach((shape) => {
+            includeRect(metrics, shape.x, shape.y, shape.width, shape.height);
+        });
+
+        edges.forEach((edge) => {
+            edge.points.forEach((point) => includePoint(metrics, point.x, point.y));
+            if (edge.labelBounds) {
+                includeRect(metrics, edge.labelBounds.x, edge.labelBounds.y, edge.labelBounds.width, edge.labelBounds.height);
+            }
+        });
+
+        if (!Number.isFinite(metrics.minX)) {
+            return {
+                metrics: {
+                    minX: 0,
+                    minY: 0,
+                    maxX: 1200,
+                    maxY: 800
+                },
+                padding: {
+                    top: 80,
+                    right: 80,
+                    bottom: 80,
+                    left: 80
+                }
+            };
+        }
+
+        const spanX = Math.max(1, metrics.maxX - metrics.minX);
+        const spanY = Math.max(1, metrics.maxY - metrics.minY);
+        const baseHorizontalPadding = Math.max(56, Math.round(spanX * 0.06));
+        const baseVerticalPadding = Math.max(56, Math.round(spanY * 0.08));
+        const laneRightPadding = lanes.length ? 180 : 72;
+
+        return {
+            metrics,
+            padding: {
+                top: baseVerticalPadding,
+                right: Math.max(baseHorizontalPadding, laneRightPadding),
+                bottom: baseVerticalPadding,
+                left: baseHorizontalPadding
+            }
+        };
     }
 
     function buildBpmnPresentationModel(xml) {
@@ -305,62 +481,20 @@
                     ]
                     : []);
 
-            return {
+            const nextEdge = {
                 id: edge.id,
                 name: flow.name || (elementMeta.get(edge.id)?.name || ''),
                 sourceRef: flow.sourceRef || '',
                 targetRef: flow.targetRef || '',
                 points
             };
-        });
 
-        const metrics = {
-            minX: Infinity,
-            minY: Infinity,
-            maxX: -Infinity,
-            maxY: -Infinity
-        };
-
-        nodes.forEach((node) => {
-            metrics.minX = Math.min(metrics.minX, node.x);
-            metrics.minY = Math.min(metrics.minY, node.y);
-            metrics.maxX = Math.max(metrics.maxX, node.x + node.width);
-            metrics.maxY = Math.max(metrics.maxY, node.y + node.height);
+            return {
+                ...nextEdge,
+                labelBounds: estimateEdgeLabelBounds(nextEdge)
+            };
         });
-        lanes.forEach((lane) => {
-            metrics.minX = Math.min(metrics.minX, lane.x);
-            metrics.minY = Math.min(metrics.minY, lane.y);
-            metrics.maxX = Math.max(metrics.maxX, lane.x + lane.width);
-            metrics.maxY = Math.max(metrics.maxY, lane.y + lane.height);
-        });
-        edges.forEach((edge) => {
-            edge.points.forEach((point) => {
-                metrics.minX = Math.min(metrics.minX, point.x);
-                metrics.minY = Math.min(metrics.minY, point.y);
-                metrics.maxX = Math.max(metrics.maxX, point.x);
-                metrics.maxY = Math.max(metrics.maxY, point.y);
-            });
-        });
-        participantShapes.forEach((shape) => {
-            metrics.minX = Math.min(metrics.minX, shape.x);
-            metrics.minY = Math.min(metrics.minY, shape.y);
-            metrics.maxX = Math.max(metrics.maxX, shape.x + shape.width);
-            metrics.maxY = Math.max(metrics.maxY, shape.y + shape.height);
-        });
-
-        if (!Number.isFinite(metrics.minX)) {
-            metrics.minX = 0;
-            metrics.minY = 0;
-            metrics.maxX = 1200;
-            metrics.maxY = 800;
-        }
-
-        const padding = {
-            top: 120,    // Increased for top labels
-            right: lanes.length ? 240 : 160, // Increased for lane labels
-            bottom: 140, // Increased for bottom document labels
-            left: 120
-        };
+        const { metrics, padding } = buildPresentationMetrics(nodes, edges, lanes, participantShapes);
 
         return {
             nodes,
@@ -390,6 +524,10 @@
         return `<text class="${escapedClass}" x="${x}" y="${y}" text-anchor="${position}">${lines.map((line, index) => `<tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`).join('')}</text>`;
     }
 
+    function getCenteredTextY(centerY, lineHeight, lineCount) {
+        return centerY - (((Math.max(lineCount, 1) - 1) * lineHeight) / 2);
+    }
+
     function renderNode(node) {
         const x = node.x;
         const y = node.y;
@@ -407,17 +545,19 @@
                 ? `<circle class="doc-node event-inner end-event-inner" cx="${centerX}" cy="${centerY}" r="${Math.max(radius - 4, radius * 0.8)}"></circle>`
                 : '';
             const outerClass = isEndEvent ? 'event-outer end-event' : 'event-outer start-event';
+            const lines = wrapSvgText(node.name, 140, 13, 3);
             const textY = centerY + radius + 24;
             return `
                 <g class="doc-node-group event" ${nodeAttributes}>
                     <circle class="doc-node ${outerClass}" cx="${centerX}" cy="${centerY}" r="${radius}"></circle>
                     ${inner}
-                    ${renderTextBlock(wrapSvgText(node.name, 140, 14), centerX, textY, 'doc-label event-label', 16)}
+                    ${renderTextBlock(lines, centerX, textY, 'doc-label event-label', 15)}
                 </g>
             `;
         }
 
         if (node.kind === 'gateway') {
+            const lines = wrapSvgText(node.name, width * 0.68, 13, 3);
             const points = [
                 `${centerX},${y}`,
                 `${x + width},${centerY}`,
@@ -427,17 +567,18 @@
             return `
                 <g class="doc-node-group gateway" ${nodeAttributes}>
                     <polygon class="doc-node gateway-shape" points="${points}"></polygon>
-                    ${renderTextBlock(wrapSvgText(node.name, width * 0.75, 14), centerX, centerY - 8, 'doc-label gateway-label', 16)}
+                    ${renderTextBlock(lines, centerX, getCenteredTextY(centerY, 15, lines.length), 'doc-label gateway-label', 15)}
                 </g>
             `;
         }
 
         if (node.kind === 'reference') {
+            const lines = wrapSvgText(node.name || node.calledElement || 'Linked process', width * 0.68, 13, 4);
             return `
                 <g class="doc-node-group reference" ${nodeAttributes}>
-                    <rect class="doc-node reference-shape outer" x="${x}" y="${y}" width="${width}" height="${height}" rx="12" ry="12"></rect>
-                    <rect class="doc-node reference-shape inner" x="${x + 4}" y="${y + 4}" width="${width - 8}" height="${height - 8}" rx="8" ry="8"></rect>
-                    ${renderTextBlock(wrapSvgText(node.name || node.calledElement || 'Связанный процесс', width * 0.72, 14), centerX, centerY - 8, 'doc-label node-label', 16)}
+                    <rect class="doc-node reference-shape outer" x="${x}" y="${y}" width="${width}" height="${height}"></rect>
+                    <rect class="doc-node reference-shape inner" x="${x + 5}" y="${y + 5}" width="${width - 10}" height="${height - 10}"></rect>
+                    ${renderTextBlock(lines, centerX, getCenteredTextY(centerY, 15, lines.length), 'doc-label node-label', 15)}
                 </g>
             `;
         }
@@ -445,18 +586,20 @@
         if (node.kind === 'database') {
             const ellipseHeight = Math.max(12, height * 0.22);
             const bottomY = y + height - ellipseHeight / 2;
+            const lines = wrapSvgText(node.name, width * 0.66, 13, 4);
             return `
                 <g class="doc-node-group database" ${nodeAttributes}>
                     <ellipse class="doc-node database-cap" cx="${centerX}" cy="${y + ellipseHeight / 2}" rx="${width / 2}" ry="${ellipseHeight / 2}"></ellipse>
                     <path class="doc-node database-body" d="M ${x} ${y + ellipseHeight / 2} L ${x} ${bottomY} C ${x} ${bottomY + ellipseHeight / 2}, ${x + width} ${bottomY + ellipseHeight / 2}, ${x + width} ${bottomY} L ${x + width} ${y + ellipseHeight / 2}"></path>
                     <ellipse class="doc-node database-bottom" cx="${centerX}" cy="${bottomY}" rx="${width / 2}" ry="${ellipseHeight / 2}"></ellipse>
-                    ${renderTextBlock(wrapSvgText(node.name, width * 0.72, 14), centerX, centerY - 8, 'doc-label node-label', 16)}
+                    ${renderTextBlock(lines, centerX, getCenteredTextY(centerY, 15, lines.length), 'doc-label node-label', 15)}
                 </g>
             `;
         }
 
         if (node.kind === 'document') {
             const waveDepth = Math.max(10, height * 0.16);
+            const lines = wrapSvgText(node.name, width * 0.72, 13, 4);
             const path = [
                 `M ${x} ${y}`,
                 `L ${x + width} ${y}`,
@@ -469,14 +612,16 @@
             return `
                 <g class="doc-node-group document" ${nodeAttributes}>
                     <path class="doc-node document-shape" d="${path}"></path>
-                    ${renderTextBlock(wrapSvgText(node.name, width * 0.75, 13), centerX, centerY - 8, 'doc-label node-label', 15)}
+                    ${renderTextBlock(lines, centerX, getCenteredTextY(centerY, 15, lines.length), 'doc-label node-label', 15)}
                 </g>
             `;
         }
 
         if (node.attachedDocuments && node.attachedDocuments.length > 0) {
-            const splitY = y + height * 0.58;
+            const splitY = y + Math.max(42, Math.min(height * 0.62, height - 28));
             const footerDepth = Math.max(8, height * 0.1);
+            const headerLines = wrapSvgText(node.name, width * 0.7, 13, 3);
+            const footerLines = wrapSvgText(node.attachedDocuments.join(', '), width * 0.7, 11, 3);
             const footerPath = [
                 `M ${x} ${splitY}`,
                 `L ${x + width} ${splitY}`,
@@ -488,19 +633,20 @@
 
             return `
                 <g class="doc-node-group task composite" ${nodeAttributes}>
-                    <rect class="doc-node task-shape" x="${x}" y="${y}" width="${width}" height="${height}" rx="12" ry="12"></rect>
+                    <rect class="doc-node task-shape" x="${x}" y="${y}" width="${width}" height="${splitY - y}"></rect>
                     <line class="doc-node composite-divider" x1="${x}" y1="${splitY}" x2="${x + width}" y2="${splitY}"></line>
                     <path class="doc-node document-footer" d="${footerPath}"></path>
-                    ${renderTextBlock(wrapSvgText(node.name, width * 0.72, 14), centerX, y + 30, 'doc-label node-label', 16)}
-                    ${renderTextBlock(wrapSvgText(node.attachedDocuments.join(', '), width * 0.72, 12), centerX, splitY + 22, 'doc-label document-label', 14)}
+                    ${renderTextBlock(headerLines, centerX, getCenteredTextY(y + ((splitY - y) / 2), 15, headerLines.length), 'doc-label node-label', 15)}
+                    ${renderTextBlock(footerLines, centerX, getCenteredTextY(splitY + ((height - (splitY - y)) / 2), 13, footerLines.length), 'doc-label document-label', 13)}
                 </g>
             `;
         }
 
+        const lines = wrapSvgText(node.name, width * 0.7, 13, 4);
         return `
             <g class="doc-node-group task" ${nodeAttributes}>
-                <rect class="doc-node task-shape" x="${x}" y="${y}" width="${width}" height="${height}" rx="12" ry="12"></rect>
-                ${renderTextBlock(wrapSvgText(node.name, width * 0.72, 14), centerX, centerY - 8, 'doc-label node-label', 16)}
+                <rect class="doc-node task-shape" x="${x}" y="${y}" width="${width}" height="${height}"></rect>
+                ${renderTextBlock(lines, centerX, getCenteredTextY(centerY, 15, lines.length), 'doc-label node-label', 15)}
             </g>
         `;
     }
@@ -511,12 +657,11 @@
         }
 
         const pointsAttr = edge.points.map((point) => `${point.x},${point.y}`).join(' ');
-        const midIndex = Math.max(0, Math.floor((edge.points.length - 1) / 2));
-        const anchor = edge.points[midIndex];
-        const label = edge.name ? `
+        const labelBounds = edge.labelBounds || estimateEdgeLabelBounds(edge);
+        const label = edge.name && labelBounds ? `
             <g class="doc-edge-label-group">
-                <rect class="doc-edge-label-bg" x="${anchor.x - 28}" y="${anchor.y - 18}" width="56" height="24" rx="12" ry="12"></rect>
-                <text class="doc-edge-label" x="${anchor.x}" y="${anchor.y - 2}" text-anchor="middle">${escapeXml(edge.name)}</text>
+                <rect class="doc-edge-label-bg" x="${labelBounds.x}" y="${labelBounds.y}" width="${labelBounds.width}" height="${labelBounds.height}"></rect>
+                <text class="doc-edge-label" x="${labelBounds.x + (labelBounds.width / 2)}" y="${labelBounds.y + (labelBounds.height / 2)}" text-anchor="middle">${escapeXml(edge.name)}</text>
             </g>` : '';
 
         return `
@@ -537,7 +682,7 @@
             const showBoundary = index < model.lanes.length - 1;
             return `
                 <g class="doc-lane-group">
-                    <rect class="doc-lane-bg ${index % 2 === 0 ? 'even' : 'odd'}" x="${model.viewBox.x + 20}" y="${lane.y}" width="${model.viewBox.width - 96}" height="${lane.height}" rx="22" ry="22"></rect>
+                    <rect class="doc-lane-bg ${index % 2 === 0 ? 'even' : 'odd'}" x="${model.viewBox.x + 20}" y="${lane.y}" width="${model.viewBox.width - 96}" height="${lane.height}"></rect>
                     ${showBoundary ? `<line class="doc-lane-boundary" x1="${model.viewBox.x + 20}" y1="${boundaryY}" x2="${model.viewBox.x + model.viewBox.width - 96}" y2="${boundaryY}"></line>` : ''}
                     <text class="doc-lane-label" x="${laneArrowX - 20}" y="${lane.y + lane.height / 2}" text-anchor="end">${escapeXml(lane.name)}</text>
                 </g>
@@ -548,37 +693,38 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="${model.viewBox.x} ${model.viewBox.y} ${model.viewBox.width} ${model.viewBox.height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Документ-стиль визуализации BPMN">
                 <defs>
                     <marker id="doc-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
-                        <path d="M 0 0 L 12 6 L 0 12 z" fill="#6a7482"></path>
+                        <path d="M 0 0 L 12 6 L 0 12 z" fill="#000000"></path>
                     </marker>
                     <marker id="lane-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto">
-                        <path d="M 0 0 L 12 6 L 0 12 z" fill="#8fa2b2"></path>
+                        <path d="M 0 0 L 12 6 L 0 12 z" fill="#000000"></path>
                     </marker>
                     <style>
-                        .doc-root { font-family: "Manrope", "Segoe UI", sans-serif; }
-                        .doc-node { stroke: #5f6b7a; stroke-width: 1.35; }
-                        .task-shape { fill: #eefbee; stroke: #2e7d32; stroke-width: 2; }
-                        .reference-shape.outer { fill: #ffffff; stroke: #1976d2; stroke-width: 2; }
-                        .reference-shape.inner { fill: #e3f2fd; stroke: #1976d2; stroke-width: 1.5; }
-                        .gateway-shape { fill: #f3e5f5; stroke: #8e24aa; stroke-width: 2; }
-                        .document-shape, .document-footer { fill: #fbfbfd; }
-                        .database-cap, .database-body, .database-bottom { fill: #ffffff; stroke: #0288d1; stroke-width: 1.5; }
-                        .start-event { fill: #fffde7; stroke: #fbc02d; stroke-width: 3; }
-                        .end-event { fill: #ffebee; stroke: #d32f2f; stroke-width: 2; }
-                        .end-event-inner { fill: #ffebee; stroke: #d32f2f; stroke-width: 4; }
-                        .composite-divider { stroke: #aeb7c2; stroke-width: 1; stroke-dasharray: 5 4; }
-                        .doc-label { fill: #2f3a46; font-size: 13px; font-weight: 600; }
-                        .document-label { font-size: 11px; font-weight: 500; fill: #556170; }
-                        .gateway-label { font-size: 12px; }
-                        .event-label { font-size: 12px; font-weight: 600; }
-                        .doc-edge-line { fill: none; stroke: #6a7482; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }
-                        .doc-edge-label-bg { fill: #ffffff; stroke: #c9d1da; stroke-width: 0.8; }
-                        .doc-edge-label { fill: #44505e; font-size: 11px; font-weight: 600; dominant-baseline: middle; }
-                        .doc-lane-bg { fill: rgba(255, 255, 255, 0.92); stroke: #d7dee6; stroke-width: 1; }
-                        .doc-lane-bg.odd { fill: rgba(250, 251, 252, 0.96); }
-                        .doc-lane-boundary { stroke: #9aa4b2; stroke-width: 1; stroke-dasharray: 6 6; }
-                        .doc-lane-label { fill: #6c7886; font-size: 12px; font-weight: 600; dominant-baseline: middle; }
-                        .responsibility-axis { stroke: #8fa2b2; stroke-width: 1.2; stroke-dasharray: 7 6; }
-                        .responsibility-label { fill: #6f7d8b; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+                        .doc-root { font-family: "Segoe UI", Arial, sans-serif; }
+                        .doc-node { fill: #ffffff; stroke: #000000; stroke-width: 1.4; }
+                        .task-shape { fill: #ffffff; stroke: #000000; stroke-width: 1.6; }
+                        .reference-shape.outer { fill: #ffffff; stroke: #000000; stroke-width: 1.6; }
+                        .reference-shape.inner { fill: none; stroke: #000000; stroke-width: 1.2; }
+                        .gateway-shape { fill: #ffffff; stroke: #000000; stroke-width: 1.6; }
+                        .document-shape, .document-footer { fill: #ffffff; stroke: #000000; stroke-width: 1.4; }
+                        .database-cap, .database-body, .database-bottom { fill: #ffffff; stroke: #000000; stroke-width: 1.4; }
+                        .start-event, .end-event, .end-event-inner { fill: #ffffff; stroke: #000000; }
+                        .start-event { stroke-width: 1.8; }
+                        .end-event { stroke-width: 1.8; }
+                        .end-event-inner { stroke-width: 3; }
+                        .composite-divider { stroke: #000000; stroke-width: 1; stroke-dasharray: 4 3; }
+                        .doc-label { fill: #000000; font-size: 12px; font-weight: 600; }
+                        .document-label { font-size: 11px; font-weight: 500; fill: #000000; }
+                        .gateway-label { font-size: 11px; }
+                        .event-label { font-size: 11px; font-weight: 600; }
+                        .doc-edge-line { fill: none; stroke: #000000; stroke-width: 1.4; stroke-linecap: square; stroke-linejoin: miter; }
+                        .doc-edge-label-bg { fill: #ffffff; stroke: #000000; stroke-width: 1; }
+                        .doc-edge-label { fill: #000000; font-size: 11px; font-weight: 600; dominant-baseline: middle; }
+                        .doc-lane-bg { fill: #ffffff; stroke: #000000; stroke-width: 1; }
+                        .doc-lane-bg.odd { fill: #ffffff; }
+                        .doc-lane-boundary { stroke: #000000; stroke-width: 1; stroke-dasharray: 6 4; }
+                        .doc-lane-label { fill: #000000; font-size: 12px; font-weight: 600; dominant-baseline: middle; }
+                        .responsibility-axis { stroke: #000000; stroke-width: 1.1; stroke-dasharray: 7 5; }
+                        .responsibility-label { fill: #000000; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
                     </style>
                 </defs>
                 <g class="doc-root">
