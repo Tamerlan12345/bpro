@@ -30,6 +30,7 @@ JavaScript, Node.js, Jest, browser-side IIFE modules in `backend/public/`
 | 3 | Rework BPMN presentation bounds and monochrome rendering | ✅ | `backend/public/bpmn-presentation.js`, `PROJECT.md` | Added dynamic extent calculation, black/white SVG styling, stronger text wrapping, composite document footer |
 | 4 | Rework BPMN branch routing into orthogonal corridors | ✅ | `backend/public/bpmn-vertical-layout.js`, `PROJECT.md` | Added Manhattan waypoint helpers, safer loopback corridors, and wider grid spacing |
 | 5 | Verify BPMN changes with targeted regression and smoke checks | ✅ | `PROJECT.md` | `node require` smoke passed, presentation smoke passed, BPMN Jest: 7/9 passed |
+| 6 | Fix BPMN text overflow + adaptive task height | ✅ | `bpmn-presentation.js`, `bpmn-vertical-layout.js` | Char width 0.56→0.62 for Cyrillic, maxLines 4→5, added `collectElementNames`+`estimateTextHeight` for adaptive height in layout engine |
 
 ## Known Issues
 | Issue | Severity | Location | Notes |
@@ -46,9 +47,6 @@ JavaScript, Node.js, Jest, browser-side IIFE modules in `backend/public/`
 ```
 
 ## Context Anchors
-- `PROJECT.md` did not exist and was created before any code changes.
-- Target scope is restricted to `backend/public/bpmn-vertical-layout.js` and `backend/public/bpmn-presentation.js`.
-- `bpmn-presentation.js` is consumed by `script.js` and `visioExportService.js`.
-- `bpmn-presentation.js` now computes viewBox bounds from nodes, lanes, participants, edge waypoints, and estimated label extents.
-- `bpmn-vertical-layout.js` now routes side branches and loopbacks through explicit orthogonal corridors.
-- Targeted BPMN verification passed smoke checks and 7/9 layout tests; 2 remaining assertions reflect the previous branch-centering rules.
+- `bpmn-presentation.js`: char width coefficient fixed 0.56→0.62 for Cyrillic, task maxLines 4→5.
+- `bpmn-vertical-layout.js`: added `collectElementNames()`, `estimateTextHeight()`, `getShapeLayoutMetrics()` now accepts `elementNames` and grows task height adaptively.
+- Normalization test confirmed: long task (91 chars) → height 105px, short task (15 chars) → height 90px (base). SVG generation OK.

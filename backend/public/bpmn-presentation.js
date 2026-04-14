@@ -208,7 +208,7 @@
         const value = String(text || '').trim();
         if (!value) return [];
 
-        const approxChars = Math.max(8, Math.floor(maxWidth / Math.max(fontSize * 0.56, 1)));
+        const approxChars = Math.max(8, Math.floor(maxWidth / Math.max(fontSize * 0.62, 1)));
         const words = value
             .split(/\s+/)
             .flatMap((word) => splitToken(word, approxChars));
@@ -642,7 +642,7 @@
             `;
         }
 
-        const lines = wrapSvgText(node.name, width * 0.7, 13, 4);
+        const lines = wrapSvgText(node.name, width * 0.7, 13, 5);
         return `
             <g class="doc-node-group task" ${nodeAttributes}>
                 <rect class="doc-node task-shape" x="${x}" y="${y}" width="${width}" height="${height}"></rect>

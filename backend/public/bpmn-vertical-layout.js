@@ -91,6 +91,21 @@
         return types;
     }
 
+    function collectElementNames(xml) {
+        var names = new Map();
+        var pattern = /<(?:bpmn2?:)?[A-Za-z0-9_]+\b([^>]*)>/gi;
+        var match;
+        while ((match = pattern.exec(xml)) !== null) {
+            var fragment = match[1];
+            if (fragment.indexOf('name=') === -1) continue;
+            var attrs = parseAttributes(fragment);
+            if (attrs.id && attrs.name) {
+                names.set(attrs.id, attrs.name);
+            }
+        }
+        return names;
+    }
+
     function classifyShapes(shapes, elementTypes) {
         var containerTypeNames = ['participant', 'lane', 'laneset'];
         var dataTypeNames = ['dataobjectreference', 'dataobject', 'datastorereference'];
@@ -403,16 +418,35 @@
         return ordered;
     }
 
-    function getShapeLayoutMetrics(shape, elementTypes) {
+    function estimateTextHeight(name, nodeWidth) {
+        if (!name) return 0;
+        var charWidth = 8;
+        var textWidth = nodeWidth * 0.7;
+        var charsPerLine = Math.max(8, Math.floor(textWidth / charWidth));
+        var nameLength = String(name).trim().length;
+        var lines = Math.max(1, Math.ceil(nameLength / charsPerLine));
+        var lineHeight = 15;
+        var padding = 30;
+        return (Math.min(lines, 5) * lineHeight) + padding;
+    }
+
+    function getShapeLayoutMetrics(shape, elementTypes, elementNames) {
         const elementType = (elementTypes.get(shape.bpmnElement) || '').toLowerCase();
         const isTask = elementType.includes('task') || elementType.includes('callactivity');
         const isGateway = elementType.includes('gateway');
         const isEvent = elementType.includes('event');
 
-        return {
-            width: isTask ? Math.max(shape.width, 220) : (isGateway ? Math.max(shape.width, 72) : shape.width),
-            height: isTask ? Math.max(shape.height, 90) : (isEvent ? Math.max(shape.height, 36) : shape.height)
-        };
+        const width = isTask ? Math.max(shape.width, 220) : (isGateway ? Math.max(shape.width, 72) : shape.width);
+        let height = isTask ? Math.max(shape.height, 90) : (isEvent ? Math.max(shape.height, 36) : shape.height);
+
+        if (isTask && elementNames) {
+            const name = elementNames.get(shape.bpmnElement) || '';
+            if (name) {
+                height = Math.max(height, estimateTextHeight(name, width));
+            }
+        }
+
+        return { width, height };
     }
 
     function buildGraphIndexes(shapes, flows) {
@@ -842,9 +876,9 @@
         return hints;
     }
 
-    function buildBranchLayoutMap(rows, elementTypes, graph, gatewayBranchHints) {
+    function buildBranchLayoutMap(rows, elementTypes, graph, gatewayBranchHints, elementNames) {
         const flattenedRows = rows.flat();
-        const shapeMetrics = flattenedRows.map((shape) => getShapeLayoutMetrics(shape, elementTypes));
+        const shapeMetrics = flattenedRows.map((shape) => getShapeLayoutMetrics(shape, elementTypes, elementNames));
         const widestNode = shapeMetrics.reduce((maxWidth, metrics) => Math.max(maxWidth, metrics.width), 0);
         const tallestNode = shapeMetrics.reduce((maxHeight, metrics) => Math.max(maxHeight, metrics.height), 0);
         const averageCenterX = flattenedRows
@@ -862,7 +896,7 @@
         rows.forEach((row, rowIndex) => {
             const metricsRow = row.map((shape) => ({
                 shape,
-                ...getShapeLayoutMetrics(shape, elementTypes)
+                ...getShapeLayoutMetrics(shape, elementTypes, elementNames)
             }));
             const rowHeight = metricsRow.reduce((maxHeight, item) => Math.max(maxHeight, item.height), 0);
             const positionedItems = metricsRow.map((item) => {
@@ -1261,6 +1295,7 @@
         const shapes = collectShapes(xml);
         const flows = collectFlows(xml);
         const elementTypes = collectElementTypes(xml);
+        const elementNames = collectElementNames(xml);
         const classified = classifyShapes(shapes, elementTypes);
         const flowShapes = classified.flowShapes;
         const containerShapes = classified.containerShapes;
@@ -1281,7 +1316,7 @@
             }
 
             const gatewayBranchHints = buildGatewayBranchHints(flows, elementTypes, graph);
-            const nextShapeMap = buildBranchLayoutMap(rows, elementTypes, graph, gatewayBranchHints);
+            const nextShapeMap = buildBranchLayoutMap(rows, elementTypes, graph, gatewayBranchHints, elementNames);
             let nextXml = sanitizedXml;
 
             flowShapes.forEach((shape) => {
@@ -1337,7 +1372,7 @@
 
         let currentY = topMargin;
         orderedShapes.forEach((shape) => {
-            const metrics = getShapeLayoutMetrics(shape, elementTypes);
+            const metrics = getShapeLayoutMetrics(shape, elementTypes, elementNames);
 
             const nextShape = {
                 x: centerX - (metrics.width / 2),
