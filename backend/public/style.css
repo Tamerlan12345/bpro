@@ -2516,6 +2516,8 @@ input:checked+.slider:before {
     left: 16px;
     right: auto;
     bottom: auto;
+    width: min(720px, calc(100% - 32px));
+    max-height: calc(100% - 32px);
     padding: 10px;
     border-radius: var(--radius-lg);
     background: rgba(255, 255, 255, 0.88);
@@ -2525,6 +2527,8 @@ input:checked+.slider:before {
     box-shadow: var(--shadow-md);
     flex-direction: column;
     gap: 8px;
+    overflow: auto;
+    align-content: flex-start;
 }
 
 #cy-container .cy-toolbar button {

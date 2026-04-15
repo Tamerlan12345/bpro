@@ -31,7 +31,7 @@
         </header>
         <main>
             <div id="login-container" class="login-container glass">
-                <form id="user-login" class="login-form" onsubmit="event.preventDefault();">
+                <form id="user-login" class="login-form">
                     <h2>Вход в систему</h2>
                     <p>Введите ваш Email и пароль.</p>
                     <label for="user-email">Email</label>
@@ -51,7 +51,7 @@
                 </div>
 
                 <!-- Step 3: Chat Selection -->
-                <form id="chat-login" class="login-form hidden" onsubmit="event.preventDefault();">
+                <form id="chat-login" class="login-form hidden">
                     <h2>Выбор чата</h2>
                     <p>Выберите чат, кликнув на него, а затем введите пароль.</p>
                     <div id="chat-selection-container"></div>
@@ -73,7 +73,7 @@
 
                 <div id="admin-view-users" class="admin-view-content">
                     <div class="admin-section">
-                        <form id="create-user-form" onsubmit="event.preventDefault();">
+                        <form id="create-user-form">
                             <div class="form-group">
                                 <label for="new-user-fullname">ФИО:</label>
                                 <input type="text" id="new-user-fullname" placeholder="Иванов Иван Иванович"
@@ -122,7 +122,7 @@
 
                     <div class="admin-section">
                         <h3>Создать новый департамент</h3>
-                        <form id="create-department-form" onsubmit="event.preventDefault();">
+                        <form id="create-department-form">
                             <div class="form-group">
                                 <label for="user-for-new-department">Назначить пользователю (владелец):</label>
                                 <select id="user-for-new-department" autocomplete="off"></select>
@@ -151,7 +151,7 @@
                             <div id="chat-list-container">
                                 <h4 id="chat-list-header">Чаты</h4>
                                 <div id="chat-list"></div>
-                                <form id="create-chat-form" class="hidden" onsubmit="event.preventDefault();">
+                                <form id="create-chat-form" class="hidden">
                                     <h5>Создать новый чат для <span id="selected-department-name"></span></h5>
                                     <input type="text" id="new-chat-name" placeholder="Название чата" autocomplete="name">
                                     <input type="password" id="new-chat-password" placeholder="Пароль чата"

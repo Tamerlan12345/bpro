@@ -90,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const userForNewDepartmentSelect = document.getElementById('user-for-new-department');
     const newDepartmentNameInput = document.getElementById('new-department-name');
     const newDepartmentPasswordInput = document.getElementById('new-department-password');
+    const createDepartmentForm = document.getElementById('create-department-form');
     const createDepartmentBtn = document.getElementById('create-department-btn');
     const departmentList = document.getElementById('department-list');
     const chatList = document.getElementById('chat-list');
@@ -111,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const newUserDeptSelect = document.getElementById('new-user-dept');
     const newUserPasswordInput = document.getElementById('new-user-password');
     const newUserRoleSelect = document.getElementById('new-user-role');
+    const createUserForm = document.getElementById('create-user-form');
     const createUserBtn = document.getElementById('create-user-btn');
     const usersListBody = document.getElementById('users-list-body');
 
@@ -199,6 +201,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!el) return;
         el.classList.add('hidden');
         el.style.display = 'none';
+    };
+
+    const bindFormSubmit = (form, handler) => {
+        if (!form) return;
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            void handler();
+        });
     };
 
 
@@ -2513,12 +2523,12 @@ ${brokenCode}
     listenBtn.addEventListener('click', () => audioPlayback.play());
     rerecordBtn.addEventListener('click', handleRerecord);
     processBtn.addEventListener('click', handleProcessAudio);
-    userLoginBtn.addEventListener('click', handleUserLogin);
+    bindFormSubmit(userLogin, handleUserLogin);
     logoutBtn.addEventListener('click', handleLogout);
     departmentSelectionContainer.addEventListener('click', handleDepartmentCardSelection);
-    chatLoginBtn.addEventListener('click', handleChatLogin);
-    createDepartmentBtn.addEventListener('click', handleCreateDepartment);
-    createUserBtn.addEventListener('click', handleCreateUser);
+    bindFormSubmit(chatLogin, handleChatLogin);
+    bindFormSubmit(createDepartmentForm, handleCreateDepartment);
+    bindFormSubmit(createUserForm, handleCreateUser);
     usersListBody.addEventListener('click', (e) => {
         const userId = e.target.dataset.userId;
         if (!userId) return;
@@ -2527,7 +2537,7 @@ ${brokenCode}
     });
     departmentList.addEventListener('click', handleAdminDepartmentSelection);
     chatList.addEventListener('click', handleAdminChatListClick);
-    createChatBtn.addEventListener('click', handleCreateChat);
+    bindFormSubmit(createChatForm, handleCreateChat);
     inReviewList.addEventListener('click', handleAdminChatSelection);
     pendingList.addEventListener('click', handleAdminChatSelection);
     completedList.addEventListener('click', handleAdminChatSelection);

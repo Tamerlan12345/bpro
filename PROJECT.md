@@ -2,51 +2,61 @@
 
 ## Architecture
 ### Stack
-JavaScript, Node.js, Jest, browser-side IIFE modules in `backend/public/`
+JavaScript, Node.js, Express, Jest, Playwright smoke scripts, browser-side IIFE modules in `backend/public/`
 
 ### Layer Map
-- `backend/public/`: frontend utilities and BPMN layout/presentation modules
-- `backend/services/`: backend export services reusing the same BPMN presentation/layout logic
-- `backend/tests/`: Jest regression coverage for BPMN vertical layout and frontend integration hooks
+- `backend/public/`: frontend shell, DOM/event bootstrap, BPMN/map presentation modules
+- `backend/services/`: backend export and AI-facing services
+- `backend/server.js`: HTTP entrypoint, auth/session/CSP, upload handling, validation, admin/API routes
+- `backend/tests/`: Jest regression and route coverage
 
 ### Key Decisions
 | Decision | Rationale | Date |
 |---|---|---|
-| Keep BPMN changes scoped to `bpmn-vertical-layout.js` and `bpmn-presentation.js` | User explicitly ограничил изменения layout/rendering without API or parser changes | 2026-04-13
-| Preserve current XML normalization/render pipeline | `script.js` and `visioExportService.js` already depend on existing function contracts | 2026-04-13
+| Keep BPMN changes scoped to `bpmn-vertical-layout.js` and `bpmn-presentation.js` | Existing render/export pipeline already depends on those contracts | 2026-04-13 |
+| Preserve current XML normalization/render pipeline | `script.js` and `visioExportService.js` already depend on current behavior | 2026-04-13 |
+| Move audio MIME rejection out of `multer.fileFilter` and into `uploadAudio` post-processing | `fileFilter` returned the right `400`, but it cut multipart handling early enough to trigger `ECONNRESET` in client tests | 2026-04-15 |
+| Do not load `backend/.env` when `NODE_ENV=test` | Test suites must stay isolated from developer secrets and production-like credentials | 2026-04-15 |
 
 ## Module Registry
 | Module | Path | Responsibility | Dependencies |
 |---|---|---|---|
+| Frontend bootstrap | `backend/public/index.html`, `backend/public/script.js` | Static shell plus DOM/event bootstrap for login, admin, chat, map, and transcription flows | Backend API, browser runtime, public modules |
 | BPMN vertical layout | `backend/public/bpmn-vertical-layout.js` | Rebuilds BPMN DI coordinates into top-down auto-layout and edge waypoints | Used by `script.js`, `visioExportService.js`, BPMN Jest tests |
 | BPMN presentation | `backend/public/bpmn-presentation.js` | Builds SVG presentation model and renders document-style BPMN | Used by `script.js`, `visioExportService.js` |
-| BPMN export service | `backend/services/visioExportService.js` | Produces export artifacts from normalized BPMN XML | Depends on both BPMN modules |
+| Map rendering | `backend/public/modules/map.js` | Shared Cytoscape node/edge styling and map-specific rendering helpers | Frontend bootstrap, Cytoscape |
+| Backend server | `backend/server.js` | Express entrypoint for auth, admin routes, AI generation, upload handling, validation, and session/CSP setup | `pg`, `multer`, `zod`, `helmet`, `pino`, `backend/public/` |
+| BPMN export service | `backend/services/visioExportService.js` | Produces export artifacts from normalized BPMN XML | BPMN modules |
 
 ## Task Log
 | # | Task | Status | Files touched | Notes |
 |---|---|---|---|---|
-| 1 | Initialize project knowledge base | ✅ | `PROJECT.md` | Created initial skeleton before code changes |
-| 2 | Inspect BPMN layout/render modules and call graph | ✅ | `PROJECT.md` | Confirmed current pipeline, callers, and layout test coverage |
-| 3 | Rework BPMN presentation bounds and monochrome rendering | ✅ | `backend/public/bpmn-presentation.js`, `PROJECT.md` | Added dynamic extent calculation, black/white SVG styling, stronger text wrapping, composite document footer |
-| 4 | Rework BPMN branch routing into orthogonal corridors | ✅ | `backend/public/bpmn-vertical-layout.js`, `PROJECT.md` | Added Manhattan waypoint helpers, safer loopback corridors, and wider grid spacing |
-| 5 | Verify BPMN changes with targeted regression and smoke checks | ✅ | `PROJECT.md` | `node require` smoke passed, presentation smoke passed, BPMN Jest: 7/9 passed |
-| 6 | Fix BPMN text overflow + adaptive task height | ✅ | `bpmn-presentation.js`, `bpmn-vertical-layout.js` | Char width 0.56→0.62 for Cyrillic, maxLines 4→5, added `collectElementNames`+`estimateTextHeight` for adaptive height in layout engine |
+| 1 | Initialize project knowledge base | done | `PROJECT.md` | Created initial skeleton before code changes |
+| 2 | Inspect BPMN layout/render modules and call graph | done | `PROJECT.md` | Confirmed current pipeline, callers, and layout test coverage |
+| 3 | Rework BPMN presentation bounds and monochrome rendering | done | `backend/public/bpmn-presentation.js`, `PROJECT.md` | Added dynamic extent calculation, monochrome SVG styling, stronger text wrapping, composite document footer |
+| 4 | Rework BPMN branch routing into orthogonal corridors | done | `backend/public/bpmn-vertical-layout.js`, `PROJECT.md` | Added Manhattan waypoint helpers, safer loopback corridors, and wider grid spacing |
+| 5 | Verify BPMN changes with targeted regression and smoke checks | done | `PROJECT.md` | `node require` smoke passed, presentation smoke passed, BPMN Jest: 7/9 passed |
+| 6 | Fix BPMN text overflow and adaptive task height | done | `backend/public/bpmn-presentation.js`, `backend/public/bpmn-vertical-layout.js`, `PROJECT.md` | Increased Cyrillic text estimate and made task height adaptive |
+| 7 | Fix login/CSP, test-env leakage, upload validation, admin seed text, and map regressions | done | `backend/public/index.html`, `backend/public/script.js`, `backend/public/style.css`, `backend/public/modules/map.js`, `backend/server.js`, `PROJECT.md` | Removed inline form handlers, bound submit via JS, blocked negative coordinates, isolated `.env` from `test`, fixed admin full name, constrained map toolbar, stabilized invalid audio upload flow |
+| 8 | Verify targeted server regressions and browser submit flow | done | `PROJECT.md` | Jest passed for `admin_routes_regression`, `logging`, `transcribe`, `user_creation`; Playwright smoke confirmed login stays on `/` and renders the `401` error text |
 
 ## Known Issues
 | Issue | Severity | Location | Notes |
 |---|---|---|---|
-| Legacy BPMN tests still expect both gateway branches to fan out laterally instead of keeping one main path centered | 🟡 | `backend/tests/bpmn_vertical_layout.test.js` | Conflicts with new requirement: slot `0` remains the main vertical corridor |
-| Legacy BPMN test still expects the longer forward branch to stay centered even when explicit `да/нет` labels imply a different main path | 🟡 | `backend/tests/bpmn_vertical_layout.test.js` | Behavior change is intentional under updated routing specification |
+| Legacy BPMN tests still expect both gateway branches to fan out laterally instead of keeping one main path centered | medium | `backend/tests/bpmn_vertical_layout.test.js` | Conflicts with the newer routing requirement that slot `0` stays on the main vertical corridor |
+| Legacy BPMN test still expects the longer forward branch to stay centered even when explicit branch labels imply a different main path | medium | `backend/tests/bpmn_vertical_layout.test.js` | Behavior change is intentional under the updated routing specification |
+| Frontend bootstrap still depends on multiple external CDNs for fonts/scripts | medium | `backend/public/index.html` | Offline or filtered environments still show `ERR_FAILED`; submit flow now works, but dependency hardening remains separate work |
 
 ## Build & Test Commands
 ```bash
 # Build:   node index.js
-# Test:    npm test -- --runInBand bpmn_vertical_layout.test.js
+# Test:    npm test -- --runInBand tests/admin_routes_regression.test.js tests/logging.test.js tests/transcribe.test.js tests/user_creation.test.js
+# Smoke:   headless Playwright login submit against http://127.0.0.1:8080/
 # Lint:    [unknown yet]
 # Deploy:  [unknown yet]
 ```
 
 ## Context Anchors
-- `bpmn-presentation.js`: char width coefficient fixed 0.56→0.62 for Cyrillic, task maxLines 4→5.
-- `bpmn-vertical-layout.js`: added `collectElementNames()`, `estimateTextHeight()`, `getShapeLayoutMetrics()` now accepts `elementNames` and grows task height adaptively.
-- Normalization test confirmed: long task (91 chars) → height 105px, short task (15 chars) → height 90px (base). SVG generation OK.
+- `backend/public/index.html` + `backend/public/script.js`: removed inline `onsubmit` handlers blocked by CSP and bound login/admin/chat creation flows through form-level `submit` listeners.
+- `backend/server.js`: `test` no longer loads `backend/.env`; invalid audio MIME is rejected after upload cleanup to avoid `ECONNRESET`; `/api/generate` error logging and admin seed full name were corrected; negative coordinates are rejected.
+- Verification on 2026-04-15: Jest passed for `admin_routes_regression`, `logging`, `transcribe`, `user_creation`, and Playwright smoke on `http://127.0.0.1:8080/` confirmed login stays on-page and surfaces `Ошибка входа: Invalid email or password`.

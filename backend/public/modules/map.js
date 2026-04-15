@@ -13,7 +13,7 @@ const sharedLabelNodeStyle = {
     'text-halign': 'center',
     padding: '16px',
     'line-height': 1.6,
-    'font-family': '"Inter", "Manrope", "Segoe UI", sans-serif'
+    'font-family': '"Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
 };
 
 const ROOT_ID = 'root_company';

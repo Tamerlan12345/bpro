@@ -7,7 +7,7 @@ const pinoHttp = require('pino-http');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-if (process.env.NODE_ENV !== 'production') {
+if (!process.env.NODE_ENV || (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test')) {
     require('dotenv').config({ path: path.join(__dirname, '.env') });
 }
 const express = require('express');
@@ -155,13 +155,6 @@ const allowedMimes = [
 
 const upload = multer({
     storage: storage,
-    fileFilter: (req, file, cb) => {
-        if (allowedMimes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Invalid file type. Only audio files are allowed.'));
-        }
-    },
     limits: {
         fileSize: 50 * 1024 * 1024 // 50MB
     }
@@ -173,6 +166,19 @@ const uploadAudio = (req, res, next) => {
             return res.status(400).json({ error: err.message });
         } else if (err) {
             return res.status(400).json({ error: err.message });
+        }
+        if (req.file && !allowedMimes.includes(req.file.mimetype)) {
+            const invalidFilePath = req.file.path;
+            req.file = undefined;
+
+            void fs.promises.unlink(invalidFilePath)
+                .catch((unlinkError) => {
+                    logger.error(unlinkError, `Error deleting invalid upload ${invalidFilePath}`);
+                })
+                .finally(() => {
+                    res.status(400).json({ error: 'Invalid file type. Only audio files are allowed.' });
+                });
+            return;
         }
         next();
     });
@@ -317,20 +323,22 @@ const statusSchema = z.object({
     status: z.enum(['draft', 'pending_review', 'needs_revision', 'completed', 'archived', 'in_progress', 'review', 'approved'])
 });
 
+const coordinateSchema = z.number().finite().min(0);
+
 const positionSchema = z.object({
-    x: z.number(),
-    y: z.number()
+    x: coordinateSchema,
+    y: coordinateSchema
 });
 
 const bulkPositionSchema = z.object({
-    departments: z.array(z.object({ id: z.string(), x: z.number(), y: z.number() })).optional(),
-    processes: z.array(z.object({ id: z.string(), x: z.number(), y: z.number() })).optional(),
-    chats: z.array(z.object({ id: z.string(), x: z.number(), y: z.number() })).optional()
+    departments: z.array(z.object({ id: z.string(), x: coordinateSchema, y: coordinateSchema })).optional(),
+    processes: z.array(z.object({ id: z.string(), x: coordinateSchema, y: coordinateSchema })).optional(),
+    chats: z.array(z.object({ id: z.string(), x: coordinateSchema, y: coordinateSchema })).optional()
 });
 
 const departmentPositionSchema = z.object({
-    x: z.number().optional(),
-    y: z.number().optional(),
+    x: coordinateSchema.optional(),
+    y: coordinateSchema.optional(),
     width: z.number().min(0).optional(),
     height: z.number().min(0).optional(),
     color: z.string().trim().min(1).max(50).optional()
@@ -1699,11 +1707,7 @@ app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (
         const data = await apiResponse.json();
         res.status(200).json(data);
     } catch (error) {
-        logger.error({ 
-            error: error.message, 
-            stack: error.stack,
-            chat_id 
-        }, 'Internal error in /api/generate');
+        logger.error(error);
         res.status(500).json({ 
             error: 'An internal server error occurred.',
             details: process.env.NODE_ENV === 'development' ? error.message : undefined 
@@ -1763,7 +1767,7 @@ async function ensureUsersExist(pool) {
                 logger.info('Admin user not found, creating it...');
                 const hashedPassword = await bcrypt.hash(process.env.ADMIN_INITIAL_PASSWORD, BCRYPT_SALT_ROUNDS);
                 await pool.query(
-                    "INSERT INTO users (name, full_name, email, hashed_password, role) VALUES ('admin', 'Р“Р»Р°РІРЅС‹Р№ РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ', 'admin@bizpro.ai', $1, 'admin')",
+                    "INSERT INTO users (name, full_name, email, hashed_password, role) VALUES ('admin', '\u0413\u043B\u0430\u0432\u043D\u044B\u0439 \u0410\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440', 'admin@bizpro.ai', $1, 'admin')",
                     [hashedPassword]
                 );
                 logger.info('Admin user created.');
