@@ -39,6 +39,8 @@ JavaScript, Node.js, Express, Jest, Playwright smoke scripts, browser-side IIFE 
 | 6 | Fix BPMN text overflow and adaptive task height | done | `backend/public/bpmn-presentation.js`, `backend/public/bpmn-vertical-layout.js`, `PROJECT.md` | Increased Cyrillic text estimate and made task height adaptive |
 | 7 | Fix login/CSP, test-env leakage, upload validation, admin seed text, and map regressions | done | `backend/public/index.html`, `backend/public/script.js`, `backend/public/style.css`, `backend/public/modules/map.js`, `backend/server.js`, `PROJECT.md` | Removed inline form handlers, bound submit via JS, blocked negative coordinates, isolated `.env` from `test`, fixed admin full name, constrained map toolbar, stabilized invalid audio upload flow |
 | 8 | Verify targeted server regressions and browser submit flow | done | `PROJECT.md` | Jest passed for `admin_routes_regression`, `logging`, `transcribe`, `user_creation`; Playwright smoke confirmed login stays on `/` and renders the `401` error text |
+| 9 | Implement Map drawing bindings and refactor BPMN constants | done | `backend/public/modules/map.js`, `backend/public/style.css`, `backend/public/bpmn-presentation.js`, `backend/public/bpmn-vertical-layout.js` | Added Cytoscape node and `edgehandles` bindings, fixed toolbar button wrapping, added visual padding and interactive cursor styles to BPMN nodes, extracted visual sizing constants to `BpmnConfig`. |
+| 10 | Synchronize Editor and Presentation coordinates and enhance SVG styles | done | `backend/public/script.js`, `backend/public/bpmn-presentation.js`, `PROJECT.md` | Preserved user's manual coordination changes by passing `applyLayout=false` in `saveOverlayDiagram`. Visual aesthetics upgraded: SVG nodes have `rx/ry` rounded corners, custom stroke/fill palettes (slate, emerald, rose, amber), and rounded line endpoints. |
 
 ## Known Issues
 | Issue | Severity | Location | Notes |
@@ -57,6 +59,6 @@ JavaScript, Node.js, Express, Jest, Playwright smoke scripts, browser-side IIFE 
 ```
 
 ## Context Anchors
-- `backend/public/index.html` + `backend/public/script.js`: removed inline `onsubmit` handlers blocked by CSP and bound login/admin/chat creation flows through form-level `submit` listeners.
-- `backend/server.js`: `test` no longer loads `backend/.env`; invalid audio MIME is rejected after upload cleanup to avoid `ECONNRESET`; `/api/generate` error logging and admin seed full name were corrected; negative coordinates are rejected.
-- Verification on 2026-04-15: Jest passed for `admin_routes_regression`, `logging`, `transcribe`, `user_creation`, and Playwright smoke on `http://127.0.0.1:8080/` confirmed login stays on-page and surfaces `Ошибка входа: Invalid email or password`.
+- `backend/public/modules/map.js`: Replaced placeholders with real Cytoscape `cy-add-node` (via `cy.add`) and `cy-add-edge` (via `cy.edgehandles` plugin instance).
+- `backend/public/bpmn-vertical-layout.js`: Extracted hardcoded visual dimensions and text sizes into a top-level `BpmnConfig` object for better maintainability.
+- `backend/public/bpmn-presentation.js` + `style.css`: Added pointer and interaction SVG styling to nodes; wrap toolbar items gracefully on small screens.

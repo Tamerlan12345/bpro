@@ -679,11 +679,41 @@ const setupToolbar = () => {
     bind('cy-ai-layout', handleAutoLayout);
 
     bind('cy-add-node', () => {
-        ui.showNotification('Добавление процесса вручную пока в разработке.', 'info');
+        const name = prompt('Введите название нового процесса:');
+        if (name && name.trim()) {
+            const pan = cy.pan();
+            const zoom = cy.zoom();
+            cy.add({
+                group: 'nodes',
+                data: {
+                    id: 'chat_temp_' + Date.now(),
+                    name: name.trim(),
+                    type: 'chat',
+                    status: 'draft',
+                    rawName: name.trim()
+                },
+                position: {
+                    x: (-pan.x + cy.width() / 2) / zoom,
+                    y: (-pan.y + cy.height() / 2) / zoom
+                }
+            });
+            ui.showNotification('Узел добавлен. Сохраните карту для фиксации.', 'success');
+        }
     });
 
     bind('cy-add-edge', () => {
-        ui.showNotification('Создание связей вручную пока в разработке.', 'info');
+        if (!window.__cyEh) {
+            window.__cyEh = cy.edgehandles();
+            window.__cyEh.enableDrawMode();
+            document.getElementById('cy-add-edge').classList.add('active');
+            ui.showNotification('Режим рисования связей ВКЛЮЧЕН. Потяните от узла к узлу.', 'info');
+        } else {
+            window.__cyEh.disableDrawMode();
+            window.__cyEh.destroy();
+            window.__cyEh = null;
+            document.getElementById('cy-add-edge').classList.remove('active');
+            ui.showNotification('Режим рисования связей ВЫКЛЮЧЕН.', 'info');
+        }
     });
 };
 

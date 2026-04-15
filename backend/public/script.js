@@ -909,7 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return xml;
     }
 
-    function normalizeGeneratedBpmnXml(xml) {
+    function normalizeGeneratedBpmnXml(xml, applyLayout = true) {
         if (typeof xml !== 'string') {
             return xml;
         }
@@ -917,7 +917,7 @@ document.addEventListener('DOMContentLoaded', () => {
         xml = extractPureBpmnXml(xml);
         xml = sanitizeBpmnXml(xml);
 
-        if (typeof normalizeBpmnVerticalLayout !== 'function') {
+        if (!applyLayout || typeof normalizeBpmnVerticalLayout !== 'function') {
             return xml;
         }
 
@@ -2719,7 +2719,7 @@ ${brokenCode}
         try {
             setButtonLoading(overlaySaveBtn, true);
             const { xml } = await overlayBpmnModeler.saveXML({ format: true });
-            const normalized = normalizeGeneratedBpmnXml(xml);
+            const normalized = normalizeGeneratedBpmnXml(xml, false);
             // Update global state
             currentDiagramXml = normalized;
             // Save as new version

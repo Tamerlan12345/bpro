@@ -874,6 +874,7 @@ button.button-secondary:active:not(:disabled) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    white-space: nowrap;
 }
 
 #diagram-toolbar button.button-primary,

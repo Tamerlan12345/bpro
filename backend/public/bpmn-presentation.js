@@ -689,34 +689,41 @@
             `;
         }).join('');
 
+        const pad = 40;
+        const vbX = Math.round(model.viewBox.x - pad);
+        const vbY = Math.round(model.viewBox.y - pad);
+        const vbW = Math.round(model.viewBox.width + pad * 2);
+        const vbH = Math.round(model.viewBox.height + pad * 2);
+
         return `
-            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="${model.viewBox.x} ${model.viewBox.y} ${model.viewBox.width} ${model.viewBox.height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Документ-стиль визуализации BPMN">
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Документ-стиль визуализации BPMN">
                 <defs>
                     <marker id="doc-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
-                        <path d="M 0 0 L 12 6 L 0 12 z" fill="#000000"></path>
+                        <path d="M 0 0 L 12 6 L 0 12 z" fill="#64748b"></path>
                     </marker>
                     <marker id="lane-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto">
-                        <path d="M 0 0 L 12 6 L 0 12 z" fill="#000000"></path>
+                        <path d="M 0 0 L 12 6 L 0 12 z" fill="#94a3b8"></path>
                     </marker>
                     <style>
                         .doc-root { font-family: "Segoe UI", Arial, sans-serif; }
+                        .doc-nodes > g { cursor: pointer; pointer-events: bounding-box; transition: opacity 0.2s; }
+                        .doc-nodes > g:hover { opacity: 0.85; }
                         .doc-node { fill: #ffffff; stroke: #000000; stroke-width: 1.4; }
-                        .task-shape { fill: #ffffff; stroke: #000000; stroke-width: 1.6; }
-                        .reference-shape.outer { fill: #ffffff; stroke: #000000; stroke-width: 1.6; }
-                        .reference-shape.inner { fill: none; stroke: #000000; stroke-width: 1.2; }
-                        .gateway-shape { fill: #ffffff; stroke: #000000; stroke-width: 1.6; }
-                        .document-shape, .document-footer { fill: #ffffff; stroke: #000000; stroke-width: 1.4; }
-                        .database-cap, .database-body, .database-bottom { fill: #ffffff; stroke: #000000; stroke-width: 1.4; }
-                        .start-event, .end-event, .end-event-inner { fill: #ffffff; stroke: #000000; }
-                        .start-event { stroke-width: 1.8; }
-                        .end-event { stroke-width: 1.8; }
-                        .end-event-inner { stroke-width: 3; }
-                        .composite-divider { stroke: #000000; stroke-width: 1; stroke-dasharray: 4 3; }
-                        .doc-label { fill: #000000; font-size: 12px; font-weight: 600; }
-                        .document-label { font-size: 11px; font-weight: 500; fill: #000000; }
-                        .gateway-label { font-size: 11px; }
-                        .event-label { font-size: 11px; font-weight: 600; }
-                        .doc-edge-line { fill: none; stroke: #000000; stroke-width: 1.4; stroke-linecap: square; stroke-linejoin: miter; }
+                        .task-shape { fill: #f8fafc; stroke: #334155; stroke-width: 1.8; rx: 8; ry: 8; }
+                        .reference-shape.outer { fill: #f8fafc; stroke: #334155; stroke-width: 1.8; rx: 8; ry: 8; }
+                        .reference-shape.inner { fill: none; stroke: #334155; stroke-width: 1.2; rx: 8; ry: 8; }
+                        .gateway-shape { fill: #fffbeb; stroke: #d97706; stroke-width: 1.8; }
+                        .document-shape, .document-footer { fill: #f8fafc; stroke: #334155; stroke-width: 1.4; }
+                        .database-cap, .database-body, .database-bottom { fill: #f8fafc; stroke: #334155; stroke-width: 1.4; }
+                        .start-event { fill: #ecfdf5; stroke: #10b981; stroke-width: 2.5; }
+                        .end-event { fill: #fef2f2; stroke: #ef4444; stroke-width: 2.5; }
+                        .end-event-inner { fill: none; stroke: #ef4444; stroke-width: 2; }
+                        .composite-divider { stroke: #cbd5e1; stroke-width: 1.5; stroke-dasharray: 4 3; }
+                        .doc-label { fill: #1e293b; font-size: 13px; font-weight: 500; pointer-events: none; }
+                        .document-label { font-size: 11px; font-weight: 500; fill: #475569; }
+                        .gateway-label { font-size: 11px; fill: #1e293b; }
+                        .event-label { font-size: 11px; font-weight: 600; fill: #1e293b; }
+                        .doc-edge-line { fill: none; stroke: #64748b; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
                         .doc-edge-label-bg { fill: #ffffff; stroke: #000000; stroke-width: 1; }
                         .doc-edge-label { fill: #000000; font-size: 11px; font-weight: 600; dominant-baseline: middle; }
                         .doc-lane-bg { fill: #ffffff; stroke: #000000; stroke-width: 1; }

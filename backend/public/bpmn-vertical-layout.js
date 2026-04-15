@@ -1,4 +1,18 @@
 (function (globalScope) {
+    const BpmnConfig = {
+        sizes: {
+            task: { minWidth: 220, minHeight: 90 },
+            gateway: { minWidth: 72, minHeight: 72 },
+            event: { minWidth: 36, minHeight: 36 }
+        },
+        text: {
+            charWidth: 8,
+            lineHeight: 15,
+            padding: 30,
+            maxLines: 5
+        }
+    };
+
     function escapeRegExp(value) {
         return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
@@ -420,14 +434,14 @@
 
     function estimateTextHeight(name, nodeWidth) {
         if (!name) return 0;
-        var charWidth = 8;
+        var charWidth = BpmnConfig.text.charWidth;
         var textWidth = nodeWidth * 0.7;
         var charsPerLine = Math.max(8, Math.floor(textWidth / charWidth));
         var nameLength = String(name).trim().length;
         var lines = Math.max(1, Math.ceil(nameLength / charsPerLine));
-        var lineHeight = 15;
-        var padding = 30;
-        return (Math.min(lines, 5) * lineHeight) + padding;
+        var lineHeight = BpmnConfig.text.lineHeight;
+        var padding = BpmnConfig.text.padding;
+        return (Math.min(lines, BpmnConfig.text.maxLines) * BpmnConfig.text.lineHeight) + BpmnConfig.text.padding;
     }
 
     function getShapeLayoutMetrics(shape, elementTypes, elementNames) {
@@ -436,8 +450,8 @@
         const isGateway = elementType.includes('gateway');
         const isEvent = elementType.includes('event');
 
-        const width = isTask ? Math.max(shape.width, 220) : (isGateway ? Math.max(shape.width, 72) : shape.width);
-        let height = isTask ? Math.max(shape.height, 90) : (isEvent ? Math.max(shape.height, 36) : shape.height);
+        const width = isTask ? Math.max(shape.width, BpmnConfig.sizes.task.minWidth) : (isGateway ? Math.max(shape.width, BpmnConfig.sizes.gateway.minWidth) : shape.width);
+        let height = isTask ? Math.max(shape.height, BpmnConfig.sizes.task.minHeight) : (isEvent ? Math.max(shape.height, BpmnConfig.sizes.event.minHeight) : shape.height);
 
         if (isTask && elementNames) {
             const name = elementNames.get(shape.bpmnElement) || '';
