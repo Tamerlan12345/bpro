@@ -1143,7 +1143,7 @@ ${JSON.stringify(mapContext, null, 2)}
 РќРёРєР°РєРѕРіРѕ markdown, РєРѕРјРјРµРЅС‚Р°СЂРёРµРІ РёР»Рё РїРѕСЏСЃРЅРµРЅРёР№. РўРѕР»СЊРєРѕ JSON.`;
 
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
         const apiResponse = await fetchWithRetry(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1610,7 +1610,7 @@ ${prompt}
 РћС‚РІРµС‚СЊ СЃС‚СЂСѓРєС‚СѓСЂРёСЂРѕРІР°РЅРЅРѕ, СѓРєР°Р·С‹РІР°СЏ РЅР°Р№РґРµРЅРЅС‹Рµ РїСЂРѕР±Р»РµРјС‹ РёР»Рё СЂРµР·СѓР»СЊС‚Р°С‚С‹ СЃРѕРіР»Р°СЃРЅРѕ Р·Р°РїСЂРѕСЃСѓ.`;
 
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
         const apiResponse = await fetchWithRetry(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1641,7 +1641,7 @@ ${prompt}
 app.post('/api/generate', isAuthenticated, validateBody(generateSchema), async (req, res) => {
     const { prompt, chat_id } = req.body;
     const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
 
     if (!GOOGLE_API_KEY) return res.status(500).json({ error: 'API key is not configured' });
 
@@ -1735,7 +1735,7 @@ ${process_text}
         `;
 
         const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
         const apiResponse = await fetchWithRetry(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
