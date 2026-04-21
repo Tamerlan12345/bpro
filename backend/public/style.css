@@ -1196,6 +1196,23 @@ button.button-secondary:active:not(:disabled) {
 
 #diagram-container.is-edit-mode {
     cursor: default;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    position: relative;
+}
+
+.diagram-edit-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(59, 130, 246, 0.9);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    pointer-events: none;
+    letter-spacing: 0.01em;
 }
 
 #diagram-container.is-panning {

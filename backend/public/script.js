@@ -266,6 +266,11 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
+        // Abort after 30s unless caller provides their own signal
+        if (!finalOptions.signal) {
+            finalOptions.signal = AbortSignal.timeout(30000);
+        }
+
         const response = await fetch(url, finalOptions);
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: `HTTP Error: ${response.status} ${response.statusText}` }));
@@ -384,11 +389,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateDiagramToolbarState() {
         const hasDiagram = Boolean(currentDiagramXml && currentDiagramXml.trim());
+        const isEditing = diagramMode === 'edit';
         diagramToolbar.style.display = hasDiagram ? 'flex' : 'none';
-        editDiagramBtn.style.display = hasDiagram && diagramMode === 'view' && userCanEditDiagram() ? 'inline-flex' : 'none';
-        saveMermaidChangesBtn.style.display = hasDiagram && diagramMode === 'edit' ? 'inline-flex' : 'none';
-        cancelMermaidEditBtn.style.display = hasDiagram && diagramMode === 'edit' ? 'inline-flex' : 'none';
+        editDiagramBtn.style.display = hasDiagram && !isEditing && userCanEditDiagram() ? 'inline-flex' : 'none';
+        saveMermaidChangesBtn.style.display = hasDiagram && isEditing ? 'inline-flex' : 'none';
+        cancelMermaidEditBtn.style.display = hasDiagram && isEditing ? 'inline-flex' : 'none';
         renderDiagramBtn.style.display = hasDiagram ? 'none' : 'block';
+
+        let badge = diagramToolbar.querySelector('.diagram-edit-badge');
+        if (isEditing) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'diagram-edit-badge';
+                badge.textContent = '✏️ Режим редактирования';
+                diagramToolbar.prepend(badge);
+            }
+        } else {
+            badge?.remove();
+        }
     }
 
     function setLockedDiagramScale(scale) {
@@ -1522,9 +1540,9 @@ ${brokenCode}
 
     function renderComments(comments) {
         commentsContainer.innerHTML = comments.map(c => `
-            <div class="comment ${c.author_role}">
-                <span class="comment-author">${c.author_role}</span>
-                <p class="comment-text">${c.text}</p>
+            <div class="comment ${escapeHtml(c.author_role)}">
+                <span class="comment-author">${escapeHtml(c.author_role)}</span>
+                <p class="comment-text">${escapeHtml(c.text)}</p>
                 <span class="comment-date">${new Date(c.created_at).toLocaleString()}</span>
             </div>`).join('') || '<p>Нет комментариев.</p>';
     }
@@ -2480,8 +2498,8 @@ ${brokenCode}
             <div class="suggestion-card">
                 <input type="checkbox" id="suggestion-${index}" class="suggestion-checkbox" data-index="${index}">
                 <label for="suggestion-${index}">
-                    <p><strong>Проблема:</strong> ${s.problem}</p>
-                    <p><strong>Решение:</strong> ${s.suggestion}</p>
+                    <p><strong>Проблема:</strong> ${escapeHtml(s.problem)}</p>
+                    <p><strong>Решение:</strong> ${escapeHtml(s.suggestion)}</p>
                 </label>
             </div>
         `).join('');
@@ -3775,6 +3793,7 @@ ${brokenCode}
                 }
 
                 // Save node and department positions after drag
+                cy.off('dragfree', 'node.process, node.department, node.chat');
                 cy.on('dragfree', 'node.process, node.department, node.chat', async function (evt) {
                     const node = evt.target;
                     const pos = node.position();
