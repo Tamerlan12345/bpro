@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -h \"^//\" /d/Проекты/bpro/backend/public/modules/*.js)",
+      "Bash(grep -E \"\\\\.js$\")"
+    ]
+  }
+}

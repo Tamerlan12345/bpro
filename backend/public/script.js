@@ -2725,8 +2725,23 @@ ${brokenCode}
     let overlayBpmnModeler = null;
     let overlayScale = 1;
 
-    function openDiagramOverlay() {
+    async function openDiagramOverlay() {
         if (!currentDiagramXml && !currentDiagramSvg) return;
+
+        // If inline editor is active, sync XML and SVG from it first
+        if (diagramMode === 'edit' && bpmnModeler && typeof bpmnModeler.saveXML === 'function') {
+            try {
+                const { xml: rawXml } = await bpmnModeler.saveXML({ format: true });
+                const syncedXml = extractPureBpmnXml(rawXml);
+                if (syncedXml) {
+                    currentDiagramXml = syncedXml;
+                    currentDiagramModel = window.BpmnPresentation.buildBpmnPresentationModel(syncedXml);
+                    currentDiagramSvg = window.BpmnPresentation.renderDocStyleSvg(currentDiagramModel);
+                }
+            } catch (e) {
+                console.warn('Could not sync XML from inline editor before opening overlay:', e);
+            }
+        }
 
         // Set title
         const titleEl = document.querySelector('.chat-header h2, #chat-title');
@@ -2794,6 +2809,17 @@ ${brokenCode}
     }
 
     async function openOverlayEditMode() {
+        // Sync XML from inline editor if it's active
+        if (diagramMode === 'edit' && bpmnModeler && typeof bpmnModeler.saveXML === 'function') {
+            try {
+                const { xml: rawXml } = await bpmnModeler.saveXML({ format: true });
+                const syncedXml = extractPureBpmnXml(rawXml);
+                if (syncedXml) currentDiagramXml = syncedXml;
+            } catch (e) {
+                console.warn('Could not sync XML from inline editor:', e);
+            }
+        }
+
         if (!currentDiagramXml) return;
         // Ensure bpmn-js is loaded
         await loadBpmnJs();
@@ -2838,7 +2864,7 @@ ${brokenCode}
             currentDiagramXml = normalized;
             // Save as new version
             const descEl = document.getElementById('process-description');
-            const processText = descEl ? (descEl.textContent || '') : '';
+            const processText = descEl ? (descEl.value || '') : '';
             await fetchWithAuth(`/api/chats/${chatId}/versions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
