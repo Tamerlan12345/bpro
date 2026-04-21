@@ -42,6 +42,7 @@ JavaScript, Node.js, Express, Jest, Playwright smoke scripts, browser-side IIFE 
 | 9 | Implement Map drawing bindings and refactor BPMN constants | done | `backend/public/modules/map.js`, `backend/public/style.css`, `backend/public/bpmn-presentation.js`, `backend/public/bpmn-vertical-layout.js` | Added Cytoscape node and `edgehandles` bindings, fixed toolbar button wrapping, added visual padding and interactive cursor styles to BPMN nodes, extracted visual sizing constants to `BpmnConfig`. |
 | 10 | Synchronize Editor and Presentation coordinates and enhance SVG styles | done | `backend/public/script.js`, `backend/public/bpmn-presentation.js`, `PROJECT.md` | Preserved user's manual coordination changes by passing `applyLayout=false` in `saveOverlayDiagram`. Visual aesthetics upgraded: SVG nodes have `rx/ry` rounded corners, custom stroke/fill palettes (slate, emerald, rose, amber), and rounded line endpoints. |
 | 11 | Perform full system audit and testing | done | `backend/tests/` | Ran Jest (133 tests) and Playwright E2E. Identified version mismatch in regression tests. |
+| 12 | Upgrade Gemini model | done | `backend/services/aiParserService.js` | Upgraded model from gemini-2.0-flash to gemini-3.0-flash for better JSON structure extraction and reasoning. |
 
 ## Known Issues
 | Issue | Severity | Location | Notes |
