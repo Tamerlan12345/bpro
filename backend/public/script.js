@@ -568,16 +568,24 @@ document.addEventListener('DOMContentLoaded', () => {
         diagramMode = 'edit';
         editingBaselineDiagramXml = currentDiagramXml;
         diagramContainer.innerHTML = '';
+        // Ensure container has a fixed height so bpmn-js canvas renders correctly
+        diagramContainer.style.height = Math.max(diagramContainer.clientHeight, 520) + 'px';
+        diagramContainer.style.overflow = 'hidden';
+        diagramContainer.classList.add('is-edit-mode');
         bpmnModeler = new window.BpmnJS({ container: diagramContainer, keyboard: { bindTo: document } });
         bpmnViewer = bpmnModeler;
 
         try {
             await bpmnModeler.importXML(currentDiagramXml);
-            safelyFitBpmnViewport(bpmnModeler, diagramContainer);
+            // Defer fit-viewport so bpmn-js canvas finishes painting first
+            setTimeout(() => safelyFitBpmnViewport(bpmnModeler, diagramContainer), 50);
         } catch (error) {
             console.error(error);
             showNotification(`Failed to open the diagram editor: ${error.message}`, 'error');
             diagramMode = 'view';
+            diagramContainer.style.height = '';
+            diagramContainer.style.overflow = '';
+            diagramContainer.classList.remove('is-edit-mode');
             renderLockedDiagramView(editingBaselineDiagramXml || currentDiagramXml);
             return;
         }
@@ -587,6 +595,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function cancelInlineDiagramEdit() {
         if (diagramMode !== 'edit') return;
+        diagramContainer.style.height = '';
+        diagramContainer.style.overflow = '';
+        diagramContainer.classList.remove('is-edit-mode');
         renderLockedDiagramView(editingBaselineDiagramXml || currentDiagramXml || getEmptyBpmnTemplate());
     }
 
@@ -598,7 +609,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let xml;
             if (diagramMode === 'edit' && bpmnModeler && typeof bpmnModeler.saveXML === 'function') {
                 const { xml: rawXml } = await bpmnModeler.saveXML({ format: true });
-                xml = normalizeGeneratedBpmnXml(extractPureBpmnXml(rawXml), false);
+                // Don't apply vertical layout re-normalization — preserve user's manual edits
+                xml = extractPureBpmnXml(rawXml);
             } else {
                 xml = currentDiagramXml || '';
             }
@@ -611,7 +623,14 @@ document.addEventListener('DOMContentLoaded', () => {
             currentDiagramXml = xml;
             editingBaselineDiagramXml = xml;
             showNotification('Diagram changes were saved successfully.', 'success');
-            await loadChatData();
+
+            // Reset container styles before re-rendering in view mode
+            diagramContainer.style.height = '';
+            diagramContainer.style.overflow = '';
+            diagramContainer.classList.remove('is-edit-mode');
+
+            renderLockedDiagramView(xml);
+            updateDiagramToolbarState();
         } catch (error) {
             showNotification(`Failed to save the diagram: ${error.message}`, 'error');
         } finally {
@@ -621,8 +640,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function zoomActiveDiagram(factor) {
         if (diagramMode === 'edit' && bpmnViewer) {
-            const canvas = bpmnViewer.get('canvas');
-            canvas.zoom(canvas.zoom() * factor);
+            try {
+                const canvas = bpmnViewer.get('canvas');
+                const current = canvas.zoom();
+                canvas.zoom(Number.isFinite(current) ? current * factor : factor);
+            } catch (e) {
+                console.warn('Zoom in edit mode failed:', e);
+            }
             return;
         }
 

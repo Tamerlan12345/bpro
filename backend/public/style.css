@@ -1190,8 +1190,12 @@ button.button-secondary:active:not(:disabled) {
     font-size: var(--font-base);
 }
 
-#diagram-container {
+#diagram-container:not(.is-edit-mode) {
     cursor: grab;
+}
+
+#diagram-container.is-edit-mode {
+    cursor: default;
 }
 
 #diagram-container.is-panning {
