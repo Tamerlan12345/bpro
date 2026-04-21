@@ -477,7 +477,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function getCurrentDiagramXml() {
         if (diagramMode === 'edit' && bpmnModeler && typeof bpmnModeler.saveXML === 'function') {
             const { xml } = await bpmnModeler.saveXML({ format: true });
-            return normalizeGeneratedBpmnXml(extractPureBpmnXml(xml));
+            // Return the XML as-is from the editor — no layout re-normalization so user edits are preserved
+            return extractPureBpmnXml(xml) || '';
         }
 
         return currentDiagramXml || '';
@@ -489,8 +490,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const link = document.createElement('a');
         link.href = url;
         link.download = fileName;
+        document.body.appendChild(link);
         link.click();
-        URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+        // Revoke after a tick so the browser has time to start the download
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
     }
 
     function renderLockedDiagramView(xml) {
@@ -653,30 +657,107 @@ document.addEventListener('DOMContentLoaded', () => {
         setLockedDiagramScale(currentDiagramScale * factor);
     }
 
-    async function downloadCurrentBpmnXml() {
-        const xml = await getCurrentDiagramXml();
-        if (!xml) {
-            showNotification('Generate the diagram first.', 'error');
-            return;
+    async function getCurrentSvgString() {
+        if (diagramMode === 'edit' && bpmnViewer && typeof bpmnViewer.saveSVG === 'function') {
+            const { svg } = await bpmnViewer.saveSVG();
+            return svg;
         }
-
-        downloadBlob(xml, 'application/bpmn+xml;charset=utf-8', 'process-diagram.bpmn');
+        // Ensure the SVG has proper standalone headers for file export
+        const raw = currentDiagramSvg || '';
+        if (!raw) return null;
+        if (raw.includes('<?xml')) return raw;
+        return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n${raw}`;
     }
 
-    async function downloadCurrentVsd() {
-        const xml = await getCurrentDiagramXml();
-        if (!xml) {
+    async function svgToPngBlob(svgString) {
+        return new Promise((resolve, reject) => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgString, 'image/svg+xml');
+            const svgEl = doc.documentElement;
+            const parseError = svgEl.querySelector('parsererror');
+            if (parseError) return reject(new Error('SVG parse error'));
+
+            let width = parseFloat(svgEl.getAttribute('width')) || 1200;
+            let height = parseFloat(svgEl.getAttribute('height')) || 800;
+
+            // If SVG uses viewBox but no explicit width/height, extract from viewBox
+            const vb = svgEl.getAttribute('viewBox');
+            if ((!width || !height) && vb) {
+                const parts = vb.split(/[\s,]+/);
+                width = parseFloat(parts[2]) || 1200;
+                height = parseFloat(parts[3]) || 800;
+            }
+
+            const scale = 2; // 2x for retina quality
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(width * scale);
+            canvas.height = Math.round(height * scale);
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.scale(scale, scale);
+
+            const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            const img = new Image();
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, width, height);
+                URL.revokeObjectURL(url);
+                canvas.toBlob(blob => {
+                    if (blob) resolve(blob);
+                    else reject(new Error('Canvas toBlob failed'));
+                }, 'image/png');
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error('Failed to load SVG into image'));
+            };
+            img.src = url;
+        });
+    }
+
+    async function downloadCurrentBpmnXml() {
+        if (!currentDiagramXml) {
             showNotification('Сначала сгенерируйте схему.', 'error');
             return;
         }
+        setButtonLoading(downloadBpmnBtn, true, 'BPMN...');
+        try {
+            const xml = await getCurrentDiagramXml();
+            if (!xml) throw new Error('Нет данных схемы');
+            downloadBlob(xml, 'application/bpmn+xml;charset=utf-8', 'process-diagram.bpmn');
+        } catch (error) {
+            showNotification(`Ошибка экспорта BPMN: ${error.message}`, 'error');
+        } finally {
+            setButtonLoading(downloadBpmnBtn, false);
+        }
+    }
 
-        const response = await fetchWithAuth(`/api/chats/${chatId}/exports/vsdx`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bpmn_xml: xml })
-        });
-        const blob = await response.blob();
-        downloadBlob(blob, 'application/vnd.ms-visio.drawing', 'process-diagram.vsdx');
+    async function downloadCurrentVsd() {
+        if (!currentDiagramXml) {
+            showNotification('Сначала сгенерируйте схему.', 'error');
+            return;
+        }
+        setButtonLoading(downloadVsdxBtn, true, 'VSDX...');
+        try {
+            const xml = await getCurrentDiagramXml();
+            if (!xml) throw new Error('Нет данных схемы');
+            const response = await fetchWithAuth(`/api/chats/${chatId}/exports/vsdx`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bpmn_xml: xml })
+            });
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error || `Ошибка сервера: ${response.status}`);
+            }
+            const blob = await response.blob();
+            downloadBlob(blob, 'application/vnd.ms-visio.drawing', 'process-diagram.vsdx');
+        } catch (error) {
+            showNotification(`Ошибка экспорта VSDX: ${error.message}`, 'error');
+        } finally {
+            setButtonLoading(downloadVsdxBtn, false);
+        }
     }
 
     async function downloadCurrentDiagram(format) {
@@ -686,28 +767,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (format === 'svg') {
-            if (diagramMode === 'edit' && bpmnViewer && typeof bpmnViewer.saveSVG === 'function') {
-                try {
-                    const { svg } = await bpmnViewer.saveSVG();
-                    downloadBlob(svg, 'image/svg+xml;charset=utf-8', 'process-diagram.svg');
-                } catch (error) {
-                    console.error(error);
-                    showNotification(`Ошибка экспорта SVG: ${error.message}`, 'error');
-                }
-                return;
+            setButtonLoading(downloadSvgBtn, true, 'SVG...');
+            try {
+                const svgString = await getCurrentSvgString();
+                if (!svgString) throw new Error('Нет данных SVG');
+                downloadBlob(svgString, 'image/svg+xml;charset=utf-8', 'process-diagram.svg');
+            } catch (error) {
+                showNotification(`Ошибка экспорта SVG: ${error.message}`, 'error');
+            } finally {
+                setButtonLoading(downloadSvgBtn, false);
             }
-
-            downloadBlob(currentDiagramSvg, 'image/svg+xml;charset=utf-8', 'process-diagram.svg');
             return;
         }
 
         if (format === 'png') {
-            html2canvas(diagramContainer, { backgroundColor: '#ffffff' }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = 'process-diagram.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            });
+            setButtonLoading(downloadPngBtn, true, 'PNG...');
+            try {
+                const svgString = await getCurrentSvgString();
+                if (!svgString) throw new Error('Нет данных SVG для конвертации');
+                const blob = await svgToPngBlob(svgString);
+                downloadBlob(blob, 'image/png', 'process-diagram.png');
+            } catch (error) {
+                showNotification(`Ошибка экспорта PNG: ${error.message}`, 'error');
+            } finally {
+                setButtonLoading(downloadPngBtn, false);
+            }
         }
     }
 
