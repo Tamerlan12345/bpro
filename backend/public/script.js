@@ -595,7 +595,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setButtonLoading(saveMermaidChangesBtn, true, 'Saving...');
         try {
-            const xml = await getCurrentDiagramXml();
+            let xml;
+            if (diagramMode === 'edit' && bpmnModeler && typeof bpmnModeler.saveXML === 'function') {
+                const { xml: rawXml } = await bpmnModeler.saveXML({ format: true });
+                xml = normalizeGeneratedBpmnXml(extractPureBpmnXml(rawXml), false);
+            } else {
+                xml = currentDiagramXml || '';
+            }
 
             await fetchWithAuth(`/api/chats/${chatId}/versions`, {
                 method: 'POST',

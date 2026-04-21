@@ -842,23 +842,23 @@
                     usedSlots.add(0);
                 }
 
-                // Assign side slots: negatives get -1 first, then remaining neutrals get ±N
+                // Assign side slots: negatives ("нет") go LEFT (slot -1, -2…), neutrals go RIGHT
                 const sideItems = [...negativeFlows, ...positiveFlows, ...neutralFlows];
                 let leftOffset = -1;
                 let rightOffset = 1;
                 sideItems.forEach((item) => {
                     if (item.isNegative) {
-                        // Always put "нет" on the right
-                        while (usedSlots.has(rightOffset)) rightOffset++;
-                        slotByTarget.set(item.flow.targetRef, rightOffset);
-                        usedSlots.add(rightOffset);
-                        rightOffset++;
-                    } else {
-                        // Remaining neutrals alternate left/right starting from left
+                        // "нет" → LEFT side (matches canonical BP document style)
                         while (usedSlots.has(leftOffset)) leftOffset--;
                         slotByTarget.set(item.flow.targetRef, leftOffset);
                         usedSlots.add(leftOffset);
                         leftOffset--;
+                    } else {
+                        // Remaining neutrals go right
+                        while (usedSlots.has(rightOffset)) rightOffset++;
+                        slotByTarget.set(item.flow.targetRef, rightOffset);
+                        usedSlots.add(rightOffset);
+                        rightOffset++;
                     }
                 });
             } else if (forwardFlows.length === 1 && loopFlows.length >= 1) {

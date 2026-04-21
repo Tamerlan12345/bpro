@@ -378,7 +378,6 @@
 
         lanes.forEach((lane) => {
             includeRect(metrics, lane.x, lane.y, lane.width, lane.height);
-            includeRect(metrics, lane.x, lane.y, lane.width + 160, lane.height);
         });
 
         participantShapes.forEach((shape) => {
@@ -576,8 +575,8 @@
             const lines = wrapSvgText(node.name || node.calledElement || 'Linked process', width * 0.68, 13, 4);
             return `
                 <g class="doc-node-group reference" ${nodeAttributes}>
-                    <rect class="doc-node reference-shape outer" x="${x}" y="${y}" width="${width}" height="${height}"></rect>
-                    <rect class="doc-node reference-shape inner" x="${x + 5}" y="${y + 5}" width="${width - 10}" height="${height - 10}"></rect>
+                    <rect class="doc-node reference-shape outer" x="${x}" y="${y}" width="${width}" height="${height}" rx="8" ry="8"></rect>
+                    <rect class="doc-node reference-shape inner" x="${x + 5}" y="${y + 5}" width="${width - 10}" height="${height - 10}" rx="6" ry="6"></rect>
                     ${renderTextBlock(lines, centerX, getCenteredTextY(centerY, 15, lines.length), 'doc-label node-label', 15)}
                 </g>
             `;
@@ -633,7 +632,7 @@
 
             return `
                 <g class="doc-node-group task composite" ${nodeAttributes}>
-                    <rect class="doc-node task-shape" x="${x}" y="${y}" width="${width}" height="${splitY - y}"></rect>
+                    <rect class="doc-node task-shape" x="${x}" y="${y}" width="${width}" height="${splitY - y}" rx="8" ry="8"></rect>
                     <line class="doc-node composite-divider" x1="${x}" y1="${splitY}" x2="${x + width}" y2="${splitY}"></line>
                     <path class="doc-node document-footer" d="${footerPath}"></path>
                     ${renderTextBlock(headerLines, centerX, getCenteredTextY(y + ((splitY - y) / 2), 15, headerLines.length), 'doc-label node-label', 15)}
@@ -645,7 +644,7 @@
         const lines = wrapSvgText(node.name, width * 0.7, 13, 5);
         return `
             <g class="doc-node-group task" ${nodeAttributes}>
-                <rect class="doc-node task-shape" x="${x}" y="${y}" width="${width}" height="${height}"></rect>
+                <rect class="doc-node task-shape" x="${x}" y="${y}" width="${width}" height="${height}" rx="8" ry="8"></rect>
                 ${renderTextBlock(lines, centerX, getCenteredTextY(centerY, 15, lines.length), 'doc-label node-label', 15)}
             </g>
         `;
