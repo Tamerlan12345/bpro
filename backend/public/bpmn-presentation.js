@@ -167,6 +167,50 @@
         return dataToTask;
     }
 
+    function collectDataAssociationFlows(xml) {
+        const flows = new Map();
+
+        // dataOutputAssociation is nested inside task/callActivity — sourceRef is the parent task
+        const taskPattern = /<(?:bpmn2?:)?(?:task|callActivity)\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/(?:bpmn2?:)?(?:task|callActivity)>/gi;
+        let taskMatch = taskPattern.exec(xml);
+        while (taskMatch) {
+            const taskId = taskMatch[1];
+            const taskBody = taskMatch[2];
+
+            const assocPattern = /<(?:bpmn2?:)?dataOutputAssociation\b([^>]*)>([\s\S]*?)<\/(?:bpmn2?:)?dataOutputAssociation>/gi;
+            let assocMatch = assocPattern.exec(taskBody);
+            while (assocMatch) {
+                const attrs = parseAttributes(assocMatch[1]);
+                const body = assocMatch[2];
+                const id = attrs.id;
+                const targetMatch = body.match(/<(?:bpmn2?:)?targetRef>([^<]+)<\/(?:bpmn2?:)?targetRef>/i);
+                const targetRef = targetMatch ? targetMatch[1].trim() : '';
+                if (id && targetRef) {
+                    flows.set(id, { id, sourceRef: taskId, targetRef, name: '' });
+                }
+                assocMatch = assocPattern.exec(taskBody);
+            }
+
+            const inAssocPattern = /<(?:bpmn2?:)?dataInputAssociation\b([^>]*)>([\s\S]*?)<\/(?:bpmn2?:)?dataInputAssociation>/gi;
+            let inAssocMatch = inAssocPattern.exec(taskBody);
+            while (inAssocMatch) {
+                const attrs = parseAttributes(inAssocMatch[1]);
+                const body = inAssocMatch[2];
+                const id = attrs.id;
+                const sourceMatch = body.match(/<(?:bpmn2?:)?sourceRef>([^<]+)<\/(?:bpmn2?:)?sourceRef>/i);
+                const sourceRef = sourceMatch ? sourceMatch[1].trim() : '';
+                if (id && sourceRef) {
+                    flows.set(id, { id, sourceRef, targetRef: taskId, name: '' });
+                }
+                inAssocMatch = inAssocPattern.exec(taskBody);
+            }
+
+            taskMatch = taskPattern.exec(xml);
+        }
+
+        return flows;
+    }
+
     function collectLaneRefs(xml) {
         const laneRefs = new Map();
         const pattern = /<(?:bpmn2?:)?lane\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/(?:bpmn2?:)?lane>/gi;
@@ -428,6 +472,8 @@
     function buildBpmnPresentationModel(xml) {
         const elementMeta = collectElementMeta(xml);
         const sequenceFlows = collectSequenceFlows(xml);
+        const dataAssocFlows = collectDataAssociationFlows(xml);
+        const allFlows = new Map([...sequenceFlows, ...dataAssocFlows]);
         const shapeRecords = collectShapes(xml).map((shape) => {
             const meta = elementMeta.get(shape.id) || { type: 'task', name: shape.id };
             return {
@@ -468,7 +514,7 @@
         const laneRefs = collectLaneRefs(xml);
         const lanes = buildLaneModels(laneShapes, laneRefs, nodeMap);
         const edges = collectEdges(xml).map((edge) => {
-            const flow = sequenceFlows.get(edge.id) || {};
+            const flow = allFlows.get(edge.id) || {};
             const sourceNode = nodeMap.get(flow.sourceRef);
             const targetNode = nodeMap.get(flow.targetRef);
             const points = edge.points.length >= 2
