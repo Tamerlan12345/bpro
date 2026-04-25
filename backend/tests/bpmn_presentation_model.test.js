@@ -80,7 +80,7 @@ describe('bpmn presentation model', () => {
         const model = buildBpmnPresentationModel(sampleXml);
         const svg = renderDocStyleSvg(model);
 
-        expect(svg).toContain('Зона ответственности');
+        expect(svg).toContain('Операционный отдел');
         expect(svg).toContain('doc-edge-line');
         expect(svg).toContain('Передать в процесс согласования');
     });

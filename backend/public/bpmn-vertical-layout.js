@@ -832,11 +832,30 @@
                 positiveFlows.sort((a, b) =>
                     b.maxDepth - a.maxDepth || b.reachableCount - a.reachableCount
                 );
+                negativeFlows.sort((a, b) =>
+                    b.maxDepth - a.maxDepth || b.reachableCount - a.reachableCount
+                );
 
                 const usedSlots = new Set();
 
-                // Slot 0 priority: first explicit "да" flow; else longest neutral flow
-                const mainFlowItem = positiveFlows.shift() || neutralFlows.shift() || negativeFlows.shift();
+                // Slot 0 priority: the longer branch wins center placement.
+                // When both "да" and "нет" exist, pick the deeper one for center —
+                // a short "да" rework loop should not push the long happy path sideways.
+                // Tiebreak: prefer "да" over "нет" for slot 0.
+                let mainFlowItem;
+                if (positiveFlows.length > 0 && negativeFlows.length > 0) {
+                    const topPositive = positiveFlows[0];
+                    const topNegative = negativeFlows[0];
+                    const positiveIsLonger = topPositive.maxDepth > topNegative.maxDepth ||
+                        (topPositive.maxDepth === topNegative.maxDepth && topPositive.reachableCount >= topNegative.reachableCount);
+                    if (positiveIsLonger) {
+                        mainFlowItem = positiveFlows.shift();
+                    } else {
+                        mainFlowItem = negativeFlows.shift();
+                    }
+                } else {
+                    mainFlowItem = positiveFlows.shift() || neutralFlows.shift() || negativeFlows.shift();
+                }
                 if (mainFlowItem) {
                     slotByTarget.set(mainFlowItem.flow.targetRef, 0);
                     usedSlots.add(0);

@@ -3,7 +3,15 @@
     "allow": [
       "Bash(grep -h \"^//\" /d/Проекты/bpro/backend/public/modules/*.js)",
       "Bash(grep -E \"\\\\.js$\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(npm test *)",
+      "Bash(npm audit *)",
+      "Bash(npx jest *)",
+      "Bash(grep -v \"//\")",
+      "Bash(python3 -c ' *)",
+      "Bash(npx audit *)",
+      "Bash(npm install *)",
+      "Bash(node -e \"const lock = require\\('./package-lock.json'\\); const pkgs = ['@xmldom/xmldom', 'multer', 'express-rate-limit', 'path-to-regexp', 'qs', 'body-parser']; pkgs.forEach\\(p => { const n = lock.packages['node_modules/' + p]; console.log\\(p, n && n.version\\) }\\)\")"
     ]
   }
 }

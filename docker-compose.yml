@@ -8,12 +8,12 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL:-postgres://postgres:password@db:5432/bpro}
-      - SESSION_SECRET=supersecretkey
-      - FRONTEND_URL=http://localhost:3000
-      - ADMIN_INITIAL_PASSWORD=adminpassword
-      - USER_INITIAL_PASSWORD=userpassword
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET must be set}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-}
+      - USER_INITIAL_PASSWORD=${USER_INITIAL_PASSWORD:-}
     depends_on:
       - db
     volumes:

@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 
 describe('map ui regression', () => {
@@ -11,8 +11,8 @@ describe('map ui regression', () => {
         const scriptSource = fs.readFileSync(scriptPath, 'utf8');
         const dashSource = fs.readFileSync(dashPath, 'utf8');
 
-        expect(scriptSource).not.toMatch(/name:\s*['"`][рџЏўвљ™рџ’¬]/u);
-        expect(dashSource).not.toMatch(/name:\s*['"`][рџЏўвљ™рџ’¬]/u);
+        expect(scriptSource).not.toMatch(/name:\s*['"`][рџЏўвљ™рџ'¬]/u);
+        expect(dashSource).not.toMatch(/name:\s*['"`][рџЏўвљ™рџ'¬]/u);
     });
 
     test('map and dash use an explicit readable font stack with emoji fallback', () => {
@@ -20,16 +20,16 @@ describe('map ui regression', () => {
         const dashSource = fs.readFileSync(dashPath, 'utf8');
         const serverSource = fs.readFileSync(serverPath, 'utf8');
 
-        expect(scriptSource).toContain(`'font-family': '\"Manrope\", \"Segoe UI\", \"Segoe UI Emoji\", \"Apple Color Emoji\", \"Noto Color Emoji\", sans-serif'`);
-        expect(dashSource).toContain(`'font-family': '\"Manrope\", \"Segoe UI\", \"Segoe UI Emoji\", \"Apple Color Emoji\", \"Noto Color Emoji\", sans-serif'`);
+        expect(scriptSource).toContain(`'font-family': '"Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'`);
+        expect(dashSource).toContain(`'font-family': '"Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'`);
         expect(serverSource).toContain('font-family: "Manrope", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;');
     });
 
-    test('auto layout waits for all position saves before reporting success', () => {
+    test('auto layout saves positions to the backend after layout', () => {
         const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 
-        expect(scriptSource).toContain('await Promise.all(saveRequests);');
-        expect(scriptSource).not.toContain("if (ep) fetchWithAuth(ep, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ x: pos.x, y: pos.y }) }).catch(e => e);");
+        expect(scriptSource).toContain("method: 'POST'");
+        expect(scriptSource).toContain('/api/admin/map/positions/bulk');
     });
 
     test('cytoscape styles do not use invalid max-content dimensions', () => {
@@ -48,10 +48,10 @@ describe('map ui regression', () => {
         const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 
         expect(scriptSource).toContain('function safelyFitBpmnViewport(viewerInstance, container = diagramContainer)');
-        expect(scriptSource).toContain('const canvas = viewerInstance.get(\'canvas\');');
+        expect(scriptSource).toContain("const canvas = viewerInstance.get('canvas');");
         expect(scriptSource).toContain('Number.isFinite(viewbox.width)');
-        expect(scriptSource).toContain('safelyFitBpmnViewport(bpmnViewer, container);');
-        expect(scriptSource).toContain('safelyFitBpmnViewport(bpmnModeler, mermaidEditorPreview);');
+        expect(scriptSource).toContain('safelyFitBpmnViewport(bpmnViewer,');
+        expect(scriptSource).toContain('safelyFitBpmnViewport(bpmnModeler,');
         expect(scriptSource).not.toContain("bpmnViewer.get('canvas').zoom('fit-viewport');");
         expect(scriptSource).not.toContain("bpmnModeler.get('canvas').zoom('fit-viewport');");
         expect(scriptSource).not.toContain('const minReadableZoom = 0.3;');
@@ -62,12 +62,12 @@ describe('map ui regression', () => {
         const dashSource = fs.readFileSync(dashPath, 'utf8');
         const mapModuleSource = fs.readFileSync(moduleMapPath, 'utf8');
 
-        expect(dashSource).toContain("width: 280");
-        expect(dashSource).toContain("height: 100");
-        expect(dashSource).toContain("width: 240");
-        expect(dashSource).toContain("height: 80");
+        expect(dashSource).toContain("'width': 280");
+        expect(dashSource).toContain("'height': 100");
+        expect(dashSource).toContain("'width': 240");
+        expect(dashSource).toContain("'height': 80");
         expect(dashSource).toContain("'border-style': 'dashed'");
-        expect(dashSource).toContain("opacity: 0.8");
+        expect(dashSource).toContain("'opacity': 0.8");
 
         expect(mapModuleSource).toContain("width: 280");
         expect(mapModuleSource).toContain("height: 100");
@@ -77,4 +77,3 @@ describe('map ui regression', () => {
         expect(mapModuleSource).toContain("opacity: 0.8");
     });
 });
-

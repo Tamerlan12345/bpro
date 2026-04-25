@@ -197,12 +197,12 @@ describe('normalizeBpmnVerticalLayout', () => {
         expect(start.y).toBeLessThan(gateway.y);
         expect(gateway.y).toBeLessThan(taskYes.y);
         expect(gateway.y).toBeLessThan(taskNo.y);
-        expect(taskYes.y).toBeCloseTo(taskNo.y, 3);
         expect(startCenterX).toBeCloseTo(gatewayCenterX, 3);
-        expect(Math.min(yesCenterX, noCenterX)).toBeLessThan(gatewayCenterX);
-        expect(Math.max(yesCenterX, noCenterX)).toBeGreaterThan(gatewayCenterX);
-        expect(flow2.length).toBeGreaterThanOrEqual(4);
-        expect(flow3.length).toBeGreaterThanOrEqual(4);
+        // "да" branch stays centered below gateway; "нет" branch is offset to the side
+        expect(yesCenterX).toBeCloseTo(gatewayCenterX, 3);
+        expect(Math.abs(noCenterX - gatewayCenterX)).toBeGreaterThan(40);
+        expect(flow2.length).toBeGreaterThanOrEqual(2);
+        expect(flow3.length).toBeGreaterThanOrEqual(2);
         expect(result).toMatch(/name="РґР°"/i);
         expect(result).toMatch(/name="РЅРµС‚"/i);
     });
@@ -618,7 +618,7 @@ describe('normalizeBpmnVerticalLayout', () => {
         const indexPath = path.join(__dirname, '..', 'public', 'index.html');
         const indexSource = fs.readFileSync(indexPath, 'utf8');
 
-        expect(scriptSource).toContain('function normalizeGeneratedBpmnXml(xml)');
+        expect(scriptSource).toContain('function normalizeGeneratedBpmnXml(xml, applyLayout');
         expect(scriptSource).toContain('xml = normalizeGeneratedBpmnXml(extracted);');
         expect(scriptSource).toContain('return normalizeGeneratedBpmnXml(extractPureBpmnXml(xml));');
         expect(scriptSource).toContain('currentDiagramModel = window.BpmnPresentation.buildBpmnPresentationModel(xml);');

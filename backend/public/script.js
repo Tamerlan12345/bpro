@@ -495,8 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function getCurrentDiagramXml() {
         if (diagramMode === 'edit' && bpmnModeler && typeof bpmnModeler.saveXML === 'function') {
             const { xml } = await bpmnModeler.saveXML({ format: true });
-            // Return the XML as-is from the editor — no layout re-normalization so user edits are preserved
-            return extractPureBpmnXml(xml) || '';
+            return normalizeGeneratedBpmnXml(extractPureBpmnXml(xml));
         }
 
         return currentDiagramXml || '';
@@ -3723,7 +3722,7 @@ ${brokenCode}
 
                             const spacingX = 300; // Отступ между колонками департаментов
                             const startY = 130;   // Y координата департаментов
-                            const spacingY = 150;  // Шаг по вертикали, чтобы между узлами читались связи
+                            const spacingY = 104;  // Шаг по вертикали, чтобы между узлами читались связи
 
                             let currentX = -((depts.length - 1) * spacingX) / 2; // Центрируем весь блок по X=0
 

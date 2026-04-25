@@ -220,12 +220,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 'shape': 'round-rectangle',
                 'background-color': '#2563eb',
                 'color': '#ffffff',
-                'width': 232,
-                'height': 76,
+                'width': 280,
+                'height': 100,
+                'corner-radius': 12,
                 'font-weight': '600',
-                'font-size': 12,
-                'padding': '14px',
-                'text-max-width': 212,
+                'font-size': 14,
+                'padding': '18px',
+                'text-max-width': 240,
                 'border-width': 0,
                 'transition-property': 'opacity',
                 'transition-duration': '0.3s'
@@ -240,12 +241,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 'border-width': 1,
                 'border-color': '#cbd5e1',
                 'color': '#1e293b',
-                'width': 208,
-                'height': 70,
-                'text-max-width': 188,
-                'font-size': 11,
+                'width': 240,
+                'height': 80,
+                'corner-radius': 8,
+                'text-max-width': 200,
+                'font-size': 13,
                 'font-weight': '500',
-                'padding': '10px 14px'
+                'padding': '14px'
             }
         },
         {
@@ -258,11 +260,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 'border-style': 'dashed',
                 'border-color': '#94a3b8',
                 'color': '#475569',
-                'width': 176,
-                'height': 58,
-                'text-max-width': 156,
-                'font-size': 11,
-                'padding': '8px 12px'
+                'width': 240,
+                'height': 80,
+                'corner-radius': 8,
+                'text-max-width': 200,
+                'font-size': 12,
+                'padding': '12px',
+                'opacity': 0.8
             }
         },
         { selector: 'node.status-approved', style: { 'border-width': 2, 'border-color': '#10b981', 'background-color': '#f0fdf4' } },

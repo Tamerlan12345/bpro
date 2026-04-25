@@ -7,7 +7,7 @@ describe('frontend bootstrap regression', () => {
     test('loads the full user-facing client bootstrap', () => {
         const html = fs.readFileSync(indexPath, 'utf8');
 
-        expect(html).toContain('<script src="script.js?v=3"></script>');
+        expect(html).toMatch(/<script src="script\.js\?v=\d+"><\/script>/);
         expect(html).not.toMatch(/^[ \t]*<script type="module" src="modules\/main\.js"><\/script>/m);
     });
 });

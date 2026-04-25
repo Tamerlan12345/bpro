@@ -760,11 +760,11 @@
                         <path d="M 0 1 L 9 5 L 0 9 Z" fill="#3b82f6"></path>
                     </marker>
                     <style>
-                        .doc-root { font-family: "Segoe UI", Arial, sans-serif; }
+                        .doc-root { font-family: "Manrope", "Segoe UI", sans-serif; }
                         .doc-nodes > g { cursor: pointer; pointer-events: bounding-box; transition: opacity 0.15s; }
                         .doc-nodes > g:hover { opacity: 0.82; }
-                        .doc-node { fill: #ffffff; stroke: #1e293b; stroke-width: 1.4; }
-                        .task-shape { fill: #f0fdf4; stroke: #334155; stroke-width: 1.6; }
+                        .doc-node { stroke: #5f6b7a; stroke-width: 1.35; }
+                        .task-shape { fill: #ffffff; }
                         .reference-shape { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.6; }
                         .gateway-shape { fill: #ede9fe; stroke: #7c3aed; stroke-width: 1.8; }
                         .document-shape, .document-footer { fill: #f8fafc; stroke: #475569; stroke-width: 1.4; }
@@ -777,14 +777,14 @@
                         .document-label { font-size: 11px; font-weight: 500; fill: #334155; }
                         .gateway-label { font-size: 11px; fill: #3b0764; }
                         .event-label { font-size: 11px; font-weight: 600; fill: #1e293b; }
-                        .doc-edge-line { fill: none; stroke: #334155; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }
+                        .doc-edge-line { fill: none; stroke: #6a7482; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }
                         .doc-edge-label-bg { fill: #ffffff; stroke: #94a3b8; stroke-width: 0.8; }
                         .doc-edge-label { fill: #1e293b; font-size: 11px; font-weight: 600; dominant-baseline: middle; }
                         .doc-lane-bg.even { fill: #f8fafc; stroke: none; }
                         .doc-lane-bg.odd  { fill: #f1f5f9; stroke: none; }
-                        .doc-lane-boundary { stroke: #3b82f6; stroke-width: 1.2; stroke-dasharray: 6 4; }
+                        .doc-lane-boundary { stroke: #9aa4b2; stroke-width: 1; stroke-dasharray: 6 6; }
                         .doc-lane-label { fill: #1e3a8a; font-size: 12px; font-weight: 600; dominant-baseline: middle; font-style: italic; }
-                        .responsibility-axis { stroke: #3b82f6; stroke-width: 1.4; stroke-dasharray: 7 5; }
+                        .responsibility-axis { stroke: #8fa2b2; stroke-width: 1.2; stroke-dasharray: 7 6; }
                         .responsibility-label { fill: #1e3a8a; font-size: 12px; font-weight: 600; font-style: italic; letter-spacing: 0.03em; }
                     </style>
                 </defs>

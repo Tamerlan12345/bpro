@@ -29,7 +29,7 @@ describe('admin map ui cleanup regression', () => {
     test('admin map root and child nodes keep a more compact geometry', () => {
         const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 
-        expect(scriptSource).toContain("const adminMapRootLabel = 'Бизнес-процессы\\naws.centerinsurance';");
+        expect(scriptSource).toContain("const adminMapRootLabel = 'Бизнес-процессы\\nCentras Insurance';");
         expect(scriptSource).toContain("name: adminMapRootLabel");
         expect(scriptSource).toContain("'width': 260");
         expect(scriptSource).toContain("'height': 82");
